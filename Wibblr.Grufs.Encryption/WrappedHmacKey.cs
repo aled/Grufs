@@ -15,15 +15,6 @@ namespace Wibblr.Grufs
             {
                 return _value;
             }
-            set
-            {
-                if (value.Length != Length)
-                {
-                    throw new Exception("Invalid wrapped key length");
-                }
-
-                _value = value;
-            }
         }
 
         public WrappedHmacKey(byte[] value)

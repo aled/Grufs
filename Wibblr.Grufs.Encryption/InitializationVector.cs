@@ -14,15 +14,6 @@ namespace Wibblr.Grufs
             {
                 return _value;
             }
-            set
-            {
-                if (value.Length != Length)
-                {
-                    throw new Exception("Invalid IV length");
-                }
-
-                _value = value;
-            }
         }
 
         public InitializationVector(byte[] value)

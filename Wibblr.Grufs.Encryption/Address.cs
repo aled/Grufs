@@ -52,9 +52,9 @@ namespace Wibblr.Grufs
 
         public override bool Equals(object other)
         {
-            if (other is Address)
+            if (other is Address address)
             {
-                return Equals((Address)other);
+                return Equals(address);
             }
             return false;
         }

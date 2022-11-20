@@ -98,7 +98,7 @@ namespace Wibblr.Grufs.Tests
 
             var stream = new MemoryStream(plaintextBytes);
 
-            var repository = new TestRepository();
+            var repository = new TestChunkRepository();
             var (address, type) = encryptor.EncryptStream(keyEncryptionKey, wrappedHmacKey, hmacKeyEncryptionKey, stream, repository, 128);
 
             repository.Count().Should().Be(1);
@@ -123,14 +123,14 @@ namespace Wibblr.Grufs.Tests
             var hmacKeyEncryptionKey = new HmacKeyEncryptionKey("0000000000000000000000000000000000000000000000000000".Base32ToBytes(ignorePartialSymbol: true));
             var wrappedHmacKey = new WrappedHmacKey(hmacKeyEncryptionKey, hmacKey);
 
-            var plaintext = "The quick brown fox jumps over the lazy dog.\n".Repeat(999);
+            var plaintext = "The quick brown fox jumps over the lazy dog.\n".Repeat(99);
             var plaintextBytes = Encoding.UTF8.GetBytes(plaintext);
 
             var encryptor = new Encryptor();
             
             var stream = new MemoryStream(plaintextBytes);
 
-            var repository = new TestRepository();
+            var repository = new TestChunkRepository();
             var (address, type) = encryptor.EncryptStream(keyEncryptionKey, wrappedHmacKey, hmacKeyEncryptionKey, stream, repository, 128);
 
             var decryptedStream = new MemoryStream();
@@ -143,6 +143,8 @@ namespace Wibblr.Grufs.Tests
             var decryptedText = Encoding.UTF8.GetString(decryptedStream.ToArray());
 
             decryptedText.Should().Be(plaintext);
+
+            Console.WriteLine("Dedup ratio: " + repository.DeduplicationRatio);
         }
 
         // encrypt directory

@@ -16,15 +16,6 @@ namespace Wibblr.Grufs
             {
                 return _value;
             }
-            set
-            {
-                if (value.Length != Length)
-                {
-                    throw new Exception("Invalid key length");
-                }
-
-                _value = value;
-            }
         }
 
         public HmacKey(byte[] value)

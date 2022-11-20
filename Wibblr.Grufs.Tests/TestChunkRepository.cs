@@ -6,9 +6,11 @@ using System.Threading.Tasks;
 
 namespace Wibblr.Grufs.Tests
 {
-    internal class TestRepository : IRepository
+    internal class TestChunkRepository : IChunkRepository
     {
         private Dictionary<Address, EncryptedChunk> _dict = new Dictionary<Address, EncryptedChunk>();
+
+        private int totalPuts = 0;
 
         public bool TryGet(Address address, out EncryptedChunk? chunk)
         {
@@ -17,6 +19,7 @@ namespace Wibblr.Grufs.Tests
 
         public bool TryPut(EncryptedChunk chunk)
         {
+            totalPuts++;
             _dict[chunk.Address] = chunk;
             return true;
         }
@@ -25,5 +28,7 @@ namespace Wibblr.Grufs.Tests
         {
             return _dict.Count();
         }
+
+        public float DeduplicationRatio => totalPuts == 0 ? 100f : (_dict.Count * 100f) / totalPuts;
     }
 }

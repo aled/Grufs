@@ -11,7 +11,12 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Wibblr.Grufs", "Wibblr.Gruf
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Wibblr.Grufs.Tests", "Wibblr.Grufs.Tests\Wibblr.Grufs.Tests.csproj", "{91A49E11-0409-4C49-9C21-66DEE0DDC117}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wibblr.Grufs.Encryption", "Wibblr.Grufs.Encryption\Wibblr.Grufs.Encryption.csproj", "{1149A617-6CDE-446E-888E-3C1C57B09969}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Wibblr.Grufs.Encryption", "Wibblr.Grufs.Encryption\Wibblr.Grufs.Encryption.csproj", "{1149A617-6CDE-446E-888E-3C1C57B09969}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{35AC7E56-7072-4034-9D19-DF563F4294F6}"
+	ProjectSection(SolutionItems) = preProject
+		DirectoriesAndFiles.txt = DirectoriesAndFiles.txt
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

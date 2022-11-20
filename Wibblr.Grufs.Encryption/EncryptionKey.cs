@@ -16,15 +16,6 @@ namespace Wibblr.Grufs
             {
                 return _value;
             }
-            set
-            {
-                if (value.Length != Length)
-                {
-                    throw new Exception($"Invalid key length (expected {Length}; actual {value.Length}");
-                }
-
-                _value = value;
-            }
         }
 
         public EncryptionKey(byte[] value)

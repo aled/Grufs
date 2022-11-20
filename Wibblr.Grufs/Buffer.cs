@@ -69,5 +69,14 @@ namespace Wibblr.Grufs
         }
 
         public Span<byte> AsSpan() => Bytes.AsSpan(0, ContentLength);
+
+        public Span<byte> AsSpan(int offset, int length)
+        {
+            if (offset + length > ContentLength)
+            {
+                throw new Exception();
+            }
+            return Bytes.AsSpan(offset, length);
+        }
     }
 }
