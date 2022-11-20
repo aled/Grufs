@@ -41,7 +41,7 @@
 
         bool IChunkRepository.TryGet(Address address, out EncryptedChunk chunk)
         {
-            chunk = new EncryptedChunk { Address = address, Content = Download(GeneratePath(address.ToHex())) };
+            chunk = new EncryptedChunk(address, Download(GeneratePath(address.ToHex())));
             return true;
         }
     }

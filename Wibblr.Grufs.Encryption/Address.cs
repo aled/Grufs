@@ -42,7 +42,7 @@ namespace Wibblr.Grufs
             return Convert.ToHexString(Value);
         }
 
-        public override bool Equals(object other)
+        public override bool Equals(object? other)
         {
             if (other is Address address)
             {

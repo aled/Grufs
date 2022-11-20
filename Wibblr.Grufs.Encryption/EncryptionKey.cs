@@ -27,9 +27,9 @@ namespace Wibblr.Grufs
             Value = value;
         }
 
-        public WrappedKey Wrap(KeyEncryptionKey kek)
+        public WrappedEncryptionKey Wrap(KeyEncryptionKey kek)
         {
-            return new WrappedKey(new RFC3394Algorithm().Wrap(kek.Value, Value));
+            return new WrappedEncryptionKey(new RFC3394Algorithm().Wrap(kek.Value, Value));
         }
     }
 }

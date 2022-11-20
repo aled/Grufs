@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Wibblr.Grufs.Tests
 {
-    internal class TestChunkRepository : IChunkRepository
+    internal class InMemoryChunkRepository : IChunkRepository
     {
         private Dictionary<Address, EncryptedChunk> _dict = new Dictionary<Address, EncryptedChunk>();
 

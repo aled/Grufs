@@ -37,32 +37,34 @@ namespace Wibblr.Grufs.Tests
         public void CheckLengthOfWrappedKeys()
         {
             // Null array of bytes
-            new Action(() => new WrappedKey(null, 0)).Should().ThrowExactly<ArgumentNullException>();
+#pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type.
+            new Action(() => new WrappedEncryptionKey(null, 0)).Should().ThrowExactly<ArgumentNullException>();
+#pragma warning restore CS8625 // Cannot convert null literal to non-nullable reference type.
 
             // Negative offset
-            new Action(() => new WrappedKey(new[] {(byte)0}, -1)).Should().ThrowExactly<ArgumentOutOfRangeException>();
+            new Action(() => new WrappedEncryptionKey(new[] {(byte)0}, -1)).Should().ThrowExactly<ArgumentOutOfRangeException>();
 
             // Invalid array length
-            new Action(() => new WrappedKey(new[] { (byte)0 }, 0)).Should().ThrowExactly<ArgumentException>();
+            new Action(() => new WrappedEncryptionKey(new[] { (byte)0 }, 0)).Should().ThrowExactly<ArgumentException>();
 
             // Offset too great
-            new Action(() => new WrappedKey(Enumerable.Range(0, 40).Select(x => (byte)0).ToArray(), 1))
+            new Action(() => new WrappedEncryptionKey(Enumerable.Range(0, 40).Select(x => (byte)0).ToArray(), 1))
                 .Should().ThrowExactly<ArgumentException>();
         }
 
         [Fact]
         public void WrapKey()
         {
-            // Test copied from https://www.rfc-editor.org/rfc/rfc3394#section-4
+            // Test data copied from https://www.rfc-editor.org/rfc/rfc3394#section-4
             var kek = new KeyEncryptionKey(Bytes("000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"));
             var key = new EncryptionKey(Bytes("00112233445566778899AABBCCDDEEFF000102030405060708090A0B0C0D0E0F"));
-            var expectedWrappedKey = Bytes("28C9F404C4B810F4CBCCB35CFB87F8263F5786E2D80ED326CBC7F0E71A99F43BFB988B9B7A02DD21");
+            var expectedWrappedKey = new WrappedEncryptionKey(Bytes("28C9F404C4B810F4CBCCB35CFB87F8263F5786E2D80ED326CBC7F0E71A99F43BFB988B9B7A02DD21"));
 
             var wrappedKey = key.Wrap(kek);
-            
-            wrappedKey.Value.Should().BeEquivalentTo(expectedWrappedKey);
+            wrappedKey.Value.Should().BeEquivalentTo(expectedWrappedKey.Value);
 
-
+            var unwrappedKey = wrappedKey.Unwrap(kek);
+            unwrappedKey.Value.Should().BeEquivalentTo(key.Value);
         }
 
         // encrypt chunk
@@ -133,7 +135,7 @@ namespace Wibblr.Grufs.Tests
 
             var stream = new MemoryStream(plaintextBytes);
 
-            var repository = new TestChunkRepository();
+            var repository = new InMemoryChunkRepository();
             var (address, type) = encryptor.EncryptStream(keyEncryptionKey, wrappedHmacKey, hmacKeyEncryptionKey, stream, repository, 128);
 
             repository.Count().Should().Be(1);
@@ -165,7 +167,7 @@ namespace Wibblr.Grufs.Tests
             
             var stream = new MemoryStream(plaintextBytes);
 
-            var repository = new TestChunkRepository();
+            var repository = new InMemoryChunkRepository();
             var (address, type) = encryptor.EncryptStream(keyEncryptionKey, wrappedHmacKey, hmacKeyEncryptionKey, stream, repository, 128);
 
             var decryptedStream = new MemoryStream();

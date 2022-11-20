@@ -117,7 +117,7 @@ namespace Wibblr.Grufs
 
             // Use a different (random) IV and encryption key for each chunk.
             var bufferCount = 0;
-            EncryptedChunk encryptedChunk = null;
+            EncryptedChunk? encryptedChunk = null;
             foreach (var buffer in buffers)
             {
                 bufferCount++;
@@ -132,7 +132,7 @@ namespace Wibblr.Grufs
 
             if (bufferCount == 1)
             {
-                return (encryptedChunk.Address, ChunkType.Content);
+                return (encryptedChunk!.Address, ChunkType.Content);
             }
 
             // write all remaining chain buffers to repository.
@@ -146,7 +146,7 @@ namespace Wibblr.Grufs
 
         public IEnumerable<Buffer> Decrypt(ChunkType type, KeyEncryptionKey contentKeyEncryptionKey, HmacKey hmacKey, Address address, IChunkRepository repository)
         {
-            if (!repository.TryGet(address, out var chunk))
+            if (!repository.TryGet(address, out var chunk) || chunk == null)
             {
                 throw new Exception($"Address {Convert.ToHexString(address.Value)} not found in repository");
             }

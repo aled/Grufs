@@ -4,13 +4,13 @@ using RFC3394;
 
 namespace Wibblr.Grufs
 {
-    public class WrappedKey
+    public class WrappedEncryptionKey
     {
         public static readonly int Length = 40;
         
         public byte[] Value { get; init; }
 
-        public WrappedKey(byte[] buffer, int offset = 0)
+        public WrappedEncryptionKey(byte[] buffer, int offset = 0)
         {
             if (buffer == null)
             {

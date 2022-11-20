@@ -9,7 +9,7 @@ namespace Wibblr.Grufs
         {
             var wrappedKey = key.Wrap(keyEncryptionKey);
 
-            // The HMAC is a hash of the chunk type and the content
+            // The HMAC is a hash of the content and nothing else
             var hmac = new HMACSHA256(hmacKey.Value).ComputeHash(buffer.Bytes, 0, buffer.ContentLength);
 
             var aes = Aes.Create();
@@ -21,7 +21,7 @@ namespace Wibblr.Grufs
             // content is:
             //   iv + wrapped-key + encrypt(iv, key, plaintext)
             //   16 + 40          + len
-            var preambleLength = InitializationVector.Length + WrappedKey.Length;
+            var preambleLength = InitializationVector.Length + WrappedEncryptionKey.Length;
             var content = new byte[preambleLength + ciphertextLength];
             var destination = new Span<byte>(content, preambleLength, ciphertextLength);
 
@@ -31,22 +31,16 @@ namespace Wibblr.Grufs
             }
 
             Array.Copy(iv.Value,         0, content, 0, InitializationVector.Length);
-            Array.Copy(wrappedKey.Value, 0, content, InitializationVector.Length, WrappedKey.Length);
+            Array.Copy(wrappedKey.Value, 0, content, InitializationVector.Length, WrappedEncryptionKey.Length);
 
-            var encryptedChunk = new EncryptedChunk
-            {
-                Address = new Address(hmac),
-                Content = content
-            };
-
-            return encryptedChunk;
+            return new EncryptedChunk(new Address(hmac), content);
         }
 
         public Buffer DecryptChunk(EncryptedChunk chunk, KeyEncryptionKey keyEncryptionKey, HmacKey hmacKey)
         {
             Debug.Assert(chunk != null);
 
-            var preambleLength = InitializationVector.Length + WrappedKey.Length;
+            var preambleLength = InitializationVector.Length + WrappedEncryptionKey.Length;
 
             if (chunk.Content.Length < preambleLength)
             {
@@ -54,7 +48,7 @@ namespace Wibblr.Grufs
             }
 
             var iv = new InitializationVector(chunk.Content, offset: 0);
-            var wrappedKey = new WrappedKey(chunk.Content, offset: InitializationVector.Length);
+            var wrappedKey = new WrappedEncryptionKey(chunk.Content, offset: InitializationVector.Length);
             var key = wrappedKey.Unwrap(keyEncryptionKey); 
 
             var aes = Aes.Create();
@@ -64,7 +58,6 @@ namespace Wibblr.Grufs
 
             // The plaintext length is unknown, but it is equal or less than the 
             // ciphertext length - 1
-            
             var buffer = new Buffer(chunk.Content.Length - preambleLength - 1);
             var destination = buffer.Bytes.AsSpan();
             int bytesWritten;
