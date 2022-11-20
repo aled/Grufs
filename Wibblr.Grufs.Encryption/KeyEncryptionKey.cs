@@ -1,17 +1,10 @@
 ﻿namespace Wibblr.Grufs
 {
-    public struct KeyEncryptionKey
+    public class KeyEncryptionKey
     {
         public static int Length = 32;
 
-        public byte[] _value;
-
-        public byte[] Value { 
-            get
-            {
-                return _value;
-            }
-        }
+        public byte[] Value { get; init; }
 
         public KeyEncryptionKey(byte[] value)
         {
@@ -20,7 +13,7 @@
                 throw new Exception("Invalid key length");
             }
 
-            _value = value;
+            Value = value;
         }
     }
 }

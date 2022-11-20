@@ -7,16 +7,10 @@ namespace Wibblr.Grufs
     {
         public EncryptedChunk EncryptChunk(InitializationVector iv, EncryptionKey key, KeyEncryptionKey keyEncryptionKey, HmacKey hmacKey, Buffer buffer)
         {
-            var wrappedKey = new WrappedKey(keyEncryptionKey, key);
+            var wrappedKey = key.Wrap(keyEncryptionKey);
 
             // The HMAC is a hash of the chunk type and the content
-            //var hmac = new HMACSHA256(hmacKey.Value).ComputeHash(buffer.Bytes);
-
-            var x = new HMACSHA256(hmacKey.Value);
-            var size = x.HashSize;
-            x.TransformFinalBlock(buffer.Bytes, 0, buffer.ContentLength);
-            var hmac = x.Hash;
-            Debug.Assert(hmac.Length == 32);
+            var hmac = new HMACSHA256(hmacKey.Value).ComputeHash(buffer.Bytes, 0, buffer.ContentLength);
 
             var aes = Aes.Create();
             aes.KeySize = EncryptionKey.Length * 8;
@@ -45,20 +39,6 @@ namespace Wibblr.Grufs
                 Content = content
             };
 
-            //var plaintext = buffer.AsSpan().ToArray();
-            //var isAscii = plaintext.All(b => char.IsAscii((char)b));
-
-            //string plaintextPretty;
-            //if (isAscii)
-            //{
-            //    Console.WriteLine($"Encrypted chunk len {encryptedChunk.Content.Length}, {encryptedChunk.Address} with plaintext ascii: " + Encoding.ASCII.GetString(plaintext).Replace("\n", "\\n"));
-            //}
-            //else
-            //{
-            //    Console.WriteLine($"Encrypted chunk len {encryptedChunk.Content.Length}, {encryptedChunk.Address} with plaintext (chain)");
-            //    WriteChain(plaintext);
-            //}
-
             return encryptedChunk;
         }
 
@@ -75,7 +55,7 @@ namespace Wibblr.Grufs
 
             var iv = new InitializationVector(chunk.Content, offset: 0);
             var wrappedKey = new WrappedKey(chunk.Content, offset: InitializationVector.Length);
-            var key = new EncryptionKey(keyEncryptionKey, wrappedKey); 
+            var key = wrappedKey.Unwrap(keyEncryptionKey); 
 
             var aes = Aes.Create();
             aes.KeySize = EncryptionKey.Length * 8;
@@ -97,10 +77,7 @@ namespace Wibblr.Grufs
             buffer.ContentLength = bytesWritten;
 
             // Verify that the chunk is not corrupted using the hmac
-            //var computedHmac = new HMACSHA256(hmacKey.Value).ComputeHash(buffer.Bytes, 0, buffer.ContentLength);
-            var x = new HMACSHA256(hmacKey.Value);
-            x.TransformFinalBlock(buffer.Bytes, 0, buffer.ContentLength);
-            var computedAddress = x.Hash!;
+            var computedAddress = new HMACSHA256(hmacKey.Value).ComputeHash(buffer.Bytes, 0, buffer.ContentLength);
 
             for (int i = 0; i < Address.Length; i++)
             {

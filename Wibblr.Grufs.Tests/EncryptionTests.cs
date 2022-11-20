@@ -26,9 +26,44 @@ namespace Wibblr.Grufs.Tests
 
     public class EncryptionTests
     {
-        // wrap key
+        private byte[] Bytes(string hex) => hex.ToCharArray()
+                .Chunk(2)
+                .Select(x => Convert.ToByte(new string(x), 16))
+                .ToArray();
 
+        // wrap key
         // unwrap key
+        [Fact]
+        public void CheckLengthOfWrappedKeys()
+        {
+            // Null array of bytes
+            new Action(() => new WrappedKey(null, 0)).Should().ThrowExactly<ArgumentNullException>();
+
+            // Negative offset
+            new Action(() => new WrappedKey(new[] {(byte)0}, -1)).Should().ThrowExactly<ArgumentOutOfRangeException>();
+
+            // Invalid array length
+            new Action(() => new WrappedKey(new[] { (byte)0 }, 0)).Should().ThrowExactly<ArgumentException>();
+
+            // Offset too great
+            new Action(() => new WrappedKey(Enumerable.Range(0, 40).Select(x => (byte)0).ToArray(), 1))
+                .Should().ThrowExactly<ArgumentException>();
+        }
+
+        [Fact]
+        public void WrapKey()
+        {
+            // Test copied from https://www.rfc-editor.org/rfc/rfc3394#section-4
+            var kek = new KeyEncryptionKey(Bytes("000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"));
+            var key = new EncryptionKey(Bytes("00112233445566778899AABBCCDDEEFF000102030405060708090A0B0C0D0E0F"));
+            var expectedWrappedKey = Bytes("28C9F404C4B810F4CBCCB35CFB87F8263F5786E2D80ED326CBC7F0E71A99F43BFB988B9B7A02DD21");
+
+            var wrappedKey = key.Wrap(kek);
+            
+            wrappedKey.Value.Should().BeEquivalentTo(expectedWrappedKey);
+
+
+        }
 
         // encrypt chunk
         // decrypt chunk
@@ -88,7 +123,7 @@ namespace Wibblr.Grufs.Tests
             var keyEncryptionKey = new KeyEncryptionKey("0000000000000000000000000000000000000000000000000000".Base32ToBytes(ignorePartialSymbol: true));
             var hmacKey = new HmacKey("0000000000000000000000000000000000000000000000000000".Base32ToBytes(ignorePartialSymbol: true));
             var hmacKeyEncryptionKey = new HmacKeyEncryptionKey("0000000000000000000000000000000000000000000000000000".Base32ToBytes(ignorePartialSymbol: true));
-            var wrappedHmacKey = new WrappedHmacKey(hmacKeyEncryptionKey, hmacKey);
+            var wrappedHmacKey = hmacKey.Wrap(hmacKeyEncryptionKey);
 
             var plaintext = "The quick brown fox jumps over the lazy dog.\n";
 
@@ -121,7 +156,7 @@ namespace Wibblr.Grufs.Tests
             var keyEncryptionKey = new KeyEncryptionKey("0000000000000000000000000000000000000000000000000000".Base32ToBytes(ignorePartialSymbol: true));           
             var hmacKey = new HmacKey("0000000000000000000000000000000000000000000000000000".Base32ToBytes(ignorePartialSymbol: true));
             var hmacKeyEncryptionKey = new HmacKeyEncryptionKey("0000000000000000000000000000000000000000000000000000".Base32ToBytes(ignorePartialSymbol: true));
-            var wrappedHmacKey = new WrappedHmacKey(hmacKeyEncryptionKey, hmacKey);
+            var wrappedHmacKey = hmacKey.Wrap(hmacKeyEncryptionKey);
 
             var plaintext = "The quick brown fox jumps over the lazy dog.\n".Repeat(99);
             var plaintextBytes = Encoding.UTF8.GetBytes(plaintext);

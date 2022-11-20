@@ -1,20 +1,15 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
 using Wibblr.Base32;
 
 namespace Wibblr.Grufs
 {
     [DebuggerDisplay("{ToString()}")]
-    public struct Address
+    public class Address
     {
         public static int Length = 32;
 
-        private byte[] _value;
+        public byte[] Value { get; init; }
 
         public Address(byte[] value)
         {
@@ -23,31 +18,23 @@ namespace Wibblr.Grufs
                 throw new Exception($"Invalid address length (expected {Length}; actual {value.Length}");
             }
 
-            _value = value;
+            Value = value;
         }
 
-        public Address(byte[] buffer, int offset = 0)
+        public Address(byte[] buffer, int offset)
         {
             if (buffer.Length - offset < Length)
             {
                 throw new Exception($"Invalid address length/offset (expected {Length}; actual {buffer.Length}/{offset}");
             }
 
-            _value = new byte[Length];
-            Array.Copy(buffer, offset, _value, 0, Length);
-        }
-
-        public byte[] Value
-        {
-            get
-            {
-                return _value;
-            }
+            Value = new byte[Length];
+            Array.Copy(buffer, offset, Value, 0, Length);
         }
 
         public string ToBase32()
         {
-            return _value.BytesToBase32(ignorePartialSymbol: true);
+            return Value.BytesToBase32(ignorePartialSymbol: true);
         }
 
         public string ToHex()
@@ -68,7 +55,7 @@ namespace Wibblr.Grufs
         {
             for (int i = 0; i < Length; i += 8)
             {
-                if (BitConverter.ToInt64(_value, i) != BitConverter.ToInt64(other.Value, i))
+                if (BitConverter.ToInt64(Value, i) != BitConverter.ToInt64(other.Value, i))
                 {
                     return false;
                 }
@@ -78,13 +65,14 @@ namespace Wibblr.Grufs
 
         public override int GetHashCode()
         {
-            // for simplicity, just take first 4 bytes of address, as it is encrypted anyway
-            return BitConverter.ToInt32(_value);
+            // Not intended to be cryptographically secure.
+            // For simplicity, just take first 4 bytes of address, as it is encrypted anyway
+            return BitConverter.ToInt32(Value);
         }
 
         public override string ToString()
         {
-            return Convert.ToHexString(_value);
+            return Convert.ToHexString(Value);
         }
     }
 }

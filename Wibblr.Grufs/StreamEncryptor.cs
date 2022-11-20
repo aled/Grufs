@@ -1,28 +1,13 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
-using System.Text;
 
 [assembly: InternalsVisibleTo("Wibblr.Grufs.Tests")]
 
 namespace Wibblr.Grufs
 {
-
-    /// <summary>
-    /// Basic encryption of a buffer using AES
-    /// </summary>
-
     public class StreamEncryptor
     {
         private ChunkEncryptor _chunkEncryptor = new ChunkEncryptor();
-
-        //private void WriteChain(byte[] b)
-        //{
-        //    for (int i = 0; i < b.Length; i += Address.Length)
-        //    {
-        //        Console.WriteLine(Convert.ToHexString(b, i, Address.Length));
-        //    }
-        //    Console.WriteLine();
-        //}
 
         public (Address, ChunkType) EncryptStream(KeyEncryptionKey contentKeyEncryptionKey, WrappedHmacKey wrappedHmacKey, HmacKeyEncryptionKey hmacKeyEncryptionKey, Stream stream, IChunkRepository repository, int chunkSize = 1024 * 1024)
         {

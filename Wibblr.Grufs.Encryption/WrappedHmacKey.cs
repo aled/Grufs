@@ -1,21 +1,15 @@
 ﻿
 using System.Diagnostics;
 
+using RFC3394;
+
 namespace Wibblr.Grufs
 {
-    public struct WrappedHmacKey
+    public class WrappedHmacKey
     {
         public static int Length = 40;
 
-        public byte[] _value;
-
-        public byte[] Value
-        {
-            get
-            {
-                return _value;
-            }
-        }
+        public byte[] Value { get; init; }
 
         public WrappedHmacKey(byte[] value)
         {
@@ -24,7 +18,7 @@ namespace Wibblr.Grufs
                 throw new Exception("Invalid wrapped key length");
             }
 
-            _value = value;
+            Value = value;
         }
 
         public WrappedHmacKey(byte[] buffer, int offset)
@@ -34,15 +28,13 @@ namespace Wibblr.Grufs
                 throw new Exception("Invalid wrapped key length");
             }
 
-            _value = new byte[Length];
-            Array.Copy(buffer, offset, _value, 0, Length);
+            Value = new byte[Length];
+            Array.Copy(buffer, offset, Value, 0, Length);
         }
 
-        public WrappedHmacKey(HmacKeyEncryptionKey kek, HmacKey key)
+        public HmacKey Unwrap(HmacKeyEncryptionKey kek)
         {
-            _value = new RFC3394.RFC3394Algorithm().Wrap(kek.Value, key.Value);
-
-            Debug.Assert(_value.Length == Length);
+            return new HmacKey(new RFC3394Algorithm().Unwrap(kek.Value, Value));
         }
     }
 }

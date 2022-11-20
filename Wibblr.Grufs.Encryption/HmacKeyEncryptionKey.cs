@@ -1,16 +1,10 @@
 ﻿namespace Wibblr.Grufs
 {
-    public struct HmacKeyEncryptionKey
+    public class HmacKeyEncryptionKey
     {
         public static int Length = 32;
 
-        public byte[] _value;
-
-        public byte[] Value { 
-            get
-            {
-                return _value;
-            }
+        public byte[] Value { get; init;
         }
 
         public HmacKeyEncryptionKey(byte[] value)
@@ -19,8 +13,7 @@
             {
                 throw new Exception("Invalid key length");
             }
-
-            _value = value;
+            Value = value;
         }
     }
 }

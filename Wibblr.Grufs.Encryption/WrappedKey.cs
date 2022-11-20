@@ -1,48 +1,39 @@
-﻿
-using System.Diagnostics;
+﻿using System.Diagnostics;
+
+using RFC3394;
 
 namespace Wibblr.Grufs
 {
-    public struct WrappedKey
+    public class WrappedKey
     {
-        public static int Length = 40;
+        public static readonly int Length = 40;
+        
+        public byte[] Value { get; init; }
 
-        public byte[] _value;
-
-        public byte[] Value
+        public WrappedKey(byte[] buffer, int offset = 0)
         {
-            get
+            if (buffer == null)
             {
-                return _value;
-            }
-        }
-
-        public WrappedKey(byte[] value)
-        {
-            if (value.Length != Length)
-            {
-                throw new Exception("Invalid wrapped key length");
+                throw new ArgumentNullException(nameof(buffer));
             }
 
-            _value = value;
-        }
+            if (offset < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(offset));
+            }
 
-        public WrappedKey(byte[] buffer, int offset)
-        {
             if (buffer.Length - offset < Length)
             {
-                throw new Exception("Invalid wrapped key length");
+                throw new ArgumentException("Invalid wrapped key length");
             }
 
-            _value = new byte[Length];
-            Array.Copy(buffer, offset, _value, 0, Length);
+            Value = new byte[Length];
+            Array.Copy(buffer, offset, Value, 0, Length);
         }
 
-        public WrappedKey(KeyEncryptionKey kek, EncryptionKey key)
+        public EncryptionKey Unwrap(KeyEncryptionKey keyEncryptionKey)
         {
-            _value = new RFC3394.RFC3394Algorithm().Wrap(kek.Value, key.Value);
-
-            Debug.Assert(_value.Length == Length);
+            return new EncryptionKey(new RFC3394Algorithm().Unwrap(keyEncryptionKey.Value, Value));
         }
     }
 }

@@ -3,18 +3,10 @@ using System.Security.Cryptography;
 
 namespace Wibblr.Grufs
 {
-    public struct InitializationVector
+    public class InitializationVector
     {
         public static int Length = 16;
-
-        public byte[] _value;
-
-        public byte[] Value { 
-            get
-            {
-                return _value;
-            }
-        }
+        public byte[] Value { get; init; }
 
         public InitializationVector(byte[] value)
         {
@@ -23,7 +15,7 @@ namespace Wibblr.Grufs
                 throw new Exception($"Invalid IV length (expected {Length}; actual {value.Length}");
             }
 
-            _value = value;
+            Value = value;
         }
 
         public InitializationVector(byte[] buffer, int offset)
@@ -32,9 +24,9 @@ namespace Wibblr.Grufs
             { 
                 throw new Exception("Invalid IV length");
             }
-        
-            _value = new byte[16];
-            Array.Copy(buffer, offset, _value, 0, Length);
+
+            Value = new byte[Length];
+            Array.Copy(buffer, offset, Value, 0, Length);
         }
         
         public static InitializationVector Random()

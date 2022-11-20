@@ -1,21 +1,20 @@
 ﻿
+using System.Diagnostics;
 using System.Security.Cryptography;
 
 using RFC3394;
 
 namespace Wibblr.Grufs
 {
-    public struct EncryptionKey
+    public class EncryptionKey
     {
-        public static int Length = 32;
+        public static int Length => 32;
 
-        public byte[] _value;
+        public byte[] Value { get; init; }
 
-        public byte[] Value { 
-            get
-            {
-                return _value;
-            }
+        public static EncryptionKey Random()
+        {
+            return new EncryptionKey(RandomNumberGenerator.GetBytes(Length));
         }
 
         public EncryptionKey(byte[] value)
@@ -25,22 +24,12 @@ namespace Wibblr.Grufs
                 throw new Exception($"Invalid key length (expected {Length}; actual {value.Length}");
             }
 
-            _value = value;
+            Value = value;
         }
 
-        public EncryptionKey(KeyEncryptionKey keyEncryptionKey, WrappedKey wrappedKey)
+        public WrappedKey Wrap(KeyEncryptionKey kek)
         {
-            _value = new RFC3394Algorithm().Unwrap(keyEncryptionKey.Value, wrappedKey.Value);
-
-            if (_value.Length != Length)
-            {
-                throw new Exception($"Invalid key length (expected {Length}; actual {_value.Length}");
-            }
-        }
-
-        public static EncryptionKey Random()
-        {
-            return new EncryptionKey(RandomNumberGenerator.GetBytes(Length));
+            return new WrappedKey(new RFC3394Algorithm().Wrap(kek.Value, Value));
         }
     }
 }
