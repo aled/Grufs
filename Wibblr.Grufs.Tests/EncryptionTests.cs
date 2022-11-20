@@ -42,7 +42,7 @@ namespace Wibblr.Grufs.Tests
 
             var plaintext = "The quick brown fox jumps over the lazy dog.";
 
-            var encryptor = new Encryptor();
+            var encryptor = new ChunkEncryptor();
 
             var chunk = encryptor.EncryptChunk(iv, key, keyEncryptionKey, hmacKey, new Buffer(plaintext));
 
@@ -67,7 +67,7 @@ namespace Wibblr.Grufs.Tests
             var plaintext = "The quick brown fox jumps over the lazy dog.";
             var plaintextBytes = Encoding.UTF8.GetBytes(plaintext);
 
-            var encryptor = new Encryptor();
+            var encryptor = new ChunkEncryptor();
             var buffer = new Buffer(100).Write(plaintextBytes);
 
             var chunk = encryptor.EncryptChunk(iv, key, keyEncryptionKey, hmacKey, buffer);
@@ -94,7 +94,7 @@ namespace Wibblr.Grufs.Tests
 
             var plaintextBytes = Encoding.UTF8.GetBytes(plaintext);
 
-            var encryptor = new Encryptor();
+            var encryptor = new StreamEncryptor();
 
             var stream = new MemoryStream(plaintextBytes);
 
@@ -126,7 +126,7 @@ namespace Wibblr.Grufs.Tests
             var plaintext = "The quick brown fox jumps over the lazy dog.\n".Repeat(99);
             var plaintextBytes = Encoding.UTF8.GetBytes(plaintext);
 
-            var encryptor = new Encryptor();
+            var encryptor = new StreamEncryptor();
             
             var stream = new MemoryStream(plaintextBytes);
 

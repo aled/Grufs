@@ -50,6 +50,11 @@ namespace Wibblr.Grufs
             return _value.BytesToBase32(ignorePartialSymbol: true);
         }
 
+        public string ToHex()
+        {
+            return Convert.ToHexString(Value);
+        }
+
         public override bool Equals(object other)
         {
             if (other is Address address)
