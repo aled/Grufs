@@ -1,4 +1,5 @@
-﻿
+﻿using Wibblr.Grufs.Encryption;
+
 namespace Wibblr.Grufs
 {
     public interface IChunkRepository

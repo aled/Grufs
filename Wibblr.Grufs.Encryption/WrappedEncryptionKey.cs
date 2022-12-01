@@ -2,38 +2,33 @@
 
 using RFC3394;
 
-namespace Wibblr.Grufs
+namespace Wibblr.Grufs.Encryption
 {
-    public class WrappedEncryptionKey
+    [DebuggerDisplay("{ToString()}")]
+    public record struct WrappedEncryptionKey
     {
         public static readonly int Length = 40;
         
-        public byte[] Value { get; init; }
+        internal byte[] Value { get; private init; }
 
-        public WrappedEncryptionKey(byte[] buffer, int offset = 0)
+        public WrappedEncryptionKey(ReadOnlySpan<byte> value)
         {
-            if (buffer == null)
+            if (value == null || value.Length != Length)
             {
-                throw new ArgumentNullException(nameof(buffer));
-            }
-
-            if (offset < 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(offset));
-            }
-
-            if (buffer.Length - offset < Length)
-            {
-                throw new ArgumentException("Invalid wrapped key length");
+                throw new ArgumentException($"Invalid wrapped key length (expected {Length}, was {value.Length})");
             }
 
             Value = new byte[Length];
-            Array.Copy(buffer, offset, Value, 0, Length);
+            value.CopyTo(Value);
         }
 
         public EncryptionKey Unwrap(KeyEncryptionKey keyEncryptionKey)
         {
             return new EncryptionKey(new RFC3394Algorithm().Unwrap(keyEncryptionKey.Value, Value));
         }
+
+        public ReadOnlySpan<byte> ToSpan() => new ReadOnlySpan<byte>(Value);
+
+        public override string ToString() => Convert.ToHexString(Value);
     }
 }

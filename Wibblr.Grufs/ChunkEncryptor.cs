@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
-using System.Security.Cryptography;
+
+using Wibblr.Grufs.Encryption;
 
 namespace Wibblr.Grufs
 {
@@ -7,33 +8,33 @@ namespace Wibblr.Grufs
     {
         public EncryptedChunk EncryptChunk(InitializationVector iv, EncryptionKey key, KeyEncryptionKey keyEncryptionKey, HmacKey hmacKey, Buffer buffer)
         {
-            var wrappedKey = key.Wrap(keyEncryptionKey);
-
-            // The HMAC is a hash of the content and nothing else
-            var hmac = new HMACSHA256(hmacKey.Value).ComputeHash(buffer.Bytes, 0, buffer.ContentLength);
-
-            var aes = Aes.Create();
-            aes.KeySize = EncryptionKey.Length * 8;
-            aes.Key = key.Value;
-            aes.Padding = PaddingMode.PKCS7;
-            var ciphertextLength = aes.GetCiphertextLengthCbc(buffer.ContentLength);
+            var e = new Encryptor();
+            var source = buffer.ToSpan();
+            var ciphertextLength = e.CiphertextLength(source.Length);
 
             // content is:
             //   iv + wrapped-key + encrypt(iv, key, plaintext)
             //   16 + 40          + len
-            var preambleLength = InitializationVector.Length + WrappedEncryptionKey.Length;
-            var content = new byte[preambleLength + ciphertextLength];
-            var destination = new Span<byte>(content, preambleLength, ciphertextLength);
+            var ivOffset = 0;
+            var wrappedKeyOffset = ivOffset + InitializationVector.Length;
+            var contentOffset = wrappedKeyOffset + WrappedEncryptionKey.Length;
 
-            if (!aes.TryEncryptCbc(buffer.AsSpan(), iv.Value, destination, out _))
-            {
-                throw new Exception("Failed to encrypt");
-            }
+            var content = new byte[contentOffset + ciphertextLength];
+            var destination = new Span<byte>(content, contentOffset, ciphertextLength);
 
-            Array.Copy(iv.Value,         0, content, 0, InitializationVector.Length);
-            Array.Copy(wrappedKey.Value, 0, content, InitializationVector.Length, WrappedEncryptionKey.Length);
+            e.Encrypt(source, iv, key, destination);
 
-            return new EncryptedChunk(new Address(hmac), content);
+            var ivDestination = new Span<byte>(content, ivOffset, InitializationVector.Length);
+            iv.ToSpan().CopyTo(ivDestination);
+
+            var wrappedKey = key.Wrap(keyEncryptionKey);
+            var wrappedKeyDestination = new Span<byte>(content, wrappedKeyOffset, WrappedEncryptionKey.Length);
+            wrappedKey.ToSpan().CopyTo(wrappedKeyDestination);
+
+            // The address is a hash of the content and nothing else
+            var address = new Address(hmacKey, buffer.Bytes, 0, buffer.ContentLength);
+
+            return new EncryptedChunk(address, content);
         }
 
         public Buffer DecryptChunk(EncryptedChunk chunk, KeyEncryptionKey keyEncryptionKey, HmacKey hmacKey)
@@ -47,37 +48,31 @@ namespace Wibblr.Grufs
                 throw new Exception($"Invalid content length {chunk.Content.Length}");
             }
 
-            var iv = new InitializationVector(chunk.Content, offset: 0);
-            var wrappedKey = new WrappedEncryptionKey(chunk.Content, offset: InitializationVector.Length);
-            var key = wrappedKey.Unwrap(keyEncryptionKey); 
+            var e = new Encryptor();
+            var maxPlaintextLength = e.MaxPlaintextLength(chunk.Content.Length - preambleLength);
 
-            var aes = Aes.Create();
-            aes.KeySize = EncryptionKey.Length * 8;
-            aes.Key = key.Value;
-            aes.Padding = PaddingMode.PKCS7;
-
-            // The plaintext length is unknown, but it is equal or less than the 
-            // ciphertext length - 1
-            var buffer = new Buffer(chunk.Content.Length - preambleLength - 1);
+            // Allocate a buffer to hold the decrypted text
+            var buffer = new Buffer(maxPlaintextLength);
             var destination = buffer.Bytes.AsSpan();
-            int bytesWritten;
+            
+            var ivBytes = new ReadOnlySpan<byte>(chunk.Content, 0, InitializationVector.Length);
+            var iv = new InitializationVector(ivBytes);
 
-            if (!aes.TryDecryptCbc(new Span<byte>(chunk.Content, preambleLength, chunk.Content.Length - preambleLength), iv.Value, destination, out bytesWritten))
-            {
-                throw new Exception("Failed to decrypt");
-            }
+            var wrappedKeyBytes = new ReadOnlySpan<byte>(chunk.Content, InitializationVector.Length, WrappedEncryptionKey.Length);
+            var wrappedKey = new WrappedEncryptionKey(wrappedKeyBytes);
+            var key = wrappedKey.Unwrap(keyEncryptionKey);
 
+            var ciphertextBytes = new ReadOnlySpan<byte>(chunk.Content, preambleLength, chunk.Content.Length - preambleLength);
+
+            var bytesWritten = e.Decrypt(ciphertextBytes, iv, key, destination);           
             buffer.ContentLength = bytesWritten;
 
             // Verify that the chunk is not corrupted using the hmac
-            var computedAddress = new HMACSHA256(hmacKey.Value).ComputeHash(buffer.Bytes, 0, buffer.ContentLength);
+            var computedAddress = new Address(hmacKey, buffer.Bytes, 0, buffer.ContentLength);
 
-            for (int i = 0; i < Address.Length; i++)
+            if (chunk.Address != computedAddress)
             {
-                if (chunk.Address.Value[i] != computedAddress[i])
-                {
-                    throw new Exception("Failed to verify chunk - invalid hmac");
-                }
+                throw new Exception("Failed to verify chunk - invalid hmac");
             }
 
             return buffer;

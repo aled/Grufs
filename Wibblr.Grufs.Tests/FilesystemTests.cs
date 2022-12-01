@@ -46,10 +46,19 @@ namespace Wibblr.Grufs.Tests
     public class FilesystemTests
     {
         [Fact]
-        public void AddFile()
+        public void AddFileToRepository()
         {
             // start with an empty filesystem
             // add root directory
+            var repository = new InMemoryChunkRepository();
+
+
+            //var versionedFilesystem = new VersionedFilesystem(repository);
+
+
+
+
+
             new DirectoryUpdate("/", DateTime.Parse("2022-01-01T13:00:00"));
 
             

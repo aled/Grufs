@@ -1,19 +1,24 @@
-﻿namespace Wibblr.Grufs
+﻿using System.Diagnostics;
+
+namespace Wibblr.Grufs.Encryption
 {
-    public class KeyEncryptionKey
+    [DebuggerDisplay("{ToString()}")]
+    public record struct KeyEncryptionKey
     {
-        public static int Length = 32;
+        public static readonly int Length = 32;
 
-        public byte[] Value { get; init; }
+        internal byte[] Value { get; private init; }
 
-        public KeyEncryptionKey(byte[] value)
+        public KeyEncryptionKey(ReadOnlySpan<byte> value)
         {
             if (value.Length != Length)
             {
-                throw new Exception("Invalid key length");
+                throw new ArgumentException($"Invalid key encryption key length (expected {Length}, was {value.Length})");
             }
-
-            Value = value;
+            Value = new byte[Length];
+            value.CopyTo(Value);
         }
+
+        public override string ToString() => Convert.ToHexString(Value);
     }
 }

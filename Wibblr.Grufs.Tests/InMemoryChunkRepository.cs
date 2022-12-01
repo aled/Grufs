@@ -4,6 +4,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using Wibblr.Grufs.Encryption;
+
 namespace Wibblr.Grufs.Tests
 {
     internal class InMemoryChunkRepository : IChunkRepository

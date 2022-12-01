@@ -1,19 +1,23 @@
-﻿namespace Wibblr.Grufs
+﻿using System.Diagnostics;
+
+namespace Wibblr.Grufs.Encryption
 {
-    public class HmacKeyEncryptionKey
+    [DebuggerDisplay("{ToString()}")]
+    public record struct HmacKeyEncryptionKey
     {
-        public static int Length = 32;
+        public static readonly int Length = 32;
 
-        public byte[] Value { get; init;
-        }
+        internal byte[] Value { get; private init; }
 
-        public HmacKeyEncryptionKey(byte[] value)
+        public HmacKeyEncryptionKey(ReadOnlySpan<byte> value)
         {
             if (value.Length != Length)
             {
-                throw new Exception("Invalid key length");
+                throw new ArgumentException($"Invalid HMAC KEK length (expected {Length}, was {value.Length})");
             }
-            Value = value;
+
+            Value = new byte[Length];
+            value.CopyTo(Value);
         }
     }
 }

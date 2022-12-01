@@ -1,37 +1,34 @@
 ﻿
+using System.Diagnostics;
 using System.Security.Cryptography;
 
-namespace Wibblr.Grufs
+namespace Wibblr.Grufs.Encryption
 {
-    public class InitializationVector
+    [DebuggerDisplay("{ToString()}")]
+    public record struct InitializationVector
     {
-        public static int Length = 16;
-        public byte[] Value { get; init; }
+        public static readonly int Length = 16;
+        
+        internal byte[] Value { get; private init; }
 
-        public InitializationVector(byte[] value)
+        public InitializationVector(ReadOnlySpan<byte> value)
         {
             if (value.Length != Length)
             {
-                throw new Exception($"Invalid IV length (expected {Length}; actual {value.Length}");
-            }
-
-            Value = value;
-        }
-
-        public InitializationVector(byte[] buffer, int offset)
-        {
-            if (buffer.Length - offset < Length)
-            { 
-                throw new Exception("Invalid IV length");
+                throw new ArgumentException($"Invalid IV length (expected {Length}; actual {value.Length}");
             }
 
             Value = new byte[Length];
-            Array.Copy(buffer, offset, Value, 0, Length);
+            value.CopyTo(Value);
         }
-        
+
         public static InitializationVector Random()
         {
             return new InitializationVector(RandomNumberGenerator.GetBytes(Length));
         }
+
+        public ReadOnlySpan<byte> ToSpan() => new ReadOnlySpan<byte>(Value);
+
+        public override string ToString() => Convert.ToHexString(Value);
     }
 }

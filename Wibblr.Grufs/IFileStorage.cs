@@ -1,4 +1,6 @@
-﻿namespace Wibblr.Grufs
+﻿using Wibblr.Grufs.Encryption;
+
+namespace Wibblr.Grufs
 {
     public interface IFileStorage : IChunkRepository
     {
@@ -35,13 +37,13 @@
 
         bool IChunkRepository.TryPut(EncryptedChunk chunk)
         {
-            Upload(GeneratePath(chunk.Address.ToHex()), chunk.Content);
+            Upload(GeneratePath(chunk.Address.ToString()), chunk.Content);
             return true;
         }
 
         bool IChunkRepository.TryGet(Address address, out EncryptedChunk chunk)
         {
-            chunk = new EncryptedChunk(address, Download(GeneratePath(address.ToHex())));
+            chunk = new EncryptedChunk(address, Download(GeneratePath(address.ToString())));
             return true;
         }
     }

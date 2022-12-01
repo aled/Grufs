@@ -3,19 +3,21 @@ using System.Diagnostics;
 
 using RFC3394;
 
-namespace Wibblr.Grufs
+namespace Wibblr.Grufs.Encryption
 {
-    public class WrappedHmacKey
-    {
-        public static int Length = 40;
+    [DebuggerDisplay("{ToString()}")]
 
-        public byte[] Value { get; init; }
+    public record struct WrappedHmacKey
+    {
+        public readonly static int Length = 40;
+
+        internal byte[] Value { get; private init; }
 
         public WrappedHmacKey(byte[] value)
         {
             if (value.Length != Length)
             {
-                throw new Exception("Invalid wrapped key length");
+                throw new ArgumentException($"Invalid wrapped HMAC key length (expected {Length}, was {value.Length})");
             }
 
             Value = value;
@@ -32,9 +34,8 @@ namespace Wibblr.Grufs
             Array.Copy(buffer, offset, Value, 0, Length);
         }
 
-        public HmacKey Unwrap(HmacKeyEncryptionKey kek)
-        {
-            return new HmacKey(new RFC3394Algorithm().Unwrap(kek.Value, Value));
-        }
+        public HmacKey Unwrap(HmacKeyEncryptionKey kek) => new HmacKey(new RFC3394Algorithm().Unwrap(kek.Value, Value));
+
+        public override string ToString() => Convert.ToHexString(Value);
     }
 }

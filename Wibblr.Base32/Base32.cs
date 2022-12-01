@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Wibblr.Base32.Tests")]
 
@@ -6,7 +7,7 @@ namespace Wibblr.Base32
 {
     public static class Extensions
     {
-        public static string BytesToBase32(this byte[] bytes, bool ignorePartialSymbol = false) => Base32.ToString(bytes, ignorePartialSymbol);
+        public static string BytesToBase32(this IList<byte> bytes, bool ignorePartialSymbol = false) => Base32.ToString(bytes, ignorePartialSymbol);
 
         public static byte[] Base32ToBytes(this string base32, bool ignorePartialSymbol = false) => Base32.ToBytes(base32, ignorePartialSymbol);
     }
@@ -100,12 +101,12 @@ namespace Wibblr.Base32
             return bytes;
         }
 
-        public static string ToString(byte[] bytes, bool ignorePartialSymbol = false)
+        public static string ToString(IList<byte> bytes, bool ignorePartialSymbol = false)
         {
-            var bits = bytes.Length * 8;
+            var bits = bytes.Count * 8;
             var symbolCount = 1 + (bits - 1) / 5;
 
-            if (ignorePartialSymbol && (bytes.Length % 5) != 0)
+            if (ignorePartialSymbol && (bytes.Count % 5) != 0)
             {
                 symbolCount--;
             }
@@ -121,7 +122,7 @@ namespace Wibblr.Base32
                 // 00000000 11111111 00000000 11111111 00000000 11111 111 00 00000 0 1111 1111 0 00000 00 111 11111
                 //                                              |s0-| |-s1-| |s2-| |-s3-| |-s4-| |s5-| |-s6-| |s7-| <--- symbols
                 int i, v0, v1, v2, v3, v4;
-                for (i = bytes.Length - 1; i >= 4;  i -= 5)
+                for (i = bytes.Count - 1; i >= 4;  i -= 5)
                 {
                     v4 = bytes[i - 0];
                     v3 = bytes[i - 1];

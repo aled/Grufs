@@ -1,4 +1,6 @@
-﻿using System.Text;
+﻿using System;
+using System.Text;
+using System.Numerics;
 
 namespace Wibblr.Grufs
 {
@@ -46,14 +48,16 @@ namespace Wibblr.Grufs
             return this;
         }
 
-        public void Append(byte[] bytes)
+        public void Append(ReadOnlySpan<byte> bytes)
         {
             if (ContentLength + bytes.Length > Capacity)
             {
                 throw new Exception("buffer overflow");
             }
 
-            Array.Copy(bytes, 0, Bytes, ContentLength, bytes.Length);
+            var destination = new Span<byte>(Bytes, ContentLength, bytes.Length);
+            bytes.CopyTo(destination);
+
             ContentLength = ContentLength + bytes.Length;
         }
 
@@ -68,9 +72,20 @@ namespace Wibblr.Grufs
             ContentLength = ContentLength + 1;
         }
 
-        public Span<byte> AsSpan() => Bytes.AsSpan(0, ContentLength);
+        public void Append(UInt128 i)
+        {
+            if (ContentLength + 16 > Capacity)
+            {
+                throw new Exception("buffer overflow");
+            }
 
-        public Span<byte> AsSpan(int offset, int length)
+            ((IBinaryInteger<UInt128>)i).WriteBigEndian(Bytes, ContentLength);
+            ContentLength += 16;
+        }
+
+        public Span<byte> ToSpan() => Bytes.AsSpan(0, ContentLength);
+
+        public Span<byte> ToSpan(int offset, int length)
         {
             if (offset + length > ContentLength)
             {

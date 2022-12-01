@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
 
+using Wibblr.Grufs.Encryption;
+
 [assembly: InternalsVisibleTo("Wibblr.Grufs.Tests")]
 
 namespace Wibblr.Grufs
@@ -81,7 +83,8 @@ namespace Wibblr.Grufs
                     chainBuffers[level].Append((byte)(level == 0 ? ChunkType.Content : ChunkType.Chain));
                     chainBuffers[level].Append(new byte[25]);
                 }
-                chainBuffers[level].Append(address.Value);
+
+                chainBuffers[level].Append(address.ToSpan());
             }
 
             void WriteChainBuffer(int level)
@@ -148,7 +151,7 @@ namespace Wibblr.Grufs
         {
             if (!repository.TryGet(address, out var chunk) || chunk == null)
             {
-                throw new Exception($"Address {Convert.ToHexString(address.Value)} not found in repository");
+                throw new Exception($"Address {address} not found in repository");
             }
 
             var buffer = _chunkEncryptor.DecryptChunk(chunk, contentKeyEncryptionKey, hmacKey);
@@ -182,7 +185,7 @@ namespace Wibblr.Grufs
 
                 for (int i = 32; i < buffer.ContentLength; i += Address.Length)
                 {
-                    var subchunkAddress = new Address(buffer.Bytes, i);
+                    var subchunkAddress = new Address(buffer.ToSpan(i, Address.Length));
 
                     foreach (var x in Decrypt(subchunkType, contentKeyEncryptionKey, hmacKey, subchunkAddress, repository))
                     {

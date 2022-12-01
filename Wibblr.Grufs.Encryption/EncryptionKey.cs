@@ -4,32 +4,36 @@ using System.Security.Cryptography;
 
 using RFC3394;
 
-namespace Wibblr.Grufs
+namespace Wibblr.Grufs.Encryption
 {
-    public class EncryptionKey
+    [DebuggerDisplay("{ToString()}")]
+    public record struct EncryptionKey
     {
-        public static int Length => 32;
+        public static readonly int Length = 32;
 
-        public byte[] Value { get; init; }
+        internal byte[] Value { get; private init; }
 
         public static EncryptionKey Random()
         {
             return new EncryptionKey(RandomNumberGenerator.GetBytes(Length));
         }
 
-        public EncryptionKey(byte[] value)
+        public EncryptionKey(ReadOnlySpan<byte> value)
         {
             if (value.Length != Length)
             {
-                throw new Exception($"Invalid key length (expected {Length}; actual {value.Length}");
+                throw new ArgumentException($"Invalid key length (expected {Length}, was {value.Length})");
             }
 
-            Value = value;
+            Value = new byte[Length];
+            value.CopyTo(Value);
         }
 
         public WrappedEncryptionKey Wrap(KeyEncryptionKey kek)
         {
             return new WrappedEncryptionKey(new RFC3394Algorithm().Wrap(kek.Value, Value));
         }
+
+        public override string ToString() => Convert.ToHexString(Value);
     }
 }
