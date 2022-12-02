@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Runtime.Intrinsics;
 
 using Wibblr.Grufs.Encryption;
 
@@ -32,15 +33,13 @@ namespace Wibblr.Grufs
             wrappedKey.ToSpan().CopyTo(wrappedKeyDestination);
 
             // The address is a hash of the content and nothing else
-            var address = new Address(hmacKey, buffer.Bytes, 0, buffer.ContentLength);
+            var hmac = new Hmac(hmacKey, buffer.Bytes, 0, buffer.ContentLength);
 
-            return new EncryptedChunk(address, content);
+            return new EncryptedChunk(new Address(hmac.ToSpan()), content);
         }
 
         public Buffer DecryptChunk(EncryptedChunk chunk, KeyEncryptionKey keyEncryptionKey, HmacKey hmacKey)
         {
-            Debug.Assert(chunk != null);
-
             var preambleLength = InitializationVector.Length + WrappedEncryptionKey.Length;
 
             if (chunk.Content.Length < preambleLength)
@@ -68,9 +67,12 @@ namespace Wibblr.Grufs
             buffer.ContentLength = bytesWritten;
 
             // Verify that the chunk is not corrupted using the hmac
-            var computedAddress = new Address(hmacKey, buffer.Bytes, 0, buffer.ContentLength);
+            var computedAddress = new Hmac(hmacKey, buffer.Bytes, 0, buffer.ContentLength);
 
-            if (chunk.Address != computedAddress)
+            var actual = Vector256.Create<byte>(chunk.Address.ToSpan());
+            var computed = Vector256.Create(computedAddress.ToSpan());
+
+            if (!Vector256.EqualsAll<byte>(actual, computed))
             {
                 throw new Exception("Failed to verify chunk - invalid hmac");
             }

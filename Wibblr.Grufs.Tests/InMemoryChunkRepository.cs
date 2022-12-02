@@ -14,9 +14,16 @@ namespace Wibblr.Grufs.Tests
 
         private int totalPuts = 0;
 
-        public bool TryGet(Address address, out EncryptedChunk? chunk)
+        public bool TryGet(Address address, out EncryptedChunk chunk)
         {
-            return _dict.TryGetValue(address, out chunk);
+            if (_dict.ContainsKey(address))
+            {
+                chunk = _dict[address];
+                return true;
+            }
+
+            chunk = default;
+            return false;
         }
 
         public bool TryPut(EncryptedChunk chunk)

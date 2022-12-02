@@ -30,13 +30,13 @@ namespace Wibblr.Grufs.Tests
         [Fact]
         public void AddressShouldBe32Bytes()
         {
-            new Action(() => new Address(new byte[31])).Should().ThrowExactly<ArgumentException>();
+            new Action(() => new Hmac(new byte[31])).Should().ThrowExactly<ArgumentException>();
         }
 
         [Fact]
         public void AddressShouldNotBeNull()
         {
-            new Action(() => new Address(null)).Should().ThrowExactly<ArgumentException>();
+            new Action(() => new Hmac(null)).Should().ThrowExactly<ArgumentException>();
         }
 
         [Fact]
@@ -175,7 +175,12 @@ namespace Wibblr.Grufs.Tests
             var hmacKeyEncryptionKey = new HmacKeyEncryptionKey("0000000000000000000000000000000000000000000000000000000000000000".ToBytes());
             var wrappedHmacKey = hmacKey.Wrap(hmacKeyEncryptionKey);
 
-            var plaintext = "The quick brown fox jumps over the lazy dog.\n".Repeat(99);
+            var plaintext = "";
+            for (int i = 0; i < 99; i++)
+            {
+                plaintext += $"{i} The quick brown fox jumps over the lazy dog {i}\n";
+            }
+
             var plaintextBytes = Encoding.UTF8.GetBytes(plaintext);
 
             var encryptor = new StreamEncryptor();

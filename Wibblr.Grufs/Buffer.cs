@@ -1,9 +1,12 @@
 ﻿using System;
 using System.Text;
 using System.Numerics;
+using System.Diagnostics;
 
 namespace Wibblr.Grufs
 {
+
+    [DebuggerDisplay("{ToString()}")]
     public class Buffer
     {
         public int Capacity { get; set; }
@@ -92,6 +95,14 @@ namespace Wibblr.Grufs
                 throw new Exception();
             }
             return Bytes.AsSpan(offset, length);
+        }
+
+        public override string ToString()
+        {
+            if (ToSpan().ToArray().All(x => char.IsAscii((char)x)))
+                return Encoding.UTF8.GetString(ToSpan());
+
+            return Convert.ToHexString(ToSpan());
         }
     }
 }
