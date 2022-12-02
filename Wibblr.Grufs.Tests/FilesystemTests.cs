@@ -1,15 +1,29 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Data;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Wibblr.Grufs.Tests
 {
     // Filesystem converts stream of updates into hierarchical filesystem
 
     // Filesystem storage converts stream of updates into encrypted chunks
+
+
+    // encrypt directory
+
+    // encrypt filename
+
+    // modify directory metadata
+
+    // modify file metadata
+
+    // move file to different directory
+
+    // delete file
+
+    // show history
+
+    // restore deleted file
+
+    // make historic snapshot available
 
     record DirectoryUpdate
     {

@@ -38,7 +38,7 @@ namespace Wibblr.Grufs
 
         bool IChunkRepository.TryPut(EncryptedChunk chunk)
         {
-            return Upload(GeneratePath(chunk.Address.ToString()), chunk.Content, false);
+            return Upload(GeneratePath(chunk.Address.ToString()), chunk.Content, true);
         }
 
         bool IChunkRepository.TryGet(Address address, out EncryptedChunk chunk)

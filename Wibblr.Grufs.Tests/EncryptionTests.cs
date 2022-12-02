@@ -203,23 +203,5 @@ namespace Wibblr.Grufs.Tests
 
             Console.WriteLine("Dedup ratio: " + repository.DeduplicationRatio);
         }
-
-        // encrypt directory
-
-        // encrypt filename
-
-        // modify directory metadata
-
-        // modify file metadata
-
-        // move file to different directory
-
-        // delete file
-
-        // show history
-
-        // restore deleted file
-
-        // make historic snapshot available
     }
 }
