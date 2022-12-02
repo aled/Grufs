@@ -10,9 +10,10 @@ using Renci.SshNet;
 
 namespace Wibblr.Grufs
 {
-    public class SftpStorage : IFileStorage
+    public class SftpStorage : IFileStorage, IDisposable
     {
         private string _host, _username, _password, _baseDir;
+        private SftpClient _client;
 
         public SftpStorage(string host, string username, string password, string baseDir)
         {
@@ -22,37 +23,52 @@ namespace Wibblr.Grufs
             _baseDir = baseDir;
         }
 
-        public byte[] Download(string path)
+        public void EnsureConnected()
         {
-            var fullPath = Path.Combine(_baseDir, path).Replace("\\", "/"); ;
-
-            using (var client = new SftpClient(_host, _username, _password))
+            if (_client== null)
             {
-                client.Connect();
-                return client.ReadAllBytes(fullPath);
+                _client = new SftpClient(_host, _username, _password);
+            }
+
+            if (!_client.IsConnected)
+            {
+                _client.Connect();
             }
         }
 
-        public void Upload(string path, byte[] content)
+        public byte[] Download(string path)
+        {
+            var fullPath = Path.Combine(_baseDir, path).Replace("\\", "/"); ;
+            EnsureConnected();
+            return _client.ReadAllBytes(fullPath);
+        }
+
+        public bool Upload(string path, byte[] content, bool allowOverwrite = false)
         {
             var fullPath = Path.Combine(_baseDir, path).Replace("\\", "/");
-
-            using (var client = new SftpClient(_host, _username, _password))
+            EnsureConnected();
+            
+            if (_client.Exists(fullPath))
             {
-                client.Connect();
-
-                if (!client.Exists(fullPath))
+                if (allowOverwrite)
                 {
-                    foreach (var directory in ((IFileStorage)this).GetParentDirectories(fullPath))
-                    {
-                        if (!client.Exists(directory))
-                            client.CreateDirectory(directory);
-                    }
-                    using (var stream = client.OpenWrite(fullPath))
-                    {
-                        stream.Write(content, 0, content.Length);
-                    }
+                    _client.Delete(fullPath);
                 }
+                else
+                {
+                    return true;
+                }
+            }
+
+            foreach (var directory in ((IFileStorage)this).GetParentDirectories(fullPath))
+            {
+                if (!_client.Exists(directory))
+                    _client.CreateDirectory(directory);
+            }
+            using (var stream = _client.OpenWrite(fullPath))
+            {
+                stream.Write(content, 0, content.Length);
+                return true;
             }
         }
     }
