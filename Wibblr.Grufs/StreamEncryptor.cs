@@ -13,10 +13,9 @@ namespace Wibblr.Grufs
 
         public (Address, ChunkType) EncryptStream(KeyEncryptionKey contentKeyEncryptionKey, WrappedHmacKey wrappedHmacKey, HmacKeyEncryptionKey hmacKeyEncryptionKey, Stream stream, IChunkRepository repository, int chunkSize = 1024 * 1024)
         {
-            IEnumerable<(Buffer, int index, bool isLast)> Chunks(Stream stream, int chunkSize)
+            IEnumerable<Buffer> Chunks(Stream stream, int chunkSize)
             {
                 var buf = new Buffer(chunkSize);
-                var index = 0;
                 var bytesRead = 0;
 
                 while ((bytesRead = stream.Read(buf.Bytes, buf.ContentLength, buf.Capacity - buf.ContentLength)) != 0)
@@ -24,24 +23,14 @@ namespace Wibblr.Grufs
                     buf.ContentLength += bytesRead;
                     if (buf.Capacity == buf.ContentLength)
                     {
-                        // Read one more byte to see if this is the last buffer
-                        int nextByte = stream.ReadByte();
-
-                        yield return (buf, index++, nextByte == -1);
-
-                        if (nextByte == -1)
-                        {
-                            yield break;
-                        }
-
-                        buf.Bytes[0] = (byte)nextByte;
-                        buf.ContentLength = 1;
+                        yield return buf;
+                        buf.ContentLength = 0;
                     }
                 }
 
                 if (buf.ContentLength > 0)
                 {
-                    yield return (buf, index, true);
+                    yield return buf;
                 }
             }
 
@@ -53,13 +42,16 @@ namespace Wibblr.Grufs
             return EncryptChunks(contentKeyEncryptionKey, wrappedHmacKey, hmacKeyEncryptionKey, Chunks(stream, chunkSize), repository, chunkSize);
         }
 
-        private (Address, ChunkType) EncryptChunks(KeyEncryptionKey contentKeyEncryptionKey, WrappedHmacKey wrappedHmacKey, HmacKeyEncryptionKey hmacKeyEncryptionKey, IEnumerable<(Buffer, int index, bool isLast)> buffers, IChunkRepository repository, int chunkSize)
+        private (Address, ChunkType) EncryptChunks(KeyEncryptionKey contentKeyEncryptionKey, WrappedHmacKey wrappedHmacKey, HmacKeyEncryptionKey hmacKeyEncryptionKey, IEnumerable<Buffer> buffers, IChunkRepository repository, int chunkSize)
         {
             var chainBuffers = new List<Buffer> { new Buffer(chunkSize) }; // one for each level of the tree of chains
             var hmacKey = new HmacKey(hmacKeyEncryptionKey, wrappedHmacKey);
+            var totalAddressesStoredInChainBuffers = 0;
 
             void AppendToChainBuffer(Address address, int level)
             {
+                totalAddressesStoredInChainBuffers++;
+
                 var spaceRequired = Address.Length;
 
                 if (spaceRequired > chunkSize)
@@ -130,7 +122,7 @@ namespace Wibblr.Grufs
             }
 
             // Use a different (random) IV and encryption key for each chunk
-            foreach (var (buffer, index, isLast) in buffers)
+            foreach (var buffer in buffers)
             {
                 var encryptedChunk = _chunkEncryptor.EncryptChunk(InitializationVector.Random(), EncryptionKey.Random(), contentKeyEncryptionKey, hmacKey, buffer);
 
@@ -138,11 +130,13 @@ namespace Wibblr.Grufs
                 {
                     throw new Exception("Failed to store chunk in repository");
                 }
-                if (index == 0 && isLast)
-                {
-                    return (encryptedChunk.Address, ChunkType.Content);
-                }
+
                 AppendToChainBuffer(encryptedChunk.Address, level: 0);
+            }
+
+            if (totalAddressesStoredInChainBuffers == 1)
+            {
+                return (new Address(chainBuffers[0].ToSpan(32, Address.Length)), ChunkType.Content);
             }
 
             // write all chain buffers to repository.
