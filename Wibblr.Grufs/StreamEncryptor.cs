@@ -80,7 +80,7 @@ namespace Wibblr.Grufs
                     chainBuffers[level].Append((byte)'c');
                     chainBuffers[level].Append((byte)255);
 
-                    // version
+                    // serialization version
                     chainBuffers[level].Append((byte)0);
 
                     chainBuffers[level].Append((byte)level);

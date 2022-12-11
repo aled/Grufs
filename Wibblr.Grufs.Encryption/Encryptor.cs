@@ -9,7 +9,7 @@ namespace Wibblr.Grufs.Encryption
     public class Encryptor
     {
         private Aes aes = Aes.Create();
-        
+
         public Encryptor()
         {
             aes.Padding = PaddingMode.PKCS7;
