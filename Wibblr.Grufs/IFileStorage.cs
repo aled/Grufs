@@ -36,9 +36,9 @@ namespace Wibblr.Grufs
 
         bool Upload(string path, byte[] content, bool allowOverwrite);
 
-        bool IChunkRepository.TryPut(EncryptedChunk chunk)
+        bool IChunkRepository.TryPut(EncryptedChunk chunk, bool allowOverwrite = true)
         {
-            return Upload(GeneratePath(chunk.Address.ToString()), chunk.Content, true);
+            return Upload(GeneratePath(chunk.Address.ToString()), chunk.Content, allowOverwrite);
         }
 
         bool IChunkRepository.TryGet(Address address, out EncryptedChunk chunk)

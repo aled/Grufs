@@ -60,7 +60,7 @@ namespace Wibblr.Grufs
             }
             using (var stream = _client.OpenWrite(fullPath))
             {
-                stream.WriteAsync(content, 0, content.Length);
+                stream.Write(content, 0, content.Length);
                 return true;
             }
         }

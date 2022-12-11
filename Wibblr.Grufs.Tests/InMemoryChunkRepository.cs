@@ -25,10 +25,17 @@ namespace Wibblr.Grufs.Tests
             return false;
         }
 
-        public bool TryPut(EncryptedChunk chunk)
+        public bool TryPut(EncryptedChunk chunk, bool allowOverwrite)
         {
             totalPuts++;
+
+            if (_dict.ContainsKey(chunk.Address) && !allowOverwrite) 
+            {
+                return false;
+            }
+
             _dict[chunk.Address] = chunk;
+
             return true;
         }
 

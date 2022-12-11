@@ -53,23 +53,21 @@ namespace Wibblr.Grufs.Tests
             var hmacKey = new HmacKey("0000000000000000000000000000000000000000000000000000000000000000".ToBytes());
             var hmacKeyEncryptionKey = new HmacKeyEncryptionKey("0000000000000000000000000000000000000000000000000000000000000000".ToBytes());
             var wrappedHmacKey = hmacKey.Wrap(hmacKeyEncryptionKey);
-
             var plaintext = "The quick brown fox jumps over the lazy dog.\n".Repeat(10); // approx 450KB
-
             var plaintextBytes = Encoding.UTF8.GetBytes(plaintext);
 
             var encryptor = new StreamEncryptor();
-
             var stream = new MemoryStream(plaintextBytes);
-
-            var repository = GetSftpStorage("grufs");
-
-            var (address, type) = encryptor.EncryptStream(keyEncryptionKey, wrappedHmacKey, hmacKeyEncryptionKey, stream, repository, 128);
-
             var decryptedStream = new MemoryStream();
-            foreach (var decryptedBuffer in encryptor.Decrypt(type, keyEncryptionKey, hmacKey, address, repository))
+
+            using (var repository = GetSftpStorage("grufs"))
             {
-                decryptedStream.Write(decryptedBuffer.ToSpan());
+                var (address, type) = encryptor.EncryptStream(keyEncryptionKey, wrappedHmacKey, hmacKeyEncryptionKey, stream, repository, 128);
+
+                foreach (var decryptedBuffer in encryptor.Decrypt(type, keyEncryptionKey, hmacKey, address, repository))
+                {
+                    decryptedStream.Write(decryptedBuffer.ToSpan());
+                }
             }
 
             var decryptedText = Encoding.UTF8.GetString(decryptedStream.ToArray());

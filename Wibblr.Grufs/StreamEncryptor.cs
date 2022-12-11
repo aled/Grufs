@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
 using Wibblr.Grufs.Encryption;
@@ -11,7 +12,7 @@ namespace Wibblr.Grufs
     {
         private ChunkEncryptor _chunkEncryptor = new ChunkEncryptor();
 
-        public (Address, ChunkType) EncryptStream(KeyEncryptionKey contentKeyEncryptionKey, WrappedHmacKey wrappedHmacKey, HmacKeyEncryptionKey hmacKeyEncryptionKey, Stream stream, IChunkRepository repository, int chunkSize = 1024 * 1024)
+        public (Address, ChunkType) EncryptStream(KeyEncryptionKey contentKeyEncryptionKey, WrappedHmacKey wrappedHmacKey, HmacKeyEncryptionKey hmacKeyEncryptionKey, Stream stream, IChunkRepository repository, int chunkSize = 128 * 1024)
         {
             IEnumerable<Buffer> Chunks(Stream stream, int chunkSize)
             {
@@ -92,10 +93,7 @@ namespace Wibblr.Grufs
 
             void WriteChainBuffer(int level)
             {
-                if (chainBuffers.Count <= level)
-                {
-                    chainBuffers[level] = new Buffer(chunkSize);
-                }
+                Debug.Assert(chainBuffers.Count > level);
 
                 if (chainBuffers[level].ContentLength == 0)
                 {
@@ -103,7 +101,7 @@ namespace Wibblr.Grufs
                 }
 
                 var chainChunk = _chunkEncryptor.EncryptChunk(InitializationVector.Random(), EncryptionKey.Random(), contentKeyEncryptionKey, hmacKey, chainBuffers[level]);
-                if (!repository.TryPut(chainChunk))
+                if (!repository.TryPut(chainChunk, true))
                 {
                     throw new Exception("Failed to store chunk in repository");
                 }
@@ -114,7 +112,7 @@ namespace Wibblr.Grufs
             Address WriteLastChainBuffer()
             {
                 var chainChunk = _chunkEncryptor.EncryptChunk(InitializationVector.Random(), EncryptionKey.Random(), contentKeyEncryptionKey, hmacKey, chainBuffers[chainBuffers.Count - 1]);
-                if (!repository.TryPut(chainChunk))
+                if (!repository.TryPut(chainChunk, true))
                 {
                     throw new Exception("Failed to store chunk in repository");
                 }
@@ -126,7 +124,7 @@ namespace Wibblr.Grufs
             {
                 var encryptedChunk = _chunkEncryptor.EncryptChunk(InitializationVector.Random(), EncryptionKey.Random(), contentKeyEncryptionKey, hmacKey, buffer);
 
-                if (!repository.TryPut(encryptedChunk))
+                if (!repository.TryPut(encryptedChunk, true))
                 {
                     throw new Exception("Failed to store chunk in repository");
                 }
@@ -182,7 +180,7 @@ namespace Wibblr.Grufs
                 subchunkType = (ChunkType)buffer[6];
                 if (subchunkType != ChunkType.Chain && subchunkType != ChunkType.Content)
                 {
-                    throw new Exception();
+                    throw new Exception($"Unknown chunk type: {subchunkType}");
                 }
 
                 for (int i = 32; i < buffer.ContentLength; i += Address.Length)
