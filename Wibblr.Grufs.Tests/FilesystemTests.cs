@@ -64,7 +64,7 @@ namespace Wibblr.Grufs.Tests
         {
             // start with an empty filesystem
             // add root directory
-            var repository = new InMemoryChunkRepository();
+            var repository = new InMemoryChunkStorage();
 
 
             //var versionedFilesystem = new VersionedFilesystem(repository);

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.Intrinsics;
 using System.Security.Cryptography;
 
 namespace Wibblr.Grufs.Encryption
@@ -16,7 +17,14 @@ namespace Wibblr.Grufs.Encryption
             aes.KeySize = EncryptionKey.Length * 8;
         }
 
-        public int CiphertextLength(int plaintextLength) => aes.GetCiphertextLengthCbc(plaintextLength);
+        public int CiphertextLength(int plaintextLength) => aes.GetCiphertextLengthCbc(plaintextLength + Checksum.Length);
+
+        public byte[] Encrypt(ReadOnlySpan<byte> plaintext, InitializationVector iv, EncryptionKey key)
+        {
+            var ciphertext = new byte[CiphertextLength(plaintext.Length)];
+            Encrypt(plaintext, iv, key, ciphertext);
+            return ciphertext;
+        }
 
         public void Encrypt(ReadOnlySpan<byte> plaintext, InitializationVector iv, EncryptionKey key, Span<byte> destination)
         {
@@ -26,10 +34,23 @@ namespace Wibblr.Grufs.Encryption
             }
 
             aes.Key = key.Value;
-            if (!aes.TryEncryptCbc(plaintext, iv.Value, destination, out _))
+
+            var checksum = Checksum.Builder.Build(plaintext);
+            var source = new byte[plaintext.Length + Checksum.Length];
+            plaintext.CopyTo(source);
+            checksum.ToSpan().CopyTo(source.AsSpan(plaintext.Length));
+
+            if (!aes.TryEncryptCbc(source, iv.Value, destination, out _))
             {
                 throw new Exception("Error during encryption");
             }
+        }
+
+        public Span<byte> Decrypt(ReadOnlySpan<byte> ciphertext, InitializationVector iv, EncryptionKey key)
+        {
+            var bytes = new byte[MaxPlaintextLength(ciphertext.Length)];
+            var bytesWritten = Decrypt(ciphertext, iv, key, bytes);
+            return bytes.AsSpan(0, bytesWritten);
         }
 
         /// <summary>
@@ -38,17 +59,29 @@ namespace Wibblr.Grufs.Encryption
         /// </summary>
         /// <param name="ciphertextLength"></param>
         /// <returns></returns>
-        public int MaxPlaintextLength(int ciphertextLength) => ciphertextLength - 1;
+        public int MaxPlaintextLength(int ciphertextLength) => ciphertextLength - 1 - Checksum.Length;
 
         public int Decrypt(ReadOnlySpan<byte> ciphertext, InitializationVector iv, EncryptionKey key, Span<byte> destination)
         {
+            var temp = new byte[MaxPlaintextLength(ciphertext.Length + Checksum.Length)];
+
             aes.Key = key.Value;
-            if (!aes.TryDecryptCbc(ciphertext, iv.Value, destination, out int bytesWritten))
+            if (!aes.TryDecryptCbc(ciphertext, iv.Value, temp, out int bytesWritten))
             {
                 throw new Exception("Failed to decrypt");
             }
 
-            return bytesWritten;
+            var calculatedChecksum = Checksum.Builder.Build(temp.AsSpan(0, bytesWritten - Checksum.Length));
+            var checksum = new Checksum(temp.AsSpan(bytesWritten - Checksum.Length, Checksum.Length));
+
+            if (!checksum.Equals(calculatedChecksum))
+            {
+                throw new Exception("Failed to decrypt - checksum mismatch");
+            }
+
+            temp.AsSpan(0, bytesWritten - Checksum.Length).CopyTo(destination);
+
+            return bytesWritten - Checksum.Length;
         }
     }
 }

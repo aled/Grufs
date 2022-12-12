@@ -56,15 +56,16 @@ namespace Wibblr.Grufs.Tests
             var plaintext = "The quick brown fox jumps over the lazy dog.\n".Repeat(10); // approx 450KB
             var plaintextBytes = Encoding.UTF8.GetBytes(plaintext);
 
-            var encryptor = new StreamEncryptor();
+            
             var stream = new MemoryStream(plaintextBytes);
             var decryptedStream = new MemoryStream();
 
-            using (var repository = GetSftpStorage("grufs"))
+            using (var chunkStorage = GetSftpStorage("grufs"))
             {
-                var (address, type) = encryptor.EncryptStream(keyEncryptionKey, wrappedHmacKey, hmacKeyEncryptionKey, stream, repository, 128);
+                var streamStorage = new StreamStorage(chunkStorage);
+                var (address, type) = streamStorage.EncryptStream(keyEncryptionKey, wrappedHmacKey, hmacKeyEncryptionKey, stream);
 
-                foreach (var decryptedBuffer in encryptor.Decrypt(type, keyEncryptionKey, hmacKey, address, repository))
+                foreach (var decryptedBuffer in streamStorage.Decrypt(type, keyEncryptionKey, hmacKey, address))
                 {
                     decryptedStream.Write(decryptedBuffer.ToSpan());
                 }

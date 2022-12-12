@@ -2,7 +2,7 @@
 
 namespace Wibblr.Grufs
 {
-    public interface IFileStorage : IChunkRepository
+    public interface IFileStorage : IChunkStorage
     {
         IEnumerable<string> GetParentDirectories(string path)
         {
@@ -36,12 +36,12 @@ namespace Wibblr.Grufs
 
         bool Upload(string path, byte[] content, bool allowOverwrite);
 
-        bool IChunkRepository.TryPut(EncryptedChunk chunk, bool allowOverwrite = true)
+        bool IChunkStorage.TryPut(EncryptedChunk chunk, bool allowOverwrite = true)
         {
             return Upload(GeneratePath(chunk.Address.ToString()), chunk.Content, allowOverwrite);
         }
 
-        bool IChunkRepository.TryGet(Address address, out EncryptedChunk chunk)
+        bool IChunkStorage.TryGet(Address address, out EncryptedChunk chunk)
         {
             chunk = new EncryptedChunk(address, Download(GeneratePath(address.ToString())));
             return true;

@@ -98,7 +98,7 @@ namespace Wibblr.Grufs.Tests
 
             var chunk = encryptor.EncryptChunk(iv, key, keyEncryptionKey, hmacKey, new Buffer(plaintext));
 
-            var decryptedCiphertext = Encoding.ASCII.GetString(encryptor.DecryptChunk(chunk, keyEncryptionKey, hmacKey).ToSpan());
+            var decryptedCiphertext = Encoding.ASCII.GetString(encryptor.DecryptChunkAndVerifyAddress(chunk, keyEncryptionKey, hmacKey).ToSpan());
 
             Console.WriteLine($"plaintext: {plaintext}");
             Console.WriteLine($"address:   {chunk.Address}");
@@ -124,7 +124,7 @@ namespace Wibblr.Grufs.Tests
 
             var chunk = encryptor.EncryptChunk(iv, key, keyEncryptionKey, hmacKey, buffer);
 
-            var decryptedCiphertext = Encoding.ASCII.GetString(encryptor.DecryptChunk(chunk, keyEncryptionKey, hmacKey).ToSpan());
+            var decryptedCiphertext = Encoding.ASCII.GetString(encryptor.DecryptChunkAndVerifyAddress(chunk, keyEncryptionKey, hmacKey).ToSpan());
 
             Console.WriteLine($"plaintext: {plaintext}");
             Console.WriteLine($"address:   0x{chunk.Address}");
@@ -146,17 +146,17 @@ namespace Wibblr.Grufs.Tests
 
             var plaintextBytes = Encoding.UTF8.GetBytes(plaintext);
 
-            var encryptor = new StreamEncryptor();
+            var chunkStorage = new InMemoryChunkStorage();
+            var streamStorage = new StreamStorage(chunkStorage, 128);
 
             var stream = new MemoryStream(plaintextBytes);
 
-            var repository = new InMemoryChunkRepository();
-            var (address, type) = encryptor.EncryptStream(keyEncryptionKey, wrappedHmacKey, hmacKeyEncryptionKey, stream, repository, 128);
+            var (address, type) = streamStorage.EncryptStream(keyEncryptionKey, wrappedHmacKey, hmacKeyEncryptionKey, stream);
 
-            repository.Count().Should().Be(1);
+            chunkStorage.Count().Should().Be(1);
 
             var decryptedStream = new MemoryStream();
-            foreach (var decryptedBuffer in encryptor.Decrypt(type, keyEncryptionKey, hmacKey, address, repository))
+            foreach (var decryptedBuffer in streamStorage.Decrypt(type, keyEncryptionKey, hmacKey, address))
             {
                 decryptedStream.Write(decryptedBuffer.ToSpan());
             }
@@ -170,7 +170,7 @@ namespace Wibblr.Grufs.Tests
         [Fact]
         public void EncryptStreamMultipleLevelsOfChain()
         {
-            var keyEncryptionKey = new KeyEncryptionKey("0000000000000000000000000000000000000000000000000000000000000000".ToBytes());           
+            var keyEncryptionKey = new KeyEncryptionKey("0000000000000000000000000000000000000000000000000000000000000000".ToBytes());
             var hmacKey = new HmacKey("0000000000000000000000000000000000000000000000000000000000000000".ToBytes());
             var hmacKeyEncryptionKey = new HmacKeyEncryptionKey("0000000000000000000000000000000000000000000000000000000000000000".ToBytes());
             var wrappedHmacKey = hmacKey.Wrap(hmacKeyEncryptionKey);
@@ -183,16 +183,17 @@ namespace Wibblr.Grufs.Tests
 
             var plaintextBytes = Encoding.UTF8.GetBytes(plaintext);
 
-            var encryptor = new StreamEncryptor();
-            
+            var chunkStorage = new InMemoryChunkStorage();
+            var streamStorage = new StreamStorage(chunkStorage, 128);
+
             var stream = new MemoryStream(plaintextBytes);
 
-            var repository = new InMemoryChunkRepository();
-            var (address, type) = encryptor.EncryptStream(keyEncryptionKey, wrappedHmacKey, hmacKeyEncryptionKey, stream, repository, 128);
+            var repository = new InMemoryChunkStorage();
+            var (address, type) = streamStorage.EncryptStream(keyEncryptionKey, wrappedHmacKey, hmacKeyEncryptionKey, stream);
 
             var decryptedStream = new MemoryStream();
             
-            foreach (var decryptedBuffer in encryptor.Decrypt(type, keyEncryptionKey, hmacKey, address, repository))
+            foreach (var decryptedBuffer in streamStorage.Decrypt(type, keyEncryptionKey, hmacKey, address))
             {
                 decryptedStream.Write(decryptedBuffer.ToSpan());
             }

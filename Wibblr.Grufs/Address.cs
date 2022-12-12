@@ -8,7 +8,7 @@ namespace Wibblr.Grufs
     {
         public static readonly int Length = 32;
 
-        public byte[] _value { get; init; } = new byte[Length];
+        private byte[] _value { get; init; } = new byte[Length];
 
         public Address(ReadOnlySpan<byte> value)
         {

@@ -4,23 +4,29 @@ using System.Security.Cryptography;
 namespace Wibblr.Grufs.Encryption
 {
     [DebuggerDisplay("{ToString()}")]
-    public record struct KeyEncryptionKey
+    public record struct Salt
     {
-        public static readonly int Length = 32;
+        public static readonly int Length = 16;
 
         internal byte[] Value { get; private init; }
 
-        public KeyEncryptionKey(ReadOnlySpan<byte> value)
+        public static Salt Random() => new Salt(RandomNumberGenerator.GetBytes(Length));
+
+        private Salt(byte[] value)
+        {
+            Value = value;
+        }
+
+        public Salt(ReadOnlySpan<byte> value)
         {
             if (value.Length != Length)
             {
-                throw new ArgumentException($"Invalid key encryption key length (expected {Length}, was {value.Length})");
+                throw new ArgumentException($"Invalid salt length (expected {Length}, was {value.Length})");
             }
+
             Value = new byte[Length];
             value.CopyTo(Value);
         }
-
-        public static KeyEncryptionKey Random() => new KeyEncryptionKey(RandomNumberGenerator.GetBytes(Length));
 
         public ReadOnlySpan<byte> ToSpan() => new ReadOnlySpan<byte>(Value);
 

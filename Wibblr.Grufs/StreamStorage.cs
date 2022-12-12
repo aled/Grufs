@@ -8,11 +8,24 @@ using Wibblr.Grufs.Encryption;
 
 namespace Wibblr.Grufs
 {
-    public class StreamEncryptor
+    public class StreamStorage
     {
         private ChunkEncryptor _chunkEncryptor = new ChunkEncryptor();
+        private IChunkStorage _chunkStorage;
+        private int _chunkSize;
 
-        public (Address, ChunkType) EncryptStream(KeyEncryptionKey contentKeyEncryptionKey, WrappedHmacKey wrappedHmacKey, HmacKeyEncryptionKey hmacKeyEncryptionKey, Stream stream, IChunkRepository repository, int chunkSize = 128 * 1024)
+        public StreamStorage(IChunkStorage chunkStorage, int chunkSize = 128 * 1024)
+        {
+            if (chunkSize < 128)
+            {
+                throw new ArgumentOutOfRangeException(nameof(chunkSize));
+            }
+
+            _chunkStorage = chunkStorage;
+            _chunkSize = chunkSize;
+        }
+
+        public (Address, ChunkType) EncryptStream(KeyEncryptionKey contentKeyEncryptionKey, WrappedHmacKey wrappedHmacKey, HmacKeyEncryptionKey hmacKeyEncryptionKey, Stream stream)
         {
             IEnumerable<Buffer> Chunks(Stream stream, int chunkSize)
             {
@@ -35,17 +48,12 @@ namespace Wibblr.Grufs
                 }
             }
 
-            if (chunkSize < 128)
-            {
-                throw new ArgumentOutOfRangeException(nameof(chunkSize));
-            }
-
-            return EncryptChunks(contentKeyEncryptionKey, wrappedHmacKey, hmacKeyEncryptionKey, Chunks(stream, chunkSize), repository, chunkSize);
+            return EncryptChunks(contentKeyEncryptionKey, wrappedHmacKey, hmacKeyEncryptionKey, Chunks(stream, _chunkSize));
         }
 
-        private (Address, ChunkType) EncryptChunks(KeyEncryptionKey contentKeyEncryptionKey, WrappedHmacKey wrappedHmacKey, HmacKeyEncryptionKey hmacKeyEncryptionKey, IEnumerable<Buffer> buffers, IChunkRepository repository, int chunkSize)
+        private (Address, ChunkType) EncryptChunks(KeyEncryptionKey contentKeyEncryptionKey, WrappedHmacKey wrappedHmacKey, HmacKeyEncryptionKey hmacKeyEncryptionKey, IEnumerable<Buffer> buffers)
         {
-            var chainBuffers = new List<Buffer> { new Buffer(chunkSize) }; // one for each level of the tree of chains
+            var chainBuffers = new List<Buffer> { new Buffer(_chunkSize) }; // one for each level of the tree of chains
             var hmacKey = new HmacKey(hmacKeyEncryptionKey, wrappedHmacKey);
             var totalAddressesStoredInChainBuffers = 0;
 
@@ -55,21 +63,21 @@ namespace Wibblr.Grufs
 
                 var spaceRequired = Address.Length;
 
-                if (spaceRequired > chunkSize)
+                if (spaceRequired > _chunkSize)
                 {
-                    throw new ArgumentException(nameof(chunkSize));
+                    throw new ArgumentException(nameof(_chunkSize));
                 }
 
                 if (chainBuffers.Count <= level)
                 {
-                    chainBuffers.Add(new Buffer(chunkSize));
+                    chainBuffers.Add(new Buffer(_chunkSize));
                 }
 
                 var spaceAvailable = chainBuffers[level].Capacity - chainBuffers[level].ContentLength;
                 if (spaceAvailable < spaceRequired)
                 {
                     WriteChainBuffer(level);
-                    chainBuffers[level] = new Buffer(chunkSize);
+                    chainBuffers[level] = new Buffer(_chunkSize);
                 }
 
                 if (chainBuffers[level].ContentLength == 0)
@@ -101,7 +109,7 @@ namespace Wibblr.Grufs
                 }
 
                 var chainChunk = _chunkEncryptor.EncryptChunk(InitializationVector.Random(), EncryptionKey.Random(), contentKeyEncryptionKey, hmacKey, chainBuffers[level]);
-                if (!repository.TryPut(chainChunk, true))
+                if (!_chunkStorage.TryPut(chainChunk, true))
                 {
                     throw new Exception("Failed to store chunk in repository");
                 }
@@ -112,7 +120,7 @@ namespace Wibblr.Grufs
             Address WriteLastChainBuffer()
             {
                 var chainChunk = _chunkEncryptor.EncryptChunk(InitializationVector.Random(), EncryptionKey.Random(), contentKeyEncryptionKey, hmacKey, chainBuffers[chainBuffers.Count - 1]);
-                if (!repository.TryPut(chainChunk, true))
+                if (!_chunkStorage.TryPut(chainChunk, true))
                 {
                     throw new Exception("Failed to store chunk in repository");
                 }
@@ -124,7 +132,7 @@ namespace Wibblr.Grufs
             {
                 var encryptedChunk = _chunkEncryptor.EncryptChunk(InitializationVector.Random(), EncryptionKey.Random(), contentKeyEncryptionKey, hmacKey, buffer);
 
-                if (!repository.TryPut(encryptedChunk, true))
+                if (!_chunkStorage.TryPut(encryptedChunk, true))
                 {
                     throw new Exception("Failed to store chunk in repository");
                 }
@@ -146,15 +154,15 @@ namespace Wibblr.Grufs
             return (WriteLastChainBuffer(), ChunkType.Chain);
         }
 
-        public IEnumerable<Buffer> Decrypt(ChunkType type, KeyEncryptionKey contentKeyEncryptionKey, HmacKey hmacKey, Address address, IChunkRepository repository)
+        public IEnumerable<Buffer> Decrypt(ChunkType type, KeyEncryptionKey contentKeyEncryptionKey, HmacKey hmacKey, Address address)
         {
             //Console.WriteLine("Decrypt: " + address.ToString());
-            if (!repository.TryGet(address, out var chunk))
+            if (!_chunkStorage.TryGet(address, out var chunk))
             {
                 throw new Exception($"Address {address} not found in repository");
             }
 
-            var buffer = _chunkEncryptor.DecryptChunk(chunk, contentKeyEncryptionKey, hmacKey);
+            var buffer = _chunkEncryptor.DecryptChunkAndVerifyAddress(chunk, contentKeyEncryptionKey, hmacKey);
 
             if (type == ChunkType.Content)
             {
@@ -187,7 +195,7 @@ namespace Wibblr.Grufs
                 {
                     var subchunkAddress = new Address(buffer.ToSpan(i, Address.Length));
 
-                    foreach (var x in Decrypt(subchunkType, contentKeyEncryptionKey, hmacKey, subchunkAddress, repository))
+                    foreach (var x in Decrypt(subchunkType, contentKeyEncryptionKey, hmacKey, subchunkAddress))
                     {
                         yield return x;
                     }

@@ -51,7 +51,7 @@ namespace Wibblr.Grufs
             return this;
         }
 
-        public void Append(ReadOnlySpan<byte> bytes)
+        public Buffer Append(ReadOnlySpan<byte> bytes)
         {
             if (ContentLength + bytes.Length > Capacity)
             {
@@ -62,9 +62,11 @@ namespace Wibblr.Grufs
             bytes.CopyTo(destination);
 
             ContentLength = ContentLength + bytes.Length;
+            
+            return this;
         }
 
-        public void Append(byte b)
+        public Buffer Append(byte b)
         {
             if (ContentLength + 1 > Capacity)
             {
@@ -73,6 +75,21 @@ namespace Wibblr.Grufs
 
             Bytes[ContentLength] = b;
             ContentLength = ContentLength + 1;
+
+            return this;
+        }
+
+        public Buffer Append(int i)
+        {
+            if (ContentLength + 4 > Capacity)
+            {
+                throw new Exception("buffer overflow");
+            }
+
+            ((IBinaryInteger<int>)i).WriteBigEndian(Bytes, ContentLength);
+            ContentLength += 4;
+
+            return this;
         }
 
         public void Append(UInt128 i)

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Security.Cryptography;
 
 using RFC3394;
 
@@ -11,6 +12,11 @@ namespace Wibblr.Grufs.Encryption
         public static readonly int Length = 32;
 
         internal byte[] Value { get; private init; }
+
+        public static HmacKey Random()
+        {
+            return new HmacKey(RandomNumberGenerator.GetBytes(Length));
+        }
 
         public HmacKey(ReadOnlySpan<byte> value)
         {
@@ -34,6 +40,8 @@ namespace Wibblr.Grufs.Encryption
         }
 
         public WrappedHmacKey Wrap(HmacKeyEncryptionKey kek) => new WrappedHmacKey(new RFC3394Algorithm().Wrap(kek.Value, Value));
+
+        public ReadOnlySpan<byte> ToSpan() => new ReadOnlySpan<byte>(Value);
 
         public override string ToString() => Convert.ToHexString(Value);
     }
