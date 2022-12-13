@@ -4,6 +4,8 @@ namespace Wibblr.Grufs
 {
     public interface IFileStorage : IChunkStorage
     {
+        IFileStorage WithBaseDir(string baseDir);
+
         IEnumerable<string> GetParentDirectories(string path)
         {
             int lastSeparator = -1;
@@ -32,18 +34,62 @@ namespace Wibblr.Grufs
                 key.AsSpan().CopyTo(chars.Slice(6));
             });
         }
-        byte[] Download(string path);
+        bool TryDownload(string path, out byte[] bytes);
 
-        bool Upload(string path, byte[] content, bool allowOverwrite);
+        bool Upload(string path, byte[] content, OverwriteStrategy overwrite);
 
-        bool IChunkStorage.TryPut(EncryptedChunk chunk, bool allowOverwrite = true)
+        bool Exists(string path);
+
+        IEnumerable<string> ListFiles(string path);
+
+        bool IChunkStorage.Exists(Address address)
         {
-            return Upload(GeneratePath(chunk.Address.ToString()), chunk.Content, allowOverwrite);
+            var path = GeneratePath(address.ToString());
+
+            return Exists(path);
+        }
+
+        IEnumerable<Address> IChunkStorage.ListAddresses()
+        {
+            foreach (var path in ListFiles(""))
+            {
+                var dirs = path.Split('/');
+                if (dirs.Length == 3)
+                {
+                    if (dirs[0] == dirs[2].Substring(0, 2) && dirs[1] == dirs[2].Substring(2, 2))
+                    {
+                        if (dirs[2].Length == Address.Length * 2)
+                        {
+                            byte[]? bytes = null;
+                            try
+                            {
+                                bytes = Convert.FromHexString(dirs[2]);
+                            }
+                            catch (Exception) { }
+
+                            if (bytes != null) yield return new Address(bytes);
+                        }
+                    }
+                }
+            }
+        }
+
+        bool IChunkStorage.TryPut(EncryptedChunk chunk, OverwriteStrategy overwrite)
+        {
+            return Upload(GeneratePath(chunk.Address.ToString()), chunk.Content, overwrite);
         }
 
         bool IChunkStorage.TryGet(Address address, out EncryptedChunk chunk)
         {
-            chunk = new EncryptedChunk(address, Download(GeneratePath(address.ToString())));
+            var path = GeneratePath(address.ToString());
+
+            if (!TryDownload(path, out var bytes))
+            {
+                chunk = default;
+                return false;
+            }
+             
+            chunk = new EncryptedChunk(address, bytes);
             return true;
         }
     }

@@ -23,7 +23,17 @@ namespace Wibblr.Grufs.Encryption
             value.CopyTo(Value);
         }
 
-        public Hmac(HmacKey hmacKey, byte[] buffer, int offset, int count)
+        public Hmac(HmacKey hmacKey, ReadOnlySpan<byte> buffer)
+        {
+            Value= new byte[Length];
+
+            if (!new HMACSHA256(hmacKey.Value).TryComputeHash(buffer, Value, out _))
+            {
+                throw new Exception();
+            }
+        }
+
+        public Hmac(HmacKey hmacKey, byte[] buffer, int offset = 0, int count = -1)
         {
             Value = new HMACSHA256(hmacKey.Value).ComputeHash(buffer, offset, count);
         }

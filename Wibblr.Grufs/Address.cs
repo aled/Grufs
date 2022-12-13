@@ -1,6 +1,8 @@
 ﻿using System.Diagnostics;
 using System.Runtime.Intrinsics;
 
+using Wibblr.Grufs.Encryption;
+
 namespace Wibblr.Grufs
 {
     [DebuggerDisplay("{ToString()}")]
@@ -8,7 +10,7 @@ namespace Wibblr.Grufs
     {
         public static readonly int Length = 32;
 
-        private byte[] _value { get; init; } = new byte[Length];
+        private byte[] _value { get; init; }
 
         public Address(ReadOnlySpan<byte> value)
         {
@@ -19,7 +21,12 @@ namespace Wibblr.Grufs
                 throw new ArgumentException($"Invalid address length (expected {Length}, was {value.Length}");
             }
 
+            _value = new byte[Length];
             value.CopyTo(_value);
+        }
+
+        public Address(Hmac hmac) : this(hmac.ToSpan())
+        {
         }
 
         public bool Equals(Address other) => Vector256.EqualsAll(Vector256.Create(_value), Vector256.Create(other._value));

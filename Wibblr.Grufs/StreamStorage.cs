@@ -25,7 +25,7 @@ namespace Wibblr.Grufs
             _chunkSize = chunkSize;
         }
 
-        public (Address, ChunkType) EncryptStream(KeyEncryptionKey contentKeyEncryptionKey, WrappedHmacKey wrappedHmacKey, HmacKeyEncryptionKey hmacKeyEncryptionKey, Stream stream)
+        public (Address, ChunkType) Write(KeyEncryptionKey contentKeyEncryptionKey, WrappedHmacKey wrappedHmacKey, HmacKeyEncryptionKey hmacKeyEncryptionKey, Stream stream)
         {
             IEnumerable<Buffer> Chunks(Stream stream, int chunkSize)
             {
@@ -48,10 +48,10 @@ namespace Wibblr.Grufs
                 }
             }
 
-            return EncryptChunks(contentKeyEncryptionKey, wrappedHmacKey, hmacKeyEncryptionKey, Chunks(stream, _chunkSize));
+            return WriteChunks(contentKeyEncryptionKey, wrappedHmacKey, hmacKeyEncryptionKey, Chunks(stream, _chunkSize));
         }
 
-        private (Address, ChunkType) EncryptChunks(KeyEncryptionKey contentKeyEncryptionKey, WrappedHmacKey wrappedHmacKey, HmacKeyEncryptionKey hmacKeyEncryptionKey, IEnumerable<Buffer> buffers)
+        private (Address, ChunkType) WriteChunks(KeyEncryptionKey contentKeyEncryptionKey, WrappedHmacKey wrappedHmacKey, HmacKeyEncryptionKey hmacKeyEncryptionKey, IEnumerable<Buffer> buffers)
         {
             var chainBuffers = new List<Buffer> { new Buffer(_chunkSize) }; // one for each level of the tree of chains
             var hmacKey = new HmacKey(hmacKeyEncryptionKey, wrappedHmacKey);
@@ -109,7 +109,7 @@ namespace Wibblr.Grufs
                 }
 
                 var chainChunk = _chunkEncryptor.EncryptChunk(InitializationVector.Random(), EncryptionKey.Random(), contentKeyEncryptionKey, hmacKey, chainBuffers[level]);
-                if (!_chunkStorage.TryPut(chainChunk, true))
+                if (!_chunkStorage.TryPut(chainChunk, OverwriteStrategy.Allow))
                 {
                     throw new Exception("Failed to store chunk in repository");
                 }
@@ -120,7 +120,7 @@ namespace Wibblr.Grufs
             Address WriteLastChainBuffer()
             {
                 var chainChunk = _chunkEncryptor.EncryptChunk(InitializationVector.Random(), EncryptionKey.Random(), contentKeyEncryptionKey, hmacKey, chainBuffers[chainBuffers.Count - 1]);
-                if (!_chunkStorage.TryPut(chainChunk, true))
+                if (!_chunkStorage.TryPut(chainChunk, OverwriteStrategy.Allow))
                 {
                     throw new Exception("Failed to store chunk in repository");
                 }
@@ -132,7 +132,7 @@ namespace Wibblr.Grufs
             {
                 var encryptedChunk = _chunkEncryptor.EncryptChunk(InitializationVector.Random(), EncryptionKey.Random(), contentKeyEncryptionKey, hmacKey, buffer);
 
-                if (!_chunkStorage.TryPut(encryptedChunk, true))
+                if (!_chunkStorage.TryPut(encryptedChunk, OverwriteStrategy.Allow))
                 {
                     throw new Exception("Failed to store chunk in repository");
                 }
@@ -154,9 +154,8 @@ namespace Wibblr.Grufs
             return (WriteLastChainBuffer(), ChunkType.Chain);
         }
 
-        public IEnumerable<Buffer> Decrypt(ChunkType type, KeyEncryptionKey contentKeyEncryptionKey, HmacKey hmacKey, Address address)
+        public IEnumerable<Buffer> Read(ChunkType type, KeyEncryptionKey contentKeyEncryptionKey, HmacKey hmacKey, Address address)
         {
-            //Console.WriteLine("Decrypt: " + address.ToString());
             if (!_chunkStorage.TryGet(address, out var chunk))
             {
                 throw new Exception($"Address {address} not found in repository");
@@ -195,7 +194,7 @@ namespace Wibblr.Grufs
                 {
                     var subchunkAddress = new Address(buffer.ToSpan(i, Address.Length));
 
-                    foreach (var x in Decrypt(subchunkType, contentKeyEncryptionKey, hmacKey, subchunkAddress))
+                    foreach (var x in Read(subchunkType, contentKeyEncryptionKey, hmacKey, subchunkAddress))
                     {
                         yield return x;
                     }

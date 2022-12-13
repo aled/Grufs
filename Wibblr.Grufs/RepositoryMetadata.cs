@@ -14,7 +14,7 @@ namespace Wibblr.Grufs
         public int Iterations { get; init; }
         public byte[] EncryptedMasterKeys { get; init; }
 
-        public byte[] Serialize()
+        public ReadOnlySpan<byte> Serialize()
         {
             if (EncryptedMasterKeys.Length > 255)
             {
@@ -29,7 +29,7 @@ namespace Wibblr.Grufs
                 .Append((byte)EncryptedMasterKeys.Length)
                 .Append(EncryptedMasterKeys);
 
-            return buffer.Bytes;
+            return buffer.ToSpan();
         }
 
         public RepositoryMetadata(InitializationVector masterKeysInitializationVector, Salt salt, int iterations, ReadOnlySpan<byte> encryptedMasterKeys)

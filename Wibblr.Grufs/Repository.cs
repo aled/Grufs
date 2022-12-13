@@ -54,20 +54,18 @@ namespace Wibblr.Grufs
             var encryptor = new Encryptor();
             var masterKeysInitializationVector = InitializationVector.Random();
             var encryptedMasterKeys = encryptor.Encrypt(masterKeys.ToSpan(), masterKeysInitializationVector, masterKeysKey);
+
             var repositoryMetadata = new RepositoryMetadata(masterKeysInitializationVector, salt, iterations, encryptedMasterKeys);
 
-            // finally encrypt and address the whole metadata blob with either a well-known or custom password. This is not necessary for security, but is there to make all the chunks in the repository look the same.
+            // Finally store the metadata using the DictionaryStorage. This will encrypt with either a well-known or custom password. This is not necessary for security, but is there to make all the chunks in the repository look the same.
             // Note there is no random salt in this usage of the key derivation function as it depends on the password alone (otherwise the metadata could not be located)
-            var metadataInitializationVector = InitializationVector.Random();
-            var metadataKey = EncryptionKey.Random();
             var normalizedMetadataPassword = Encoding.UTF8.GetBytes(metadataPassword.Normalize(NormalizationForm.FormC));
             var metadataKeyEncryptionKey = new KeyEncryptionKey(new Rfc2898DeriveBytes(normalizedMetadataPassword, wellKnownSalt0.ToSpan().ToArray(), iterations, HashAlgorithmName.SHA256).GetBytes(KeyEncryptionKey.Length));
-            var encryptedBytes = new ChunkEncryptor().EncryptContent(metadataInitializationVector, metadataKey, metadataKeyEncryptionKey, repositoryMetadata.Serialize());
-            var metadataAddress = new Address(new Rfc2898DeriveBytes(normalizedMetadataPassword, wellKnownSalt1.ToSpan().ToArray(), iterations, HashAlgorithmName.SHA256).GetBytes(KeyEncryptionKey.Length));
+            var metadataAddressKey = new HmacKey(new Rfc2898DeriveBytes(normalizedMetadataPassword, wellKnownSalt1.ToSpan().ToArray(), iterations, HashAlgorithmName.SHA256).GetBytes(KeyEncryptionKey.Length));
 
-            if (!_chunkStorage.TryPut(new EncryptedChunk(metadataAddress, encryptedBytes), allowOverwrite: false))
+            if (!new DictionaryStorage(_chunkStorage).TryPutValue(metadataKeyEncryptionKey, metadataAddressKey, Encoding.ASCII.GetBytes("metadata"), repositoryMetadata.Serialize(), OverwriteStrategy.DenyWithError))
             {
-                return false;
+                throw new Exception();
             }
 
             _masterEncryptionKey = masterKey;
@@ -78,21 +76,20 @@ namespace Wibblr.Grufs
 
         public bool Open(string password, string metadataPassword = _wellKnownMetadataPassword)
         {
-            // first decrypt the metadata blob
+            // Get the serialized metadata from the dictionary storage. Note the encryption used for this is weak as it uses well known salts and probably a well known password.
+            // The keys embedded in the metadata are wrapped with another layer of (strong) encryption.
             var normalizedMetadataPassword = Encoding.UTF8.GetBytes(metadataPassword.Normalize(NormalizationForm.FormC));
             var iterations = 500000;
-            var metadataAddress = new Address(new Rfc2898DeriveBytes(normalizedMetadataPassword, wellKnownSalt1.ToSpan().ToArray(), iterations, HashAlgorithmName.SHA256).GetBytes(KeyEncryptionKey.Length));
+            var metadataAddressKey = new HmacKey(new Rfc2898DeriveBytes(normalizedMetadataPassword, wellKnownSalt1.ToSpan().ToArray(), iterations, HashAlgorithmName.SHA256).GetBytes(KeyEncryptionKey.Length));
             var metadataKeyEncryptionKey = new KeyEncryptionKey(new Rfc2898DeriveBytes(normalizedMetadataPassword, wellKnownSalt0.ToSpan().ToArray(), iterations, HashAlgorithmName.SHA256).GetBytes(KeyEncryptionKey.Length));
 
-            if (!_chunkStorage.TryGet(metadataAddress, out var encryptedChunk))
+            if (!new DictionaryStorage(_chunkStorage).TryGetValue(metadataKeyEncryptionKey, metadataAddressKey, Encoding.ASCII.GetBytes("metadata"), out var serialized))
             {
-                throw new NotImplementedException();
+                throw new Exception();
             }
 
-            var buffer = new ChunkEncryptor().DecryptChunk(encryptedChunk, metadataKeyEncryptionKey);
-
             // Deserialize
-            var metadata = new RepositoryMetadata(buffer.ToSpan());
+            var metadata = new RepositoryMetadata(serialized);
 
             // Now decrypt the embedded keys in the metadata
             var encryptor = new Encryptor(); 

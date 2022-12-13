@@ -92,15 +92,16 @@ namespace Wibblr.Grufs
             return this;
         }
 
-        public void Append(UInt128 i)
+        public Buffer Append(long i)
         {
             if (ContentLength + 16 > Capacity)
             {
                 throw new Exception("buffer overflow");
             }
 
-            ((IBinaryInteger<UInt128>)i).WriteBigEndian(Bytes, ContentLength);
+            ((IBinaryInteger<long>)i).WriteBigEndian(Bytes, ContentLength);
             ContentLength += 16;
+            return this;
         }
 
         public Span<byte> ToSpan() => Bytes.AsSpan(0, ContentLength);

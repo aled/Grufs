@@ -151,12 +151,12 @@ namespace Wibblr.Grufs.Tests
 
             var stream = new MemoryStream(plaintextBytes);
 
-            var (address, type) = streamStorage.EncryptStream(keyEncryptionKey, wrappedHmacKey, hmacKeyEncryptionKey, stream);
+            var (address, type) = streamStorage.Write(keyEncryptionKey, wrappedHmacKey, hmacKeyEncryptionKey, stream);
 
             chunkStorage.Count().Should().Be(1);
 
             var decryptedStream = new MemoryStream();
-            foreach (var decryptedBuffer in streamStorage.Decrypt(type, keyEncryptionKey, hmacKey, address))
+            foreach (var decryptedBuffer in streamStorage.Read(type, keyEncryptionKey, hmacKey, address))
             {
                 decryptedStream.Write(decryptedBuffer.ToSpan());
             }
@@ -189,11 +189,11 @@ namespace Wibblr.Grufs.Tests
             var stream = new MemoryStream(plaintextBytes);
 
             var repository = new InMemoryChunkStorage();
-            var (address, type) = streamStorage.EncryptStream(keyEncryptionKey, wrappedHmacKey, hmacKeyEncryptionKey, stream);
+            var (address, type) = streamStorage.Write(keyEncryptionKey, wrappedHmacKey, hmacKeyEncryptionKey, stream);
 
             var decryptedStream = new MemoryStream();
             
-            foreach (var decryptedBuffer in streamStorage.Decrypt(type, keyEncryptionKey, hmacKey, address))
+            foreach (var decryptedBuffer in streamStorage.Read(type, keyEncryptionKey, hmacKey, address))
             {
                 decryptedStream.Write(decryptedBuffer.ToSpan());
             }

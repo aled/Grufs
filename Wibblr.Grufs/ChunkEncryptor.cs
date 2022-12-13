@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using System.Runtime.Intrinsics;
+﻿using System.Runtime.Intrinsics;
 
 using Wibblr.Grufs.Encryption;
 
@@ -16,7 +15,7 @@ namespace Wibblr.Grufs
 
         public EncryptedChunk EncryptChunk(InitializationVector iv, EncryptionKey key, KeyEncryptionKey keyEncryptionKey, HmacKey addressKey, Buffer buffer)
         {
-            var content = EncryptContent(iv, key, keyEncryptionKey, buffer.ToSpan());
+            var content = EncryptBytes(iv, key, keyEncryptionKey, buffer.ToSpan());
 
             // The address is a hash of the content (excluding checksum) and nothing else
             var hmac = new Hmac(addressKey, buffer.Bytes, 0, buffer.ContentLength);
@@ -24,7 +23,7 @@ namespace Wibblr.Grufs
             return new EncryptedChunk(new Address(hmac.ToSpan()), content);
         }
 
-        public byte[] EncryptContent(InitializationVector iv, EncryptionKey key, KeyEncryptionKey keyEncryptionKey, ReadOnlySpan<byte> source)
+        public byte[] EncryptBytes(InitializationVector iv, EncryptionKey key, KeyEncryptionKey keyEncryptionKey, ReadOnlySpan<byte> source)
         {
             var e = new Encryptor();
             var ciphertextLength = e.CiphertextLength(source.Length);
@@ -55,9 +54,10 @@ namespace Wibblr.Grufs
 
         public Buffer DecryptChunkAndVerifyAddress(EncryptedChunk chunk, KeyEncryptionKey keyEncryptionKey, HmacKey addressKey)
         {
-            var buffer = DecryptChunk(chunk, keyEncryptionKey);
+            // Checksum is validated as part of decryption. 
+            var buffer = DecryptBytes(chunk.Content, keyEncryptionKey);
 
-            // Verify that the chunk is not corrupted using the hmac
+            // Additionally verify that the chunk is not corrupted using the hmac
             var computedAddress = new Hmac(addressKey, buffer.Bytes, 0, buffer.ContentLength);
 
             var actual = Vector256.Create(chunk.Address.ToSpan());
@@ -71,30 +71,29 @@ namespace Wibblr.Grufs
             return buffer;
         }
 
-
-        public Buffer DecryptChunk(EncryptedChunk chunk, KeyEncryptionKey keyEncryptionKey)
+        public Buffer DecryptBytes(ReadOnlySpan<byte> bytes, KeyEncryptionKey keyEncryptionKey)
         {
-            if (chunk.Content.Length < contentOffset + Checksum.Length)
+            if (bytes.Length < contentOffset + Checksum.Length)
             {
-                throw new Exception($"Invalid content length {chunk.Content.Length}");
+                throw new Exception($"Invalid content length {bytes.Length}");
             }
 
             var e = new Encryptor();
-            var maxPlaintextLength = e.MaxPlaintextLength(chunk.Content.Length - contentOffset - Checksum.Length);
+            var maxPlaintextLength = e.MaxPlaintextLength(bytes.Length - contentOffset - Checksum.Length);
 
             // Allocate a buffer to hold the decrypted text
             var buffer = new Buffer(maxPlaintextLength);
             var destination = buffer.Bytes.AsSpan();
 
-            var iv = new InitializationVector(new ReadOnlySpan<byte>(chunk.Content, ivOffset, InitializationVector.Length));
-            var wrappedKey = new WrappedEncryptionKey(new ReadOnlySpan<byte>(chunk.Content, wrappedKeyOffset, WrappedEncryptionKey.Length));
+            var iv = new InitializationVector(bytes.Slice(ivOffset, InitializationVector.Length));
+            var wrappedKey = new WrappedEncryptionKey(bytes.Slice(wrappedKeyOffset, WrappedEncryptionKey.Length));
             var key = wrappedKey.Unwrap(keyEncryptionKey);
 
-            var ciphertextBytes = new ReadOnlySpan<byte>(chunk.Content, contentOffset, chunk.Content.Length - contentOffset - Checksum.Length);
+            var ciphertextBytes = bytes.Slice(contentOffset, bytes.Length - contentOffset - Checksum.Length);
 
             // Verify checksum before decrypting
-            var actualChecksum = new ReadOnlySpan<byte>(chunk.Content, chunk.Content.Length - Checksum.Length, Checksum.Length);
-            var computedChecksum = Checksum.Builder.Build(new ReadOnlySpan<byte>(chunk.Content, 0, chunk.Content.Length - Checksum.Length)).ToSpan();
+            var actualChecksum = bytes.Slice(bytes.Length - Checksum.Length, Checksum.Length);
+            var computedChecksum = Checksum.Builder.Build(bytes.Slice(0, bytes.Length - Checksum.Length)).ToSpan();
 
             if (!Vector256.EqualsAll(Vector256.Create(actualChecksum), Vector256.Create(computedChecksum)))
             {
