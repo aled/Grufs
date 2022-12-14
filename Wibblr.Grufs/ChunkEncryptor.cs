@@ -45,7 +45,7 @@ namespace Wibblr.Grufs
             var wrappedKeyDestination = new Span<byte>(content, wrappedKeyOffset, WrappedEncryptionKey.Length);
             wrappedKey.ToSpan().CopyTo(wrappedKeyDestination);
 
-            var checksum = Checksum.Builder.Build(content.AsSpan(0, checksumOffset));
+            var checksum = Checksum.Build(content.AsSpan(0, checksumOffset));
             var checksumDestination = new Span<byte>(content, checksumOffset, Checksum.Length);
             checksum.ToSpan().CopyTo(checksumDestination);
 
@@ -58,12 +58,9 @@ namespace Wibblr.Grufs
             var buffer = DecryptBytes(chunk.Content, keyEncryptionKey);
 
             // Additionally verify that the chunk is not corrupted using the hmac
-            var computedAddress = new Hmac(addressKey, buffer.Bytes, 0, buffer.ContentLength);
+            var computedAddress = new Address(new Hmac(addressKey, buffer.Bytes, 0, buffer.ContentLength));
 
-            var actual = Vector256.Create(chunk.Address.ToSpan());
-            var computed = Vector256.Create(computedAddress.ToSpan());
-
-            if (!Vector256.EqualsAll(actual, computed))
+            if (chunk.Address != computedAddress)
             {
                 throw new Exception("Failed to verify chunk - invalid hmac");
             }
@@ -92,10 +89,10 @@ namespace Wibblr.Grufs
             var ciphertextBytes = bytes.Slice(contentOffset, bytes.Length - contentOffset - Checksum.Length);
 
             // Verify checksum before decrypting
-            var actualChecksum = bytes.Slice(bytes.Length - Checksum.Length, Checksum.Length);
-            var computedChecksum = Checksum.Builder.Build(bytes.Slice(0, bytes.Length - Checksum.Length)).ToSpan();
+            var actualChecksum = new Checksum(bytes.Slice(bytes.Length - Checksum.Length, Checksum.Length));
+            var computedChecksum = Checksum.Build(bytes.Slice(0, bytes.Length - Checksum.Length));
 
-            if (!Vector256.EqualsAll(Vector256.Create(actualChecksum), Vector256.Create(computedChecksum)))
+            if (actualChecksum != computedChecksum)
             {
                 throw new Exception("Failed to verify chunk - invalid checksum");
             }

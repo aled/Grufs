@@ -7,8 +7,6 @@ using System.Threading.Tasks;
 
 using FluentAssertions;
 
-using Newtonsoft.Json.Linq;
-
 using Wibblr.Grufs.Encryption;
 
 using Xunit;
@@ -102,32 +100,83 @@ namespace Wibblr.Grufs.Tests
         [Fact]
         public void TestSequenceNumbers()
         {
-            //var testDirectory = $"grufs/test-{DateTime.UtcNow.ToString("yyyyMMdd-HHmmss")}-{Convert.ToHexString(RandomNumberGenerator.GetBytes(8))}";
-            //var storage = new SftpStorageTests().GetSftpStorage(testDirectory);
             var storage = new InMemoryChunkStorage();
 
             Func<long, byte[]> GetValue = i => Encoding.ASCII.GetBytes($"The quick brown fox-{i}");
 
-            try
+            var dictionaryStorage = new VersionedDictionaryStorage(storage);
+            var lookupKeyBytes = Encoding.ASCII.GetBytes("lookupkey");
+
+            var keyEncryptionKey = new KeyEncryptionKey(Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000000000"));
+            var addressKey = new HmacKey(Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000000000"));
+
+            // Should be exactly one 'exists' call on the storage layer if this key does not exist
+            dictionaryStorage.GetNextSequenceNumber(addressKey, lookupKeyBytes, 0).Should().Be(0);
+            storage.TotalExistsCalls.Should().Be(1);
+
+            int count = 54;
+            for (long i = 0; i < count; i++)
             {
-                var dictionaryStorage = new VersionedDictionaryStorage(storage);
-                var lookupKeyBytes = Encoding.ASCII.GetBytes("lookupkey");
-
-                var keyEncryptionKey = new KeyEncryptionKey(Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000000000"));
-                var addressKey = new HmacKey(Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000000000"));
-
-                for (long i = 0; i < 10; i++)
-                {
-                    dictionaryStorage.TryPutValue(keyEncryptionKey, addressKey, lookupKeyBytes, i, GetValue(i)).Should().BeTrue();
-                }
-
-                dictionaryStorage.GetNextSequenceNumber(addressKey, lookupKeyBytes).Should().Be(10);
-
+                dictionaryStorage.TryPutValue(keyEncryptionKey, addressKey, lookupKeyBytes, i, GetValue(i)).Should().BeTrue();
             }
-            finally
-            {
-               // storage.DeleteDirectory(testDirectory);
-            }
+
+            // Should be exactly two 'exists' calls when the actual highest used sequence number is given as a hint
+            Console.WriteLine("hint is optimal");
+            storage.ResetStats();
+            var hint = count - 1; // highest existing sequence number
+            dictionaryStorage.GetNextSequenceNumber(addressKey, lookupKeyBytes, hint).Should().Be(count);
+            storage.TotalExistsCalls.Should().Be(2);
+
+            // should work when hint is 1 too low, with 3 lookups
+            Console.WriteLine("hint is 1 too low");
+            storage.ResetStats();
+            hint = count - 2; // highest existing sequence number, ie there has been an update that is not known about yet
+            dictionaryStorage.GetNextSequenceNumber(addressKey, lookupKeyBytes, hint).Should().Be(count);
+            storage.TotalExistsCalls.Should().Be(3);
+
+            // should work when hint is 2 too low, with 5 lookups
+            Console.WriteLine("hint is 2 too low");
+            storage.ResetStats();
+            hint = count - 3; // highest existing sequence number, ie there has been an update that is not known about yet
+            dictionaryStorage.GetNextSequenceNumber(addressKey, lookupKeyBytes, hint).Should().Be(count);
+            storage.TotalExistsCalls.Should().Be(5);
+
+            // should work when hint is too high (though with a large number of lookups)
+            Console.WriteLine("hint is 2 too low");
+            storage.ResetStats();
+            hint = count + 0;
+            dictionaryStorage.GetNextSequenceNumber(addressKey, lookupKeyBytes, hint).Should().Be(count);
+
+
+            dictionaryStorage.GetNextSequenceNumber(addressKey, lookupKeyBytes, -1).Should().Be(count);
+        }
+
+        [Fact]
+        public void ThrowWhenMaxSequenceReached()
+        {
+            var storage = new InMemoryChunkStorage();
+
+            Func<long, byte[]> GetValue = i => Encoding.ASCII.GetBytes($"The quick brown fox-{i}");
+
+            var dictionaryStorage = new VersionedDictionaryStorage(storage);
+            var lookupKeyBytes = Encoding.ASCII.GetBytes("lookupkey");
+
+            var keyEncryptionKey = new KeyEncryptionKey(Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000000000"));
+            var addressKey = new HmacKey(Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000000000"));
+
+            // Should be exactly one 'exists' call on the storage layer if this key does not exist
+            var i = long.MaxValue;
+            dictionaryStorage.TryPutValue(keyEncryptionKey, addressKey, lookupKeyBytes, i, GetValue(i)).Should().BeTrue();
+
+
+            // Should be exactly two 'exists' calls when the actual highest used sequence number is given as a hint
+            Console.WriteLine("hint is optimal");
+            storage.ResetStats();
+            var hint = long.MaxValue; // highest existing sequence number
+
+            new Action(() => dictionaryStorage.GetNextSequenceNumber(addressKey, lookupKeyBytes, hint)).Should().Throw<Exception>();
+            storage.TotalExistsCalls.Should().Be(2);
+
         }
     }
 }

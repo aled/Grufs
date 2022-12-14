@@ -6,7 +6,14 @@ namespace Wibblr.Grufs.Tests
     {
         private Dictionary<Address, EncryptedChunk> _dict = new Dictionary<Address, EncryptedChunk>();
 
-        private int totalPuts = 0;
+        public int TotalPutCalls = 0;
+        public int TotalExistsCalls = 0;
+
+        public void ResetStats()
+        {
+            TotalPutCalls = 0;
+            TotalExistsCalls = 0;
+        }
 
         public bool TryGet(Address address, out EncryptedChunk chunk)
         {
@@ -22,7 +29,7 @@ namespace Wibblr.Grufs.Tests
 
         public bool TryPut(EncryptedChunk chunk, OverwriteStrategy overwrite)
         {
-            totalPuts++;
+            TotalPutCalls++;
 
             if (_dict.ContainsKey(chunk.Address))
             {
@@ -48,6 +55,7 @@ namespace Wibblr.Grufs.Tests
 
         public bool Exists(Address address)
         {
+            TotalExistsCalls++;
             return _dict.ContainsKey(address);
         }
 
@@ -61,7 +69,7 @@ namespace Wibblr.Grufs.Tests
             return _dict.Keys.ToArray();
         }
 
-        public float DeduplicationRatio => totalPuts == 0 ? 100f : (_dict.Count * 100f) / totalPuts;
+        public float DeduplicationRatio => TotalPutCalls == 0 ? 100f : (_dict.Count * 100f) / TotalPutCalls;
     }
 }
     

@@ -51,46 +51,82 @@ namespace Wibblr.Grufs
             return true;
         }
 
-        public long GetNextSequenceNumber(HmacKey addressKey, ReadOnlySpan<byte> lookupKey)
+        private bool SequenceNumberExists(long sequenceNumber, HmacKey addressKey, ReadOnlySpan<byte> lookupKey)
         {
-            var lookupKeyArray = lookupKey.ToArray();
-            Func<long, Address> GetAddress = sequenceNumber => new Address(new Hmac(addressKey, GenerateStructuredLookupKey(lookupKeyArray, sequenceNumber)));
+            var exists = _chunkStorage.Exists(new Address(new Hmac(addressKey, GenerateStructuredLookupKey(lookupKey, sequenceNumber))));
 
+            Console.WriteLine($"Searching for seq# {sequenceNumber} - {(exists ? "found" : "missing")}");
+
+            return exists;
+        }
+
+        /// <summary>
+        /// 
+        /// This should work regardless of the hint sequence number, although it will only be optimal if the hint
+        /// is the highest existing sequence number. In particular:
+        /// 
+        ///   o If the hint sequence number is 0, and there are no keys, then a single lookup will occur
+        ///   o If the hint sequence number is the highest existing sequence number, then exactly two lookups will occur
+        /// </summary>
+        /// <param name="addressKey"></param>
+        /// <param name="lookupKey"></param>
+        /// <param name="hintSequenceNumber"></param>
+        /// <returns></returns>
+        /// <exception cref="Exception"></exception>
+        public long GetNextSequenceNumber(HmacKey addressKey, ReadOnlySpan<byte> lookupKey, long hintSequenceNumber)
+        {
             // Query repeatedly in a kind of binary search to see which versions exist.
-            if (!_chunkStorage.Exists(GetAddress(0)))
+            if (hintSequenceNumber < 0)
             {
-                return 0;
+                hintSequenceNumber = 0;
             }
 
-            long highestExisting = 0;
-
-            // Start by querying versions 1, 16, 256, etc to give an initial upper bound
-            var candidate = highestExisting + 1;
-            while (_chunkStorage.Exists(GetAddress(candidate)))
+            // Caller has hinted that some sequence number exists. Verify if true or not.
+            long highestExisting = hintSequenceNumber;
+            long lowestMissing = long.MaxValue;
+            while (!SequenceNumberExists(highestExisting, addressKey, lookupKey))
             {
-                highestExisting = candidate;
+                if (highestExisting == 0)
+                {
+                    return 0;
+                }
 
-                if (candidate == long.MaxValue)
-                {
-                    throw new Exception("Max sequence number reached");
-                }
-                else if (candidate > long.MaxValue / 4)
-                {
-                    candidate = long.MaxValue;
-                }
-                else
-                {
-                    candidate = candidate * 4;
-                }
+                lowestMissing = highestExisting;
+                highestExisting /= 2;
             }
 
-            var lowestMissing = candidate;
+            // Now we have a verified existing sequence number.
+            // If the caller-asserted highest seen sequence number did exist,
+            // start incrementing the highestExisting by 1, 2, 4, etc to get the lowestMissing.
+            var originalHighestExisting = highestExisting;
+            if (lowestMissing == long.MaxValue)
+            {
+                var increment = 1L;
+                lowestMissing = (long)Math.Min((ulong)highestExisting + (ulong)increment, long.MaxValue);
+
+                while (SequenceNumberExists(lowestMissing, addressKey, lookupKey))
+                {
+                    if (lowestMissing == long.MaxValue)
+                    {
+                        throw new Exception("Max sequence number reached");
+                    }
+                    if (lowestMissing > highestExisting)
+                    {
+                        highestExisting = lowestMissing;
+                    }
+
+                    increment *= 2;
+                    lowestMissing = (long)Math.Min((ulong)originalHighestExisting + (ulong)increment, long.MaxValue);
+                }
+            }
 
             while (lowestMissing - highestExisting > 1) 
             {
-                candidate = highestExisting + ((lowestMissing - highestExisting) / 2);
+                var candidate = highestExisting + ((lowestMissing - highestExisting) / 2);
 
-                if (_chunkStorage.Exists(GetAddress(candidate)))
+                Console.WriteLine($"Searching for sequence higher than {highestExisting} and less-than-or-equal to {lowestMissing}; trying {candidate}");
+
+                if (SequenceNumberExists(candidate, addressKey, lookupKey))
                 {
                     highestExisting = candidate;
                 }

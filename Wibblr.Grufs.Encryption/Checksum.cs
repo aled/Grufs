@@ -8,14 +8,6 @@ namespace Wibblr.Grufs.Encryption
     [DebuggerDisplay("{ToString()}")]
     public record struct Checksum
     {
-        public static class Builder
-        {
-            public static Checksum Build(ReadOnlySpan<byte> inputData)
-            {
-                return new Checksum(SHA256.HashData(inputData));
-            }
-        }
-
         public static readonly int Length = SHA256.HashSizeInBytes;
 
         internal byte[] Value { get; private init; }
@@ -34,6 +26,11 @@ namespace Wibblr.Grufs.Encryption
 
             Value = new byte[Length];
             value.CopyTo(Value);
+        }
+
+        public static Checksum Build(ReadOnlySpan<byte> inputData)
+        {
+            return new Checksum(SHA256.HashData(inputData));
         }
 
         public bool Equals(Checksum other) => Vector256.EqualsAll(Vector256.Create(Value), Vector256.Create(other.Value));

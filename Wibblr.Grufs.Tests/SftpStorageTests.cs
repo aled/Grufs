@@ -25,6 +25,8 @@ namespace Wibblr.Grufs.Tests
         {
             BaseDir = $"grufs/test-{DateTime.UtcNow.ToString("yyyyMMdd-HHmmss")}-{Convert.ToHexString(RandomNumberGenerator.GetBytes(8))}";
 
+            Console.WriteLine($"Using temporary directory {BaseDir}");
+
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             var text = File.ReadAllText("sftp-credentials.json");
 
@@ -39,6 +41,8 @@ namespace Wibblr.Grufs.Tests
 
         public void Dispose()
         {
+            Console.WriteLine($"Deleting temporary directory {BaseDir}");
+
             Storage.DeleteDirectory("");
         }
     }
@@ -48,14 +52,12 @@ namespace Wibblr.Grufs.Tests
         [Fact]
         public void Upload()
         {
-            using (var storage = new TemporarySftpStorage().Storage)
+            using (var temp = new TemporarySftpStorage())
             {
+                var storage = temp.Storage;
+
                 var testData = Encoding.ASCII.GetBytes("Hello World!");
-
-                var ok = storage.Upload("tests/00001/test00001", testData, OverwriteStrategy.Allow);
-
-                ok.Should().BeTrue();
-
+                storage.Upload("tests/00001/test00001", testData, OverwriteStrategy.Allow).Should().BeTrue();
                 storage.TryDownload("tests/00001/test00001", out var downloaded).Should().BeTrue();
 
                 Convert.ToHexString(testData).Should().Be(Convert.ToHexString(downloaded));
@@ -75,9 +77,10 @@ namespace Wibblr.Grufs.Tests
             var stream = new MemoryStream(plaintextBytes);
             var decryptedStream = new MemoryStream();
 
-            using (var chunkStorage = new TemporarySftpStorage().Storage)
+            using (var temp = new TemporarySftpStorage())
             {
-                var streamStorage = new StreamStorage(chunkStorage);
+                var storage = temp.Storage;
+                var streamStorage = new StreamStorage(storage);
                 var (address, type) = streamStorage.Write(keyEncryptionKey, wrappedHmacKey, hmacKeyEncryptionKey, stream);
 
                 foreach (var decryptedBuffer in streamStorage.Read(type, keyEncryptionKey, hmacKey, address))
@@ -94,8 +97,10 @@ namespace Wibblr.Grufs.Tests
         [Fact]
         public void ListFiles()
         {
-            using (var storage = new TemporarySftpStorage().Storage)
+            using (var temp = new TemporarySftpStorage())
             {
+                var storage = temp.Storage;
+
                 storage.Upload("/a/b/c/d.txt", new byte[] { 0 }, OverwriteStrategy.DenyWithError);
                 storage.Upload("a/b/e.txt", new byte[] { 0 }, OverwriteStrategy.DenyWithError);
                 storage.Upload("a/b/f.txt", new byte[] { 0 }, OverwriteStrategy.DenyWithError);

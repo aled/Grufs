@@ -35,7 +35,7 @@ namespace Wibblr.Grufs
         public bool Initialize(string password, string metadataPassword = _wellKnownMetadataPassword)
         {
             // The master keys required. Each chunk is encrypted with a random key, which is wrapped using the masterKey.
-            // Additionally the address of chunks is computed using the addressKey (which does not change)
+            // Additionally the address of chunks is computed using the addressKey (which is the same for all chunks)
             var masterKey = KeyEncryptionKey.Random();
             var addressKey = HmacKey.Random();
 

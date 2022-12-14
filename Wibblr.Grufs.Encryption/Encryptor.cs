@@ -35,7 +35,7 @@ namespace Wibblr.Grufs.Encryption
 
             aes.Key = key.Value;
 
-            var checksum = Checksum.Builder.Build(plaintext);
+            var checksum = Checksum.Build(plaintext);
             var source = new byte[plaintext.Length + Checksum.Length];
             plaintext.CopyTo(source);
             checksum.ToSpan().CopyTo(source.AsSpan(plaintext.Length));
@@ -71,10 +71,10 @@ namespace Wibblr.Grufs.Encryption
                 throw new Exception("Failed to decrypt");
             }
 
-            var calculatedChecksum = Checksum.Builder.Build(temp.AsSpan(0, bytesWritten - Checksum.Length));
+            var calculatedChecksum = Checksum.Build(temp.AsSpan(0, bytesWritten - Checksum.Length));
             var checksum = new Checksum(temp.AsSpan(bytesWritten - Checksum.Length, Checksum.Length));
 
-            if (!checksum.Equals(calculatedChecksum))
+            if (checksum != calculatedChecksum)
             {
                 throw new Exception("Failed to decrypt - checksum mismatch");
             }
