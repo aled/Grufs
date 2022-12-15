@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Encodings;
 
 using Wibblr.Grufs.Encryption;
 
@@ -14,7 +13,11 @@ namespace Wibblr.Grufs
         // Metadata does not need to be encrypted, but encrypt it anyway so that all files in the repository look the same
         // and can be copied without any special cases.
         //
-        // Either use a well known password that provides no security whatsoever, or use a second password
+        // Either use a well known password that provides no security whatsoever, or use a second password.
+        // 
+        // By using different metadata passwords, it should be possible to store multiple repositories in the same storage,
+        // because the metadata will be stored at different addresses. Data will be deduplicated if the same file is in multiple
+        // repositories.
         private const string _wellKnownMetadataPassword = "This password is used to encrypt and generate the address of the repository metadata. The security of the system does not depend on this being secret.";
         private static readonly Salt wellKnownSalt0 = new Salt(new byte[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 });
         private static readonly Salt wellKnownSalt1 = new Salt(new byte[] { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 });

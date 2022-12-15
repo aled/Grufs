@@ -51,9 +51,10 @@ namespace Wibblr.Grufs
             return true;
         }
 
-        private bool SequenceNumberExists(long sequenceNumber, HmacKey addressKey, ReadOnlySpan<byte> lookupKey)
+        private bool SequenceNumberExists(long sequenceNumber, HmacKey addressKey, ReadOnlySpan<byte> lookupKey, ref int lookupCount)
         {
             var exists = _chunkStorage.Exists(new Address(new Hmac(addressKey, GenerateStructuredLookupKey(lookupKey, sequenceNumber))));
+            lookupCount++;
 
             Console.WriteLine($"Searching for seq# {sequenceNumber} - {(exists ? "found" : "missing")}");
 
@@ -75,6 +76,13 @@ namespace Wibblr.Grufs
         /// <exception cref="Exception"></exception>
         public long GetNextSequenceNumber(HmacKey addressKey, ReadOnlySpan<byte> lookupKey, long hintSequenceNumber)
         {
+            return GetNextSequenceNumber(addressKey, lookupKey, hintSequenceNumber, out _);
+        }
+
+        public long GetNextSequenceNumber(HmacKey addressKey, ReadOnlySpan<byte> lookupKey, long hintSequenceNumber, out int lookupCount)
+        {
+            lookupCount = 0;
+
             // Query repeatedly in a kind of binary search to see which versions exist.
             if (hintSequenceNumber < 0)
             {
@@ -84,7 +92,7 @@ namespace Wibblr.Grufs
             // Caller has hinted that some sequence number exists. Verify if true or not.
             long highestExisting = hintSequenceNumber;
             long lowestMissing = long.MaxValue;
-            while (!SequenceNumberExists(highestExisting, addressKey, lookupKey))
+            while (!SequenceNumberExists(highestExisting, addressKey, lookupKey, ref lookupCount))
             {
                 if (highestExisting == 0)
                 {
@@ -102,9 +110,9 @@ namespace Wibblr.Grufs
             if (lowestMissing == long.MaxValue)
             {
                 var increment = 1L;
-                lowestMissing = (long)Math.Min((ulong)highestExisting + (ulong)increment, long.MaxValue);
+                lowestMissing = (long)Math.Min((ulong)originalHighestExisting + (ulong)increment, long.MaxValue);
 
-                while (SequenceNumberExists(lowestMissing, addressKey, lookupKey))
+                while (SequenceNumberExists(lowestMissing, addressKey, lookupKey, ref lookupCount))
                 {
                     if (lowestMissing == long.MaxValue)
                     {
@@ -124,9 +132,9 @@ namespace Wibblr.Grufs
             {
                 var candidate = highestExisting + ((lowestMissing - highestExisting) / 2);
 
-                Console.WriteLine($"Searching for sequence higher than {highestExisting} and less-than-or-equal to {lowestMissing}; trying {candidate}");
+                //Console.WriteLine($"Searching for sequence higher than {highestExisting} and less-than-or-equal to {lowestMissing}; trying {candidate}");
 
-                if (SequenceNumberExists(candidate, addressKey, lookupKey))
+                if (SequenceNumberExists(candidate, addressKey, lookupKey, ref lookupCount))
                 {
                     highestExisting = candidate;
                 }
