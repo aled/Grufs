@@ -4,22 +4,22 @@ using Wibblr.Grufs.Encryption;
 
 namespace Wibblr.Grufs
 {
-    public class DictionaryStorage
+    public class UnversionedDictionaryStorage
     {
         private IChunkStorage _chunkStorage;
-        private static readonly byte[] magic = new byte[] { 0x31, 0x15, 0x3b, 0xd3 }; // ensure that a nonversioned lookup key cannot be constructed to be the same as a versioned lookup key
         private static readonly byte serializationVersion = 0;
+        private static readonly byte isVersioned = 0; // different value from the VersionedDictionaryStorage
 
-        public DictionaryStorage(IChunkStorage chunkStorage)
+        public UnversionedDictionaryStorage(IChunkStorage chunkStorage)
         {
             _chunkStorage = chunkStorage;
         }
 
-        public Span<byte> GenerateStructuredLookupKey(ReadOnlySpan<byte> lookupKey)
+        private Span<byte> GenerateStructuredLookupKey(ReadOnlySpan<byte> lookupKey)
         {
-            return new Buffer(1 + 4 + 4 + lookupKey.Length)
+            return new Buffer(1 + 1 + 4 + 4 + lookupKey.Length)
                 .Append(serializationVersion)
-                .Append(magic)
+                .Append(isVersioned)
                 .Append(lookupKey.Length)
                 .Append(lookupKey)
                 .ToSpan();
@@ -28,6 +28,7 @@ namespace Wibblr.Grufs
         public bool TryPutValue(KeyEncryptionKey contentKeyEncryptionKey, HmacKey addressKey, ReadOnlySpan<byte> lookupKey, ReadOnlySpan<byte> value, OverwriteStrategy overwrite)
         {
             var encryptedValue = new ChunkEncryptor().EncryptBytes(InitializationVector.Random(), EncryptionKey.Random(), contentKeyEncryptionKey, value);
+
             var structuredLookupKey = GenerateStructuredLookupKey(lookupKey);
 
             var hmac = new Hmac(addressKey, structuredLookupKey);

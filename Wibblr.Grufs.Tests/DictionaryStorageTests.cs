@@ -24,7 +24,7 @@ namespace Wibblr.Grufs.Tests
             var storage = new InMemoryChunkStorage();
             try
             {
-                var dictionaryStorage = new DictionaryStorage(storage);
+                var dictionaryStorage = new UnversionedDictionaryStorage(storage);
 
                 var lookupKeyBytes = Encoding.ASCII.GetBytes("lookupkey");
                 var value = "The quick brown fox";

@@ -1,4 +1,7 @@
-﻿using Wibblr.Grufs.Encryption;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Runtime.CompilerServices;
+
+using Wibblr.Grufs.Encryption;
 
 namespace Wibblr.Grufs
 {
@@ -8,29 +11,42 @@ namespace Wibblr.Grufs
     public class VersionedDictionaryStorage
     {
         private IChunkStorage _chunkStorage;
-        private static readonly byte[] magic = new byte[] { 0xd9, 0x00, 0xa4, 0xc7 }; // ensure that a nonversioned lookup key cannot be constructed to be the same as a versioned lookup key
         private static readonly byte serializationVersion = 0;
+        private static readonly byte isVersioned = 1;
 
         public VersionedDictionaryStorage(IChunkStorage chunkStorage)
         {
             _chunkStorage = chunkStorage;
         }
 
-        public Span<byte> GenerateStructuredLookupKey(ReadOnlySpan<byte> lookupKey, long sequenceNumber)
+        private Span<byte> GenerateVersionedStructuredLookupKey(ReadOnlySpan<byte> lookupKey, long sequenceNumber)
         {
-            return new Buffer(1 + 4 + 4 + lookupKey.Length + 16)
+            return new Buffer(1 + 1 + 4 + lookupKey.Length + 8)
                 .Append(serializationVersion)
-                .Append(magic)
+                .Append(isVersioned)
                 .Append(lookupKey.Length)
                 .Append(lookupKey)
                 .Append(sequenceNumber)
                 .ToSpan();
         }
 
+        /// <summary>
+        /// Store an unversioned value. Implement by using version number 0.
+        /// </summary>
+        /// <param name="contentKeyEncryptionKey"></param>
+        /// <param name="addressKey"></param>
+        /// <param name="lookupKey"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        public bool TryPutUnversionedValue(KeyEncryptionKey contentKeyEncryptionKey, HmacKey addressKey, ReadOnlySpan<byte> lookupKey, ReadOnlySpan<byte> value)
+        {
+            return TryPutValue(contentKeyEncryptionKey, addressKey, lookupKey, 0, value);
+        }
+
         public bool TryPutValue(KeyEncryptionKey contentKeyEncryptionKey, HmacKey addressKey, ReadOnlySpan<byte> lookupKey, long sequenceNumber, ReadOnlySpan<byte> value)
         {
             var encryptedValue = new ChunkEncryptor().EncryptBytes(InitializationVector.Random(), EncryptionKey.Random(), contentKeyEncryptionKey, value);
-            var structuredLookupKey = GenerateStructuredLookupKey(lookupKey, sequenceNumber);
+            var structuredLookupKey = GenerateVersionedStructuredLookupKey(lookupKey, sequenceNumber);
             var address = new Address(new Hmac(addressKey, structuredLookupKey));
 
             return _chunkStorage.TryPut(new EncryptedChunk(address, encryptedValue), OverwriteStrategy.DenyWithError);
@@ -38,7 +54,7 @@ namespace Wibblr.Grufs
 
         public bool TryGetValue(KeyEncryptionKey contentKeyEncryptionKey, HmacKey addressKey, ReadOnlySpan<byte> lookupKey, long sequenceNumber, out ReadOnlySpan<byte> value)
         {
-            var structuredLookupKey = GenerateStructuredLookupKey(lookupKey, sequenceNumber);
+            var structuredLookupKey = GenerateVersionedStructuredLookupKey(lookupKey, sequenceNumber);
             var hmac = new Hmac(addressKey, structuredLookupKey);
 
             if (!_chunkStorage.TryGet(new Address(hmac), out var chunk))
@@ -53,7 +69,7 @@ namespace Wibblr.Grufs
 
         private bool SequenceNumberExists(long sequenceNumber, HmacKey addressKey, ReadOnlySpan<byte> lookupKey, ref int lookupCount)
         {
-            var exists = _chunkStorage.Exists(new Address(new Hmac(addressKey, GenerateStructuredLookupKey(lookupKey, sequenceNumber))));
+            var exists = _chunkStorage.Exists(new Address(new Hmac(addressKey, GenerateVersionedStructuredLookupKey(lookupKey, sequenceNumber))));
             lookupCount++;
 
             Console.WriteLine($"Searching for seq# {sequenceNumber} - {(exists ? "found" : "missing")}");

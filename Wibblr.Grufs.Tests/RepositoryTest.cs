@@ -22,7 +22,7 @@ namespace Wibblr.Grufs.Tests
             var r2 = new Repository(storage);
             r2.Open("hello");
 
-            r1._masterEncryptionKey.ToString().Should().Be(r2._masterEncryptionKey.ToString());
+            r1._masterKey.ToString().Should().Be(r2._masterKey.ToString());
         }
     }
 }

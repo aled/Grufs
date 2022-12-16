@@ -26,8 +26,9 @@ namespace Wibblr.Grufs
         private IChunkStorage _chunkStorage;
         private StreamStorage _streamStorage;
 
-        internal KeyEncryptionKey _masterEncryptionKey;
-        internal HmacKey _masterAddressKey;
+        internal KeyEncryptionKey _masterKey;
+        internal HmacKey _masterContentAddressKey;
+        internal HmacKey _masterVersionedDictionaryAddressKey;
 
         public Repository(IChunkStorage chunkStorage) 
         { 
@@ -41,13 +42,15 @@ namespace Wibblr.Grufs
             // Additionally the address of chunks is computed using the addressKey (which is the same for all chunks)
             var masterKey = KeyEncryptionKey.Random();
             var addressKey = HmacKey.Random();
+            var versionedDictionaryAddressKey = HmacKey.Random();
 
             // Encrypt the master keys using a key derived from the password
             var serializationVersion = (byte)0;
-            var masterKeys = new Buffer(1 + KeyEncryptionKey.Length + HmacKey.Length)
+            var masterKeys = new Buffer(1 + KeyEncryptionKey.Length + HmacKey.Length + HmacKey.Length + HmacKey.Length)
                 .Append(serializationVersion)
                 .Append(masterKey.ToSpan())
-                .Append(addressKey.ToSpan());
+                .Append(addressKey.ToSpan())
+                .Append(versionedDictionaryAddressKey.ToSpan());
 
             var normalizedPassword = Encoding.UTF8.GetBytes(password.Normalize(NormalizationForm.FormC));
             var salt = Salt.Random();
@@ -66,13 +69,14 @@ namespace Wibblr.Grufs
             var metadataKeyEncryptionKey = new KeyEncryptionKey(new Rfc2898DeriveBytes(normalizedMetadataPassword, wellKnownSalt0.ToSpan().ToArray(), iterations, HashAlgorithmName.SHA256).GetBytes(KeyEncryptionKey.Length));
             var metadataAddressKey = new HmacKey(new Rfc2898DeriveBytes(normalizedMetadataPassword, wellKnownSalt1.ToSpan().ToArray(), iterations, HashAlgorithmName.SHA256).GetBytes(KeyEncryptionKey.Length));
 
-            if (!new DictionaryStorage(_chunkStorage).TryPutValue(metadataKeyEncryptionKey, metadataAddressKey, Encoding.ASCII.GetBytes("metadata"), repositoryMetadata.Serialize(), OverwriteStrategy.DenyWithError))
+            if (!new UnversionedDictionaryStorage(_chunkStorage).TryPutValue(metadataKeyEncryptionKey, metadataAddressKey, Encoding.ASCII.GetBytes("metadata"), repositoryMetadata.Serialize(), OverwriteStrategy.DenyWithError))
             {
                 throw new Exception();
             }
 
-            _masterEncryptionKey = masterKey;
-            _masterAddressKey = addressKey;
+            _masterKey = masterKey;
+            _masterContentAddressKey = addressKey;
+            _masterVersionedDictionaryAddressKey = versionedDictionaryAddressKey;
 
             return true;
         }
@@ -86,7 +90,7 @@ namespace Wibblr.Grufs
             var metadataAddressKey = new HmacKey(new Rfc2898DeriveBytes(normalizedMetadataPassword, wellKnownSalt1.ToSpan().ToArray(), iterations, HashAlgorithmName.SHA256).GetBytes(KeyEncryptionKey.Length));
             var metadataKeyEncryptionKey = new KeyEncryptionKey(new Rfc2898DeriveBytes(normalizedMetadataPassword, wellKnownSalt0.ToSpan().ToArray(), iterations, HashAlgorithmName.SHA256).GetBytes(KeyEncryptionKey.Length));
 
-            if (!new DictionaryStorage(_chunkStorage).TryGetValue(metadataKeyEncryptionKey, metadataAddressKey, Encoding.ASCII.GetBytes("metadata"), out var serialized))
+            if (!new UnversionedDictionaryStorage(_chunkStorage).TryGetValue(metadataKeyEncryptionKey, metadataAddressKey, Encoding.ASCII.GetBytes("metadata"), out var serialized))
             {
                 throw new Exception();
             }
@@ -106,8 +110,9 @@ namespace Wibblr.Grufs
                 throw new Exception("Invalid metadata");
             }
 
-            _masterEncryptionKey = new KeyEncryptionKey(masterKeys.Slice(1, KeyEncryptionKey.Length));
-            _masterAddressKey = new HmacKey(masterKeys.Slice(KeyEncryptionKey.Length, HmacKey.Length));
+            _masterKey = new KeyEncryptionKey(masterKeys.Slice(1, KeyEncryptionKey.Length));
+            _masterContentAddressKey = new HmacKey(masterKeys.Slice(1+ KeyEncryptionKey.Length, HmacKey.Length));
+            _masterVersionedDictionaryAddressKey = new HmacKey(masterKeys.Slice(1 + KeyEncryptionKey.Length + HmacKey.Length, HmacKey.Length));
 
             return true;
         }

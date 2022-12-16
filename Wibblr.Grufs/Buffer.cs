@@ -5,7 +5,6 @@ using System.Diagnostics;
 
 namespace Wibblr.Grufs
 {
-
     [DebuggerDisplay("{ToString()}")]
     public class Buffer
     {
@@ -94,13 +93,13 @@ namespace Wibblr.Grufs
 
         public Buffer Append(long i)
         {
-            if (ContentLength + 16 > Capacity)
+            if (ContentLength + sizeof(long) > Capacity)
             {
                 throw new Exception("buffer overflow");
             }
 
             ((IBinaryInteger<long>)i).WriteBigEndian(Bytes, ContentLength);
-            ContentLength += 16;
+            ContentLength += sizeof(long);
             return this;
         }
 
