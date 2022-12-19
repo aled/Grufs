@@ -41,16 +41,17 @@ namespace Wibblr.Grufs
             // The master keys required. Each chunk is encrypted with a random key, which is wrapped using the masterKey.
             // Additionally the address of chunks is computed using the addressKey (which is the same for all chunks)
             var masterKey = KeyEncryptionKey.Random();
-            var addressKey = HmacKey.Random();
-            var versionedDictionaryAddressKey = HmacKey.Random();
+            var contentAddressKey = HmacKey.Random();
+            var dictionaryAddressKey = HmacKey.Random();
 
             // Encrypt the master keys using a key derived from the password
             var serializationVersion = (byte)0;
-            var masterKeys = new Buffer(1 + KeyEncryptionKey.Length + HmacKey.Length + HmacKey.Length + HmacKey.Length)
-                .Append(serializationVersion)
-                .Append(masterKey.ToSpan())
-                .Append(addressKey.ToSpan())
-                .Append(versionedDictionaryAddressKey.ToSpan());
+            var masterKeys = new BufferBuilder(1 + KeyEncryptionKey.Length + HmacKey.Length + HmacKey.Length + HmacKey.Length)
+                .AppendByte(serializationVersion)
+                .AppendBytes(masterKey.ToSpan())
+                .AppendBytes(contentAddressKey.ToSpan())
+                .AppendBytes(dictionaryAddressKey.ToSpan())
+                .ToSpan();
 
             var normalizedPassword = Encoding.UTF8.GetBytes(password.Normalize(NormalizationForm.FormC));
             var salt = Salt.Random();
@@ -59,7 +60,7 @@ namespace Wibblr.Grufs
 
             var encryptor = new Encryptor();
             var masterKeysInitializationVector = InitializationVector.Random();
-            var encryptedMasterKeys = encryptor.Encrypt(masterKeys.ToSpan(), masterKeysInitializationVector, masterKeysKey);
+            var encryptedMasterKeys = encryptor.Encrypt(masterKeys, masterKeysInitializationVector, masterKeysKey);
 
             var repositoryMetadata = new RepositoryMetadata(masterKeysInitializationVector, salt, iterations, encryptedMasterKeys);
 
@@ -75,8 +76,8 @@ namespace Wibblr.Grufs
             }
 
             _masterKey = masterKey;
-            _masterContentAddressKey = addressKey;
-            _masterVersionedDictionaryAddressKey = versionedDictionaryAddressKey;
+            _masterContentAddressKey = contentAddressKey;
+            _masterVersionedDictionaryAddressKey = dictionaryAddressKey;
 
             return true;
         }

@@ -1,5 +1,7 @@
 ﻿using System.Runtime.Intrinsics;
 
+using Renci.SshNet.Messages.Connection;
+
 using Wibblr.Grufs.Encryption;
 
 namespace Wibblr.Grufs
@@ -13,12 +15,15 @@ namespace Wibblr.Grufs
         private static readonly int wrappedKeyOffset = ivOffset + InitializationVector.Length;
         private static readonly int contentOffset = wrappedKeyOffset + WrappedEncryptionKey.Length;
 
-        public EncryptedChunk EncryptChunk(InitializationVector iv, EncryptionKey key, KeyEncryptionKey keyEncryptionKey, HmacKey addressKey, Buffer buffer)
+        public EncryptedChunk EncryptChunk(KeyEncryptionKey keyEncryptionKey, HmacKey hmacKey, ReadOnlySpan<byte> plaintext) =>
+            EncryptChunk(InitializationVector.Random(), EncryptionKey.Random(), keyEncryptionKey, hmacKey, plaintext);
+
+        public EncryptedChunk EncryptChunk(InitializationVector iv, EncryptionKey key, KeyEncryptionKey keyEncryptionKey, HmacKey addressKey, ReadOnlySpan<byte> plaintext)
         {
-            var content = EncryptBytes(iv, key, keyEncryptionKey, buffer.ToSpan());
+            var content = EncryptBytes(iv, key, keyEncryptionKey, plaintext);
 
             // The address is a hash of the content (excluding checksum) and nothing else
-            var hmac = new Hmac(addressKey, buffer.Bytes, 0, buffer.ContentLength);
+            var hmac = new Hmac(addressKey, plaintext);
 
             return new EncryptedChunk(new Address(hmac.ToSpan()), content);
         }
@@ -55,17 +60,17 @@ namespace Wibblr.Grufs
         public Buffer DecryptChunkAndVerifyAddress(EncryptedChunk chunk, KeyEncryptionKey keyEncryptionKey, HmacKey addressKey)
         {
             // Checksum is validated as part of decryption. 
-            var buffer = DecryptBytes(chunk.Content, keyEncryptionKey);
+            var plaintextBuffer = DecryptBytes(chunk.Content, keyEncryptionKey);
 
             // Additionally verify that the chunk is not corrupted using the hmac
-            var computedAddress = new Address(new Hmac(addressKey, buffer.Bytes, 0, buffer.ContentLength));
+            var computedAddress = new Address(new Hmac(addressKey, plaintextBuffer.AsSpan()));
 
             if (chunk.Address != computedAddress)
             {
                 throw new Exception("Failed to verify chunk - invalid hmac");
             }
 
-            return buffer;
+            return plaintextBuffer;
         }
 
         public Buffer DecryptBytes(ReadOnlySpan<byte> bytes, KeyEncryptionKey keyEncryptionKey)
@@ -79,8 +84,7 @@ namespace Wibblr.Grufs
             var maxPlaintextLength = e.MaxPlaintextLength(bytes.Length - contentOffset - Checksum.Length);
 
             // Allocate a buffer to hold the decrypted text
-            var buffer = new Buffer(maxPlaintextLength);
-            var destination = buffer.Bytes.AsSpan();
+            var buf = new byte[maxPlaintextLength];
 
             var iv = new InitializationVector(bytes.Slice(ivOffset, InitializationVector.Length));
             var wrappedKey = new WrappedEncryptionKey(bytes.Slice(wrappedKeyOffset, WrappedEncryptionKey.Length));
@@ -97,10 +101,8 @@ namespace Wibblr.Grufs
                 throw new Exception("Failed to verify chunk - invalid checksum");
             }
 
-            var bytesWritten = e.Decrypt(ciphertextBytes, iv, key, destination);
-            buffer.ContentLength = bytesWritten;
-
-            return buffer;
+            int length = e.Decrypt(ciphertextBytes, iv, key, buf);
+            return new Buffer(buf, length);
         }
     }
 }

@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
 using Wibblr.Grufs.Encryption;
@@ -27,133 +26,117 @@ namespace Wibblr.Grufs
 
         public (Address, ChunkType) Write(KeyEncryptionKey contentKeyEncryptionKey, WrappedHmacKey wrappedHmacKey, HmacKeyEncryptionKey hmacKeyEncryptionKey, Stream stream)
         {
-            IEnumerable<Buffer> Chunks(Stream stream, int chunkSize)
+            var chains = new List<Chain>(); // one for each level of the tree of chains
+
+            // Chain buffer has 32 bytes header, then each contained address is 32 bytes plus 8 for the contained length.
+            var chainCapacity = (_chunkSize - Chain.headerLength) / Chain.itemLength;
+            if (chainCapacity < 2)
             {
-                var buf = new Buffer(chunkSize);
-                var bytesRead = 0;
-
-                while ((bytesRead = stream.Read(buf.Bytes, buf.ContentLength, buf.Capacity - buf.ContentLength)) != 0)
-                {
-                    buf.ContentLength += bytesRead;
-                    if (buf.Capacity == buf.ContentLength)
-                    {
-                        yield return buf;
-                        buf.ContentLength = 0;
-                    }
-                }
-
-                if (buf.ContentLength > 0)
-                {
-                    yield return buf;
-                }
+                throw new Exception("Invalid chain capacity");
             }
 
-            return WriteChunks(contentKeyEncryptionKey, wrappedHmacKey, hmacKeyEncryptionKey, Chunks(stream, _chunkSize));
-        }
-
-        private (Address, ChunkType) WriteChunks(KeyEncryptionKey contentKeyEncryptionKey, WrappedHmacKey wrappedHmacKey, HmacKeyEncryptionKey hmacKeyEncryptionKey, IEnumerable<Buffer> buffers)
-        {
-            var chainBuffers = new List<Buffer> { new Buffer(_chunkSize) }; // one for each level of the tree of chains
             var hmacKey = new HmacKey(hmacKeyEncryptionKey, wrappedHmacKey);
-            var totalAddressesStoredInChainBuffers = 0;
 
-            void AppendToChainBuffer(Address address, int level)
+            void AppendToChain(Address address, int level, long streamOffset, long streamLength)
             {
-                totalAddressesStoredInChainBuffers++;
-
-                var spaceRequired = Address.Length;
-
-                if (spaceRequired > _chunkSize)
+                if (level > byte.MaxValue)
                 {
-                    throw new ArgumentException(nameof(_chunkSize));
+                    throw new Exception("Invalid level (infinite loop?)");
                 }
 
-                if (chainBuffers.Count <= level)
+                if (chains.Count <= level)
                 {
-                    chainBuffers.Add(new Buffer(_chunkSize));
+                    chains.Add(new Chain(chainCapacity, level));
                 }
 
-                var spaceAvailable = chainBuffers[level].Capacity - chainBuffers[level].ContentLength;
-                if (spaceAvailable < spaceRequired)
+                var chain = chains[level];
+                if (chain.IsFull())
                 {
-                    WriteChainBuffer(level);
-                    chainBuffers[level] = new Buffer(_chunkSize);
+                    WriteChain(chain);
+                    chain.Clear();
                 }
 
-                if (chainBuffers[level].ContentLength == 0)
-                {
-                    // header to identify chain chunks against known-format content chunks
-                    chainBuffers[level].Append((byte)'g');
-                    chainBuffers[level].Append((byte)'f');
-                    chainBuffers[level].Append((byte)'c');
-                    chainBuffers[level].Append((byte)255);
-
-                    // serialization version
-                    chainBuffers[level].Append((byte)0);
-
-                    chainBuffers[level].Append((byte)level);
-                    chainBuffers[level].Append((byte)(level == 0 ? ChunkType.Content : ChunkType.Chain));
-                    chainBuffers[level].Append(new byte[25]);
-                }
-
-                chainBuffers[level].Append(address.ToSpan());
+                chain.Append(address, streamOffset, streamLength);
             }
 
-            void WriteChainBuffer(int level)
+            Address WriteChain(Chain chain)
             {
-                Debug.Assert(chainBuffers.Count > level);
+                var content = chain.Serialize();
+                var chainChunk = _chunkEncryptor.EncryptChunk(contentKeyEncryptionKey, hmacKey, content);
 
-                if (chainBuffers[level].ContentLength == 0)
-                {
-                    return;
-                }
-
-                var chainChunk = _chunkEncryptor.EncryptChunk(InitializationVector.Random(), EncryptionKey.Random(), contentKeyEncryptionKey, hmacKey, chainBuffers[level]);
-                if (!_chunkStorage.TryPut(chainChunk, OverwriteStrategy.Allow))
+                if (!_chunkStorage.TryPut(chainChunk, OverwriteStrategy.DenyWithSuccess))
                 {
                     throw new Exception("Failed to store chunk in repository");
                 }
 
-                AppendToChainBuffer(chainChunk.Address, level + 1);
-            }
-
-            Address WriteLastChainBuffer()
-            {
-                var chainChunk = _chunkEncryptor.EncryptChunk(InitializationVector.Random(), EncryptionKey.Random(), contentKeyEncryptionKey, hmacKey, chainBuffers[chainBuffers.Count - 1]);
-                if (!_chunkStorage.TryPut(chainChunk, OverwriteStrategy.Allow))
-                {
-                    throw new Exception("Failed to store chunk in repository");
-                }
+                Console.WriteLine($"Wrote chain chunk (level {chain.Level}, count {chain.Count}, streamoffset {chain.StreamOffset}, streamlength {chain.StreamLength})");
+                AppendToChain(chainChunk.Address, chain.Level + 1, chain.StreamOffset, chain.StreamLength);
                 return chainChunk.Address;
             }
 
-            // Use a different (random) IV and encryption key for each chunk
-            foreach (var buffer in buffers)
+            void Write(ReadOnlySpan<byte> bytes, long streamOffset)
             {
-                var encryptedChunk = _chunkEncryptor.EncryptChunk(InitializationVector.Random(), EncryptionKey.Random(), contentKeyEncryptionKey, hmacKey, buffer);
+                var encryptedChunk = _chunkEncryptor.EncryptChunk(contentKeyEncryptionKey, hmacKey, bytes);
 
-                if (!_chunkStorage.TryPut(encryptedChunk, OverwriteStrategy.Allow))
+                if (!_chunkStorage.TryPut(encryptedChunk, OverwriteStrategy.DenyWithSuccess))
                 {
                     throw new Exception("Failed to store chunk in repository");
                 }
-
-                AppendToChainBuffer(encryptedChunk.Address, level: 0);
+                Console.WriteLine($"Wrote content chunk (offset {streamOffset}, length {bytes.Length})");
+                AppendToChain(encryptedChunk.Address, level: 0, streamOffset, bytes.Length);
             }
 
-            if (totalAddressesStoredInChainBuffers == 1)
+            var buf = new byte[_chunkSize];
+            var bytesRead = 0;
+            var bufContentLength = 0;
+            var streamOffset = 0L;
+
+            while ((bytesRead = stream.Read(buf, bufContentLength, _chunkSize - bufContentLength)) != 0)
             {
-                return (new Address(chainBuffers[0].ToSpan(32, Address.Length)), ChunkType.Content);
+                bufContentLength += bytesRead;
+                if (_chunkSize == bufContentLength)
+                {
+                    Write(buf, streamOffset);
+                    streamOffset += bufContentLength;
+                    bufContentLength = 0;
+                }
             }
 
-            // write all chain buffers to repository.
-            for (int i = 0; i < chainBuffers.Count - 1; i++)
+            if (bufContentLength > 0)
             {
-                WriteChainBuffer(i);
+                Write(buf.AsSpan(0, bufContentLength), streamOffset);
             }
 
-            return (WriteLastChainBuffer(), ChunkType.Chain);
+            var chain = chains[0];
+            var address = chain.Addresses[0];
+            if (chains.Count == 1 && chains[0].Count == 1)
+            {
+                return (address, ChunkType.Content);
+            }
+
+            for (int i = 0; i < chains.Count; i++)
+            {
+                chain = chains[i];
+
+                // Write this chain, unless it is the last chain, and it contains only one chunk
+                if (i < chains.Count - 1 || chain.Count > 1)
+                {
+                    address = WriteChain(chain);
+                }
+            }
+
+            return (address, ChunkType.Chain);
         }
 
+        /// <summary>
+        /// TODO: implement a custom stream class that will allow random access without storing the entire stream in memory
+        /// </summary>
+        /// <param name="type"></param>
+        /// <param name="contentKeyEncryptionKey"></param>
+        /// <param name="hmacKey"></param>
+        /// <param name="address"></param>
+        /// <returns></returns>
+        /// <exception cref="Exception"></exception>
         public IEnumerable<Buffer> Read(ChunkType type, KeyEncryptionKey contentKeyEncryptionKey, HmacKey hmacKey, Address address)
         {
             if (!_chunkStorage.TryGet(address, out var chunk))
@@ -169,38 +152,17 @@ namespace Wibblr.Grufs
             }
             else if (type == ChunkType.Chain)
             {
-                ChunkType subchunkType = ChunkType.Unknown;
+                var chain = Chain.Deserialize(buffer);
 
-                if (buffer[0] != 'g' || buffer[1] != 'f' || buffer[2] != 'c' || buffer[3] != 255)
+                foreach (var subAddress in chain.Addresses) 
                 {
-                    throw new Exception();
-                }
-
-                if (buffer[4] != 0)
-                {
-                    // unknown version number
-                    throw new Exception();
-                }
-
-                // buffer[5] is the chain level - unused here, but might be useful for debugging
-
-                subchunkType = (ChunkType)buffer[6];
-                if (subchunkType != ChunkType.Chain && subchunkType != ChunkType.Content)
-                {
-                    throw new Exception($"Unknown chunk type: {subchunkType}");
-                }
-
-                for (int i = 32; i < buffer.ContentLength; i += Address.Length)
-                {
-                    var subchunkAddress = new Address(buffer.ToSpan(i, Address.Length));
-
-                    foreach (var x in Read(subchunkType, contentKeyEncryptionKey, hmacKey, subchunkAddress))
+                    foreach (var subBuffer in Read(chain.SubchunkType, contentKeyEncryptionKey, hmacKey, subAddress))
                     {
-                        yield return x;
+                        yield return subBuffer;
                     }
                 }
             }
-            else throw new Exception();
+            else throw new Exception("Unknown chunk type");
         }
     }
 }

@@ -93,12 +93,13 @@ namespace Wibblr.Grufs.Tests
             var hmacKey = new HmacKey("0000000000000000000000000000000000000000000000000000000000000000".ToBytes());
 
             var plaintext = "The quick brown fox jumps over the lazy dog.";
+            var plaintextBytes = Encoding.UTF8.GetBytes(plaintext);
 
             var encryptor = new ChunkEncryptor();
 
-            var chunk = encryptor.EncryptChunk(iv, key, keyEncryptionKey, hmacKey, new Buffer(plaintext));
+            var chunk = encryptor.EncryptChunk(iv, key, keyEncryptionKey, hmacKey, plaintextBytes);
 
-            var decryptedCiphertext = Encoding.ASCII.GetString(encryptor.DecryptChunkAndVerifyAddress(chunk, keyEncryptionKey, hmacKey).ToSpan());
+            var decryptedCiphertext = Encoding.ASCII.GetString(encryptor.DecryptChunkAndVerifyAddress(chunk, keyEncryptionKey, hmacKey).AsSpan());
 
             Console.WriteLine($"plaintext: {plaintext}");
             Console.WriteLine($"address:   {chunk.Address}");
@@ -120,11 +121,11 @@ namespace Wibblr.Grufs.Tests
             var plaintextBytes = Encoding.UTF8.GetBytes(plaintext);
 
             var encryptor = new ChunkEncryptor();
-            var buffer = new Buffer(100).Write(plaintextBytes);
+            var buffer = new BufferBuilder(100).AppendBytes(plaintextBytes).ToBuffer();
 
-            var chunk = encryptor.EncryptChunk(iv, key, keyEncryptionKey, hmacKey, buffer);
+            var chunk = encryptor.EncryptChunk(iv, key, keyEncryptionKey, hmacKey, buffer.AsSpan());
 
-            var decryptedCiphertext = Encoding.ASCII.GetString(encryptor.DecryptChunkAndVerifyAddress(chunk, keyEncryptionKey, hmacKey).ToSpan());
+            var decryptedCiphertext = Encoding.ASCII.GetString(encryptor.DecryptChunkAndVerifyAddress(chunk, keyEncryptionKey, hmacKey).AsSpan());
 
             Console.WriteLine($"plaintext: {plaintext}");
             Console.WriteLine($"address:   0x{chunk.Address}");
@@ -158,7 +159,7 @@ namespace Wibblr.Grufs.Tests
             var decryptedStream = new MemoryStream();
             foreach (var decryptedBuffer in streamStorage.Read(type, keyEncryptionKey, hmacKey, address))
             {
-                decryptedStream.Write(decryptedBuffer.ToSpan());
+                decryptedStream.Write(decryptedBuffer.AsSpan());
             }
 
             var decryptedText = Encoding.UTF8.GetString(decryptedStream.ToArray());
@@ -176,7 +177,7 @@ namespace Wibblr.Grufs.Tests
             var wrappedHmacKey = hmacKey.Wrap(hmacKeyEncryptionKey);
 
             var plaintext = "";
-            for (int i = 0; i < 99; i++)
+            for (int i = 0; i < 999; i++)
             {
                 plaintext += $"{i} The quick brown fox jumps over the lazy dog {i}\n";
             }
@@ -190,12 +191,13 @@ namespace Wibblr.Grufs.Tests
 
             var repository = new InMemoryChunkStorage();
             var (address, type) = streamStorage.Write(keyEncryptionKey, wrappedHmacKey, hmacKeyEncryptionKey, stream);
+            chunkStorage.Count().Should().BeGreaterThan(1);
 
             var decryptedStream = new MemoryStream();
             
             foreach (var decryptedBuffer in streamStorage.Read(type, keyEncryptionKey, hmacKey, address))
             {
-                decryptedStream.Write(decryptedBuffer.ToSpan());
+                decryptedStream.Write(decryptedBuffer.AsSpan());
             }
 
             var decryptedText = Encoding.UTF8.GetString(decryptedStream.ToArray());

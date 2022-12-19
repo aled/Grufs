@@ -46,7 +46,7 @@ namespace Wibblr.Grufs.Encryption
             }
         }
 
-        public Span<byte> Decrypt(ReadOnlySpan<byte> ciphertext, InitializationVector iv, EncryptionKey key)
+        public ReadOnlySpan<byte> Decrypt(ReadOnlySpan<byte> ciphertext, InitializationVector iv, EncryptionKey key)
         {
             var bytes = new byte[MaxPlaintextLength(ciphertext.Length)];
             var bytesWritten = Decrypt(ciphertext, iv, key, bytes);

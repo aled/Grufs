@@ -19,14 +19,14 @@ namespace Wibblr.Grufs
             _chunkStorage = chunkStorage;
         }
 
-        private Span<byte> GenerateVersionedStructuredLookupKey(ReadOnlySpan<byte> lookupKey, long sequenceNumber)
+        private ReadOnlySpan<byte> GenerateVersionedStructuredLookupKey(ReadOnlySpan<byte> lookupKey, long sequenceNumber)
         {
-            return new Buffer(1 + 1 + 4 + lookupKey.Length + 8)
-                .Append(serializationVersion)
-                .Append(isVersioned)
-                .Append(lookupKey.Length)
-                .Append(lookupKey)
-                .Append(sequenceNumber)
+            return new BufferBuilder(1 + 1 + 4 + lookupKey.Length + 8)
+                .AppendByte(serializationVersion)
+                .AppendByte(isVersioned)
+                .AppendInt(lookupKey.Length)
+                .AppendBytes(lookupKey)
+                .AppendLong(sequenceNumber)
                 .ToSpan();
         }
 
@@ -63,7 +63,7 @@ namespace Wibblr.Grufs
                 return false;
             }
 
-            value = new ChunkEncryptor().DecryptBytes(chunk.Content, contentKeyEncryptionKey).ToSpan();
+            value = new ChunkEncryptor().DecryptBytes(chunk.Content, contentKeyEncryptionKey).AsSpan();
             return true;
         }
 

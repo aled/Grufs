@@ -85,7 +85,7 @@ namespace Wibblr.Grufs.Tests
 
                 foreach (var decryptedBuffer in streamStorage.Read(type, keyEncryptionKey, hmacKey, address))
                 {
-                    decryptedStream.Write(decryptedBuffer.ToSpan());
+                    decryptedStream.Write(decryptedBuffer.AsSpan());
                 }
             }
 

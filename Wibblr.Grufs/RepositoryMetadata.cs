@@ -19,15 +19,16 @@ namespace Wibblr.Grufs
                 throw new ArgumentException("Invalid encrypted master keys length");
             }
 
-            var buffer = new Buffer(1 + InitializationVector.Length + Salt.Length + sizeof(int) + 1 + EncryptedMasterKeys.Length)
-                .Append(SerializationVersion)
-                .Append(MasterKeysInitializationVector.ToSpan())
-                .Append(Salt.ToSpan())
-                .Append(Iterations)
-                .Append((byte)EncryptedMasterKeys.Length)
-                .Append(EncryptedMasterKeys);
+            var buffer = new BufferBuilder(1 + InitializationVector.Length + Salt.Length + sizeof(int) + 1 + EncryptedMasterKeys.Length)
+                .AppendByte(SerializationVersion)
+                .AppendBytes(MasterKeysInitializationVector.ToSpan())
+                .AppendBytes(Salt.ToSpan())
+                .AppendInt(Iterations)
+                .AppendByte((byte)EncryptedMasterKeys.Length)
+                .AppendBytes(EncryptedMasterKeys)
+                .ToBuffer();
 
-            return buffer.ToSpan();
+            return buffer.AsSpan();
         }
 
         public RepositoryMetadata(InitializationVector masterKeysInitializationVector, Salt salt, int iterations, ReadOnlySpan<byte> encryptedMasterKeys)
@@ -52,7 +53,7 @@ namespace Wibblr.Grufs
                 Salt = new Salt(serialized.Slice(pos, Salt.Length));
                 pos += Salt.Length;
 
-                Iterations = BinaryPrimitives.ReadInt32BigEndian(serialized.Slice(pos, 4));
+                Iterations = BinaryPrimitives.ReadInt32LittleEndian(serialized.Slice(pos, 4));
                 pos += 4;
 
                 var EncryptedMasterKeysLength = serialized[pos];
@@ -61,7 +62,7 @@ namespace Wibblr.Grufs
                 EncryptedMasterKeys = serialized.Slice(pos, EncryptedMasterKeysLength).ToArray();
                 pos += EncryptedMasterKeysLength;
             }
-            catch(Exception) 
+            catch (Exception) 
             {
                 throw new Exception("Invalid repository metadata");
             }
