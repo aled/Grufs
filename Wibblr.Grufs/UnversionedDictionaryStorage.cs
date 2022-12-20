@@ -28,20 +28,21 @@ namespace Wibblr.Grufs
         public bool TryPutValue(KeyEncryptionKey contentKeyEncryptionKey, HmacKey addressKey, ReadOnlySpan<byte> lookupKey, ReadOnlySpan<byte> value, OverwriteStrategy overwrite)
         {
             var encryptedValue = new ChunkEncryptor().EncryptBytes(InitializationVector.Random(), EncryptionKey.Random(), contentKeyEncryptionKey, value);
-
             var structuredLookupKey = GenerateStructuredLookupKey(lookupKey);
-
             var hmac = new Hmac(addressKey, structuredLookupKey);
+            var address = new Address(hmac);
+            var encryptedChunk = new EncryptedChunk(address, encryptedValue);
 
-            return _chunkStorage.TryPut(new EncryptedChunk(new Address(hmac), encryptedValue), overwrite);
+            return _chunkStorage.TryPut(encryptedChunk, overwrite);
         }
 
         public bool TryGetValue(KeyEncryptionKey contentKeyEncryptionKey, HmacKey addressKey, ReadOnlySpan<byte> lookupKey, out ReadOnlySpan<byte> value)
         {
             var structuredLookupKey = GenerateStructuredLookupKey(lookupKey);
             var hmac = new Hmac(addressKey, structuredLookupKey);
+            var address = new Address(hmac);
 
-            if (!_chunkStorage.TryGet(new Address(hmac), out var chunk))
+            if (!_chunkStorage.TryGet(address, out var chunk))
             {
                 value = null;
                 return false;
