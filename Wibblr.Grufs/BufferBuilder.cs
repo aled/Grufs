@@ -1,6 +1,10 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Buffers.Binary;
+using System.Numerics;
+using System.Runtime.CompilerServices;
+using System.Text.Unicode;
+using System.Text;
 
 namespace Wibblr.Grufs
 {
@@ -15,7 +19,15 @@ namespace Wibblr.Grufs
             _buf = new byte[capacity];
         }
 
-        private void CheckBounds(int i)
+        public Span<byte> GetDestinationSpan(int length)
+        {
+            CheckBounds(length);
+            var destination = _buf.AsSpan(_offset, length);
+            _offset += length;
+            return destination;
+        }
+
+        internal void CheckBounds(int i)
         {
             if (_offset + i > _buf.Length)
             {
@@ -37,6 +49,14 @@ namespace Wibblr.Grufs
             return this;
         }
 
+        public BufferBuilder AppendUShort(ushort i)
+        {
+            CheckBounds(sizeof(ushort));
+            BinaryPrimitives.WriteUInt16LittleEndian(_buf.AsSpan(_offset, sizeof(ushort)), i);
+            _offset += sizeof(ushort);
+            return this;
+        }
+
         public BufferBuilder AppendInt(int i)
         {
             CheckBounds(sizeof(int));
@@ -52,6 +72,25 @@ namespace Wibblr.Grufs
             _offset += sizeof(long);
             return this;
         }
+
+        public BufferBuilder AppendPathString(PathString s)
+        {
+            s.SerializeTo(this);
+            return this;
+        }
+
+        public BufferBuilder AppendVarInt(VarInt i)
+        {
+            i.SerializeTo(this);
+            return this;
+        }
+
+        public BufferBuilder AppendTimestamp(Timestamp t)
+        {
+            t.SerializeTo(this);
+            return this;
+        }
+
 
         public Buffer ToBuffer()
         {

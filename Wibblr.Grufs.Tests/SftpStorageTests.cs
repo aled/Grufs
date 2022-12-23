@@ -9,12 +9,6 @@ using Wibblr.Grufs.Encryption;
 
 namespace Wibblr.Grufs.Tests
 {
-    internal class SftpCredentials
-    {
-        public string? Hostname { get; init; }
-        public string? Username { get; init; }
-        public string? Password { get; init; }
-    }
 
     internal class TemporarySftpStorage : IDisposable
     {
@@ -69,8 +63,6 @@ namespace Wibblr.Grufs.Tests
         {
             var keyEncryptionKey = new KeyEncryptionKey("0000000000000000000000000000000000000000000000000000000000000000".ToBytes());
             var hmacKey = new HmacKey("0000000000000000000000000000000000000000000000000000000000000000".ToBytes());
-            var hmacKeyEncryptionKey = new HmacKeyEncryptionKey("0000000000000000000000000000000000000000000000000000000000000000".ToBytes());
-            var wrappedHmacKey = hmacKey.Wrap(hmacKeyEncryptionKey);
             var plaintext = "The quick brown fox jumps over the lazy dog.\n".Repeat(10); // approx 450KB
             var plaintextBytes = Encoding.UTF8.GetBytes(plaintext);
 
@@ -81,7 +73,7 @@ namespace Wibblr.Grufs.Tests
             {
                 var storage = temp.Storage;
                 var streamStorage = new StreamStorage(storage);
-                var (address, type) = streamStorage.Write(keyEncryptionKey, wrappedHmacKey, hmacKeyEncryptionKey, stream);
+                var (address, type) = streamStorage.Write(keyEncryptionKey, hmacKey, stream);
 
                 foreach (var decryptedBuffer in streamStorage.Read(type, keyEncryptionKey, hmacKey, address))
                 {

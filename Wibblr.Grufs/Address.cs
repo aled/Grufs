@@ -10,7 +10,7 @@ namespace Wibblr.Grufs
     {
         public static readonly int Length = 32;
 
-        private byte[] _value { get; init; }
+        private byte[] _value { get; set; } = new byte[Length];
 
         public Address(ReadOnlySpan<byte> value)
         {
@@ -21,7 +21,6 @@ namespace Wibblr.Grufs
                 throw new ArgumentException($"Invalid address length (expected {Length}, was {value.Length}");
             }
 
-            _value = new byte[Length];
             value.CopyTo(_value);
         }
 

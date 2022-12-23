@@ -18,7 +18,7 @@ namespace Wibblr.Grufs
         // By using different metadata passwords, it should be possible to store multiple repositories in the same storage,
         // because the metadata will be stored at different addresses. Data will be deduplicated if the same file is in multiple
         // repositories.
-        private const string _wellKnownMetadataPassword = "This password is used to encrypt and generate the address of the repository metadata. The security of the system does not depend on this being secret.";
+        private const string _defaultRepositoryName = "";
         private static readonly Salt wellKnownSalt0 = new Salt(new byte[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 });
         private static readonly Salt wellKnownSalt1 = new Salt(new byte[] { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 });
 
@@ -28,7 +28,7 @@ namespace Wibblr.Grufs
 
         internal KeyEncryptionKey _masterKey;
         internal HmacKey _masterContentAddressKey;
-        internal HmacKey _masterVersionedDictionaryAddressKey;
+        internal HmacKey _masterDictionaryAddressKey;
 
         public Repository(IChunkStorage chunkStorage) 
         { 
@@ -36,7 +36,7 @@ namespace Wibblr.Grufs
             _streamStorage = new StreamStorage(chunkStorage, _chunkSize);
         }
 
-        public bool Initialize(string password, string metadataPassword = _wellKnownMetadataPassword)
+        public bool Initialize(string password, string repositoryName = _defaultRepositoryName)
         {
             // The master keys required. Each chunk is encrypted with a random key, which is wrapped using the masterKey.
             // Additionally the address of chunks is computed using the addressKey (which is the same for all chunks)
@@ -64,25 +64,25 @@ namespace Wibblr.Grufs
 
             var repositoryMetadata = new RepositoryMetadata(masterKeysInitializationVector, salt, iterations, encryptedMasterKeys);
 
-            // Finally store the metadata using the DictionaryStorage. This will encrypt with either a well-known or custom password. This is not necessary for security, but is there to make all the chunks in the repository look the same.
+            // Finally store the metadata using the DictionaryStorage. This will encrypt with either a well-known default or custom repository name. This is not necessary for security, but is there to make all the chunks in the repository look the same.
             // Note there is no random salt in this usage of the key derivation function as it depends on the password alone (otherwise the metadata could not be located)
-            var normalizedMetadataPassword = Encoding.UTF8.GetBytes(metadataPassword.Normalize(NormalizationForm.FormC));
-            var metadataKeyEncryptionKey = new KeyEncryptionKey(new Rfc2898DeriveBytes(normalizedMetadataPassword, wellKnownSalt0.ToSpan().ToArray(), iterations, HashAlgorithmName.SHA256).GetBytes(KeyEncryptionKey.Length));
-            var metadataAddressKey = new HmacKey(new Rfc2898DeriveBytes(normalizedMetadataPassword, wellKnownSalt1.ToSpan().ToArray(), iterations, HashAlgorithmName.SHA256).GetBytes(KeyEncryptionKey.Length));
+            var normalizedRepositoryName = Encoding.UTF8.GetBytes(repositoryName.Normalize(NormalizationForm.FormC));
+            var metadataKeyEncryptionKey = new KeyEncryptionKey(new Rfc2898DeriveBytes(normalizedRepositoryName, wellKnownSalt0.ToSpan().ToArray(), iterations, HashAlgorithmName.SHA256).GetBytes(KeyEncryptionKey.Length));
+            var metadataAddressKey = new HmacKey(new Rfc2898DeriveBytes(normalizedRepositoryName, wellKnownSalt1.ToSpan().ToArray(), iterations, HashAlgorithmName.SHA256).GetBytes(KeyEncryptionKey.Length));
 
             if (!new UnversionedDictionaryStorage(_chunkStorage).TryPutValue(metadataKeyEncryptionKey, metadataAddressKey, Encoding.ASCII.GetBytes("metadata"), repositoryMetadata.Serialize(), OverwriteStrategy.DenyWithError))
             {
-                throw new Exception();
+                throw new Exception("Error initializing repository - already exists");
             }
 
             _masterKey = masterKey;
             _masterContentAddressKey = contentAddressKey;
-            _masterVersionedDictionaryAddressKey = dictionaryAddressKey;
+            _masterDictionaryAddressKey = dictionaryAddressKey;
 
             return true;
         }
 
-        public bool Open(string password, string metadataPassword = _wellKnownMetadataPassword)
+        public bool Open(string password, string metadataPassword = _defaultRepositoryName)
         {
             // Get the serialized metadata from the dictionary storage. Note the encryption used for this is weak as it uses well known salts and probably a well known password.
             // The keys embedded in the metadata are wrapped with another layer of (strong) encryption.
@@ -113,25 +113,57 @@ namespace Wibblr.Grufs
 
             _masterKey = new KeyEncryptionKey(masterKeys.Slice(1, KeyEncryptionKey.Length));
             _masterContentAddressKey = new HmacKey(masterKeys.Slice(1+ KeyEncryptionKey.Length, HmacKey.Length));
-            _masterVersionedDictionaryAddressKey = new HmacKey(masterKeys.Slice(1 + KeyEncryptionKey.Length + HmacKey.Length, HmacKey.Length));
+            _masterDictionaryAddressKey = new HmacKey(masterKeys.Slice(1 + KeyEncryptionKey.Length + HmacKey.Length, HmacKey.Length));
 
             return true;
         }
 
-        public void Upload(string localDir, string repositoryDir)
+        // Non recursive upload of a local directory to the repository
+        public void UploadDirectory(string localDir)
         {
-            var di = new DirectoryInfo(localDir);
+            // first, download the latest version of the directory info from the repository.
+            // Record the version number
 
-            if (!di.Exists)
-            {
-                throw new Exception("Invalid directory");
-            }
+            // Upload all local files, recording the address/chunk type/other metadata of each
+            // Any duplicate uploads are avoided by checking whether the address already exists.
 
-            // Upload all files
-            var files = new List<GrufsFile>();
 
-            var contentKeyEncryptionKey = new KeyEncryptionKey();
-            var hmacKey = new HmacKey();
+            // Modify the exising directory by adding new entries, replacing existing entries, and leaving 
+            // missing ones alone.
+
+            // Upload the modified directory info. If the new version number has not been used, end here.
+
+            // If the new version number has been used, it means someone else has done an update. Try and 
+            // merge somehow. Initial MVP just downloads latest version again and repeats.
+
+
+            //var di = new DirectoryInfo(localDir);
+
+            //if (!di.Exists)
+            //{
+            //    throw new Exception("Invalid directory");
+            //}
+
+            //// upload the file
+            //using (var stream = new FileStream(Path.Join(localDir, filename), FileMode.Open))
+            //{
+            //    var (address, chunkType) = _streamStorage.Write(_masterKey, _masterContentAddressKey, stream);
+            //}
+
+            //// download the current repository directory info
+            //var fullRemotePath = new FileInfo(Path.Join(repositoryDir, filename));
+
+
+            //var lookupKey = Encoding.UTF8.GetBytes("d:" + fullRemotePath.Directory.FullName.Length + ":" + fullRemotePath.Directory.FullName); 
+            //new VersionedDictionaryStorage(_chunkStorage).GetNextSequenceNumber(_masterDictionaryAddressKey, lookupKey, 0);
+
+
+
+            //    // Upload all files
+            //    var files = new List<RepositoryFile>();
+
+            //var contentKeyEncryptionKey = new KeyEncryptionKey();
+            //var hmacKey = new HmacKey();
 
 
             //var wrappedHmacKey = hmacKey.Wrap(hmacKeyEncryptionKey);

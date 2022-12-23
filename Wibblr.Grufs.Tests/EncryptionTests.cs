@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Text;
+
 using FluentAssertions;
 
 using Wibblr.Grufs.Encryption;
@@ -140,8 +141,6 @@ namespace Wibblr.Grufs.Tests
         {
             var keyEncryptionKey = new KeyEncryptionKey("0000000000000000000000000000000000000000000000000000000000000000".ToBytes());
             var hmacKey = new HmacKey("0000000000000000000000000000000000000000000000000000000000000000".ToBytes());
-            var hmacKeyEncryptionKey = new HmacKeyEncryptionKey("0000000000000000000000000000000000000000000000000000000000000000".ToBytes());
-            var wrappedHmacKey = hmacKey.Wrap(hmacKeyEncryptionKey);
 
             var plaintext = "The quick brown fox jumps over the lazy dog.\n";
 
@@ -152,7 +151,7 @@ namespace Wibblr.Grufs.Tests
 
             var stream = new MemoryStream(plaintextBytes);
 
-            var (address, type) = streamStorage.Write(keyEncryptionKey, wrappedHmacKey, hmacKeyEncryptionKey, stream);
+            var (address, type) = streamStorage.Write(keyEncryptionKey, hmacKey, stream);
 
             chunkStorage.Count().Should().Be(1);
 
@@ -167,14 +166,11 @@ namespace Wibblr.Grufs.Tests
             decryptedText.Should().Be(plaintext);
         }
 
-        // encrypt stream (chain)
         [Fact]
-        public void EncryptStreamMultipleLevelsOfChain()
+        public void EncryptStreamMultipleLevelsOfTree()
         {
             var keyEncryptionKey = new KeyEncryptionKey("0000000000000000000000000000000000000000000000000000000000000000".ToBytes());
             var hmacKey = new HmacKey("0000000000000000000000000000000000000000000000000000000000000000".ToBytes());
-            var hmacKeyEncryptionKey = new HmacKeyEncryptionKey("0000000000000000000000000000000000000000000000000000000000000000".ToBytes());
-            var wrappedHmacKey = hmacKey.Wrap(hmacKeyEncryptionKey);
 
             var plaintext = "";
             for (int i = 0; i < 999; i++)
@@ -190,7 +186,7 @@ namespace Wibblr.Grufs.Tests
             var stream = new MemoryStream(plaintextBytes);
 
             var repository = new InMemoryChunkStorage();
-            var (address, type) = streamStorage.Write(keyEncryptionKey, wrappedHmacKey, hmacKeyEncryptionKey, stream);
+            var (address, type) = streamStorage.Write(keyEncryptionKey, hmacKey, stream);
             chunkStorage.Count().Should().BeGreaterThan(1);
 
             var decryptedStream = new MemoryStream();

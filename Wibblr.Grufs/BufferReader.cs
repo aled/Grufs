@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Buffers.Binary;
+using System.Text;
 
 namespace Wibblr.Grufs
 {
@@ -22,6 +23,12 @@ namespace Wibblr.Grufs
             }
         }
 
+        public byte PeekByte()
+        {
+            CheckBounds(0);
+            return _buffer.Bytes[_offset];
+        }
+
         public byte ReadByte()
         {
             CheckBounds(0);
@@ -36,9 +43,13 @@ namespace Wibblr.Grufs
             return s;
         }
 
+        public ushort ReadUShort()
+        {
+            return BinaryPrimitives.ReadUInt16LittleEndian(ReadBytes(sizeof(ushort)));
+        }
+
         public int ReadInt()
         {
-            CheckBounds(sizeof(int));
             return BinaryPrimitives.ReadInt32LittleEndian(ReadBytes(sizeof(int)));
         }
 
@@ -46,6 +57,21 @@ namespace Wibblr.Grufs
         {
             CheckBounds(sizeof(long));
             return BinaryPrimitives.ReadInt64LittleEndian(ReadBytes(sizeof(long)));
+        }
+
+        public PathString ReadPathString()
+        {
+            return new PathString(this);
+        }
+
+        public VarInt ReadVarInt()
+        {
+            return new VarInt(this);
+        }
+
+        public Timestamp ReadTimestamp()
+        {
+            return new Timestamp(this);
         }
     }
 }

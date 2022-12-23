@@ -5,6 +5,6 @@ namespace Wibblr.Grufs
     {
         Unknown = 0,
         Content = 1,
-        Chain = 2,
+        ChunkTreeNode = 2,
     }
 }

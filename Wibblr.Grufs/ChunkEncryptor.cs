@@ -24,8 +24,9 @@ namespace Wibblr.Grufs
 
             // The address is a hash of the content (excluding checksum) and nothing else
             var hmac = new Hmac(addressKey, plaintext);
+            var address = new Address(hmac);
 
-            return new EncryptedChunk(new Address(hmac.ToSpan()), content);
+            return new EncryptedChunk(address, content);
         }
 
         public byte[] EncryptBytes(InitializationVector iv, EncryptionKey key, KeyEncryptionKey keyEncryptionKey, ReadOnlySpan<byte> source)

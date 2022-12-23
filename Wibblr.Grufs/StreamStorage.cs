@@ -24,54 +24,52 @@ namespace Wibblr.Grufs
             _chunkSize = chunkSize;
         }
 
-        public (Address, ChunkType) Write(KeyEncryptionKey contentKeyEncryptionKey, WrappedHmacKey wrappedHmacKey, HmacKeyEncryptionKey hmacKeyEncryptionKey, Stream stream)
+        public (Address, ChunkType) Write(KeyEncryptionKey contentKeyEncryptionKey, HmacKey hmacKey, Stream stream)
         {
-            var chains = new List<Chain>(); // one for each level of the tree of chains
+            var nodes = new List<ChunkTreeNode>(); // keep state for one node for each level of the tree
 
-            // Chain buffer has 32 bytes header, then each contained address is 32 bytes plus 8 for the contained length.
-            var chainCapacity = (_chunkSize - Chain.headerLength) / Chain.itemLength;
-            if (chainCapacity < 2)
+            // Node buffer has 32 bytes header, then each contained address is 32 bytes plus 8 for the contained length.
+            var nodeCapacity = (_chunkSize - ChunkTreeNode.headerLength) / ChunkTreeNode.itemLength;
+            if (nodeCapacity < 2)
             {
-                throw new Exception("Invalid chain capacity");
+                throw new Exception("Invalid node capacity");
             }
 
-            var hmacKey = new HmacKey(hmacKeyEncryptionKey, wrappedHmacKey);
-
-            void AppendToChain(Address address, int level, long streamOffset, long streamLength)
+            void AppendToNode(Address address, int level, long streamOffset, long streamLength)
             {
                 if (level > byte.MaxValue)
                 {
                     throw new Exception("Invalid level (infinite loop?)");
                 }
 
-                if (chains.Count <= level)
+                if (nodes.Count <= level)
                 {
-                    chains.Add(new Chain(chainCapacity, level));
+                    nodes.Add(new ChunkTreeNode(nodeCapacity, level));
                 }
 
-                var chain = chains[level];
-                if (chain.IsFull())
+                var node = nodes[level];
+                if (node.IsFull())
                 {
-                    WriteChain(chain);
-                    chain.Clear();
+                    WriteNode(node);
+                    node.Clear();
                 }
 
-                chain.Append(address, streamOffset, streamLength);
+                node.Append(address, streamOffset, streamLength);
             }
 
-            Address WriteChain(Chain chain)
+            Address WriteNode(ChunkTreeNode node)
             {
-                var content = chain.Serialize();
-                var chainChunk = _chunkEncryptor.EncryptChunk(contentKeyEncryptionKey, hmacKey, content);
+                var content = node.Serialize();
+                var nodeChunk = _chunkEncryptor.EncryptChunk(contentKeyEncryptionKey, hmacKey, content);
 
-                if (!_chunkStorage.TryPut(chainChunk, OverwriteStrategy.DenyWithSuccess))
+                if (!_chunkStorage.TryPut(nodeChunk, OverwriteStrategy.DenyWithSuccess))
                 {
                     throw new Exception("Failed to store chunk in repository");
                 }
 
-                Console.WriteLine($"Wrote chain chunk (level {chain.Level}, count {chain.Count}, streamoffset {chain.StreamOffset}, streamlength {chain.StreamLength})");
-                AppendToChain(chainChunk.Address, chain.Level + 1, chain.StreamOffset, chain.StreamLength);
-                return chainChunk.Address;
+                Console.WriteLine($"Wrote chunk tree node (level {node.Level}, count {node.Count}, streamoffset {node.StreamOffset}, streamlength {node.StreamLength})");
+                AppendToNode(nodeChunk.Address, node.Level + 1, node.StreamOffset, node.StreamLength);
+                return nodeChunk.Address;
             }
 
             void Write(ReadOnlySpan<byte> bytes, long streamOffset)
@@ -83,7 +81,7 @@ namespace Wibblr.Grufs
                     throw new Exception("Failed to store chunk in repository");
                 }
                 Console.WriteLine($"Wrote content chunk (offset {streamOffset}, length {bytes.Length})");
-                AppendToChain(encryptedChunk.Address, level: 0, streamOffset, bytes.Length);
+                AppendToNode(encryptedChunk.Address, level: 0, streamOffset, bytes.Length);
             }
 
             var buf = new byte[_chunkSize];
@@ -107,25 +105,25 @@ namespace Wibblr.Grufs
                 Write(buf.AsSpan(0, bufContentLength), streamOffset);
             }
 
-            var chain = chains[0];
-            var address = chain.Addresses[0];
-            if (chains.Count == 1 && chains[0].Count == 1)
+            var node = nodes[0];
+            var address = node.Addresses[0];
+            if (nodes.Count == 1 && nodes[0].Count == 1)
             {
                 return (address, ChunkType.Content);
             }
 
-            for (int i = 0; i < chains.Count; i++)
+            for (int i = 0; i < nodes.Count; i++)
             {
-                chain = chains[i];
+                node = nodes[i];
 
-                // Write this chain, unless it is the last chain, and it contains only one chunk
-                if (i < chains.Count - 1 || chain.Count > 1)
+                // Write this node, unless it is the root (highest index in nodes list), and it contains only one chunk
+                if (i < nodes.Count - 1 || node.Count > 1)
                 {
-                    address = WriteChain(chain);
+                    address = WriteNode(node);
                 }
             }
 
-            return (address, ChunkType.Chain);
+            return (address, ChunkType.ChunkTreeNode);
         }
 
         /// <summary>
@@ -150,13 +148,13 @@ namespace Wibblr.Grufs
             {
                 yield return buffer;
             }
-            else if (type == ChunkType.Chain)
+            else if (type == ChunkType.ChunkTreeNode)
             {
-                var chain = Chain.Deserialize(buffer);
+                var node = ChunkTreeNode.Deserialize(buffer);
 
-                foreach (var subAddress in chain.Addresses) 
+                foreach (var subAddress in node.Addresses) 
                 {
-                    foreach (var subBuffer in Read(chain.SubchunkType, contentKeyEncryptionKey, hmacKey, subAddress))
+                    foreach (var subBuffer in Read(node.SubchunkType, contentKeyEncryptionKey, hmacKey, subAddress))
                     {
                         yield return subBuffer;
                     }

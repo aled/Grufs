@@ -2,7 +2,7 @@
 
 namespace Wibblr.Grufs
 {
-    public class Chain
+    public class ChunkTreeNode
     {
         public static readonly int headerLength = 32;
         public static readonly int itemLength = 40;
@@ -15,7 +15,7 @@ namespace Wibblr.Grufs
         private List<long> _containedLengths = new List<long>();
         private int _capacity;
 
-        public Chain(int capacity, int level)
+        public ChunkTreeNode(int capacity, int level)
         {
             if (level > byte.MaxValue)
             {
@@ -54,10 +54,10 @@ namespace Wibblr.Grufs
         public ReadOnlySpan<byte> Serialize()
         {
             var builder = new BufferBuilder(headerLength + (itemLength * Addresses.Count))
-                .AppendBytes(headerMagic)   // header to identify chain chunks against known-format content chunks
+                .AppendBytes(headerMagic)   // header to identify chunk tree nodes against known-format content chunks
                 .AppendByte((byte)0)       // serialization version
                 .AppendByte((byte)Level)
-                .AppendByte((byte)(Level == 0 ? ChunkType.Content : ChunkType.Chain))
+                .AppendByte((byte)(Level == 0 ? ChunkType.Content : ChunkType.ChunkTreeNode))
                 .AppendInt(Count)
                 .AppendInt(_capacity)
                 .AppendBytes(new byte[17]); // padding to reach 32 bytes of header
@@ -71,7 +71,7 @@ namespace Wibblr.Grufs
             return builder.ToSpan();
         }
 
-        public static Chain Deserialize(Buffer buffer)
+        public static ChunkTreeNode Deserialize(Buffer buffer)
         {
             var reader = new BufferReader(buffer);
 
@@ -88,15 +88,14 @@ namespace Wibblr.Grufs
             var level = reader.ReadByte();
 
             var subchunkType = (ChunkType)reader.ReadByte();
-            if (subchunkType != ChunkType.Chain && subchunkType != ChunkType.Content)
+            if (subchunkType != ChunkType.ChunkTreeNode && subchunkType != ChunkType.Content)
             {
                 throw new Exception($"Unknown chunk type: {subchunkType}");
             }
 
             var count = reader.ReadInt();
             var capacity = reader.ReadInt();
-            var chain = new Chain(capacity, level);
-            chain.SubchunkType = subchunkType;
+            var node = new ChunkTreeNode(capacity, level) { SubchunkType = subchunkType };
             var length = 0L;
             for (int i = headerLength; i < buffer.Length; i += itemLength)
             {
@@ -104,15 +103,15 @@ namespace Wibblr.Grufs
                 var offset = reader.ReadLong();
                 length += reader.ReadLong();
 
-                chain.Append(subchunkAddress, offset, length);
+                node.Append(subchunkAddress, offset, length);
             }
 
-            if (chain.Count != count)
+            if (node.Count != count)
             {
                 throw new Exception();
             }
 
-            return chain;
+            return node;
         }
     }
 }

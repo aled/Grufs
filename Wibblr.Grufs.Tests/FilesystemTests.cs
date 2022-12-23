@@ -93,7 +93,7 @@ namespace Wibblr.Grufs.Tests
             var expectedFilesystem = """
                 /            { "timestamp": "2022-01-01T13:00:00" }
                 |- a.txt     { "timestamp": "2022-01-01T13:00:00", "size": "123", "content": "b123456" }
-                |- b.txt     { "timestamp": "2022-01-01T13:00:00", "size": "123", "chain": "c234567" }
+                |- b.txt     { "timestamp": "2022-01-01T13:00:00", "size": "123", "tree": "c234567" }
                 |- c         { "timestamp": "2022-01-01T14:00:00" }
                    |- d.txt
                 """;

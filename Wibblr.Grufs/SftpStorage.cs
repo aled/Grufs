@@ -98,7 +98,7 @@ namespace Wibblr.Grufs
             }
         }
 
-        public bool Exists(string path)
+        public bool Exists(string path = "")
         {
             // treat path as relative to the base path, even if it starts with a separator
             if (path.StartsWith("/"))
