@@ -40,7 +40,7 @@ namespace Wibblr.Grufs
             return _chunkStorage.TryPut(encryptedChunk, OverwriteStrategy.DenyWithError);
         }
 
-        public bool TryGetValue(KeyEncryptionKey contentKeyEncryptionKey, HmacKey addressKey, ReadOnlySpan<byte> lookupKey, long sequenceNumber, out ReadOnlySpan<byte> value)
+        public bool TryGetValue(KeyEncryptionKey contentKeyEncryptionKey, HmacKey addressKey, ReadOnlySpan<byte> lookupKey, long sequenceNumber, out Buffer value)
         {
             var structuredLookupKey = GenerateStructuredLookupKey(lookupKey, sequenceNumber);
             var hmac = new Hmac(addressKey, structuredLookupKey);
@@ -48,11 +48,11 @@ namespace Wibblr.Grufs
 
             if (!_chunkStorage.TryGet(address, out var chunk))
             {
-                value = null;
+                value = Buffer.Empty;
                 return false;
             }
 
-            value = new ChunkEncryptor().DecryptBytes(chunk.Content, contentKeyEncryptionKey).AsSpan();
+            value = new ChunkEncryptor().DecryptBytes(chunk.Content, contentKeyEncryptionKey);
             return true;
         }
 

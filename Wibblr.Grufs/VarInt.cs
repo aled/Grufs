@@ -4,12 +4,12 @@ namespace Wibblr.Grufs
 {
     /// <summary>
     /// Uses a variable length encoding that is efficient for small unsigned values.
-    /// The length of the serialized value in bytes is the number of leading binary ones in the first byte.
+    /// The total length of the serialized value in bytes is the number of leading binary ones in the first byte.
     /// 0xxxxxxx -> 7-bit int
     /// 10xxxxxx xxxxxxxx -> 14-bit int
     /// 110xxxxx xxxxxxxx xxxxxxxx -> 21-bit int
     /// 1110xxxx xxxxxxxx xxxxxxxx xxxxxxxx -> 28-bit int 
-    /// 11110UUU xxxxxxxx xxxxxxxx xxxxxxxx xxxxxxx -> 32-bit int
+    /// 11110UUU xxxxxxxx xxxxxxxx xxxxxxxx xxxxxxx -> 32-bit int (U = unused bit)
     /// </summary>
     public struct VarInt
     {
@@ -19,6 +19,8 @@ namespace Wibblr.Grufs
         {
             Value = i;
         }
+
+        public static implicit operator int(VarInt v) => v.Value;
 
         public VarInt(BufferReader reader)
         {
@@ -81,8 +83,10 @@ namespace Wibblr.Grufs
             }
             else if (leadingZeroCount >= 18)
             {
-                builder.AppendByte((byte)(0b10000000 | Value >> 8));
-                builder.AppendByte((byte)Value);
+                builder.AppendBytes(
+                    (byte)(0b10000000 | Value >> 8),
+                    (byte)Value
+                );
             }
             else if (leadingZeroCount >= 11)
             {

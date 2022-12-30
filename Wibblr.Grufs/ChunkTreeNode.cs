@@ -64,7 +64,7 @@ namespace Wibblr.Grufs
 
             for (int i = 0; i < Addresses.Count; i++)
             {
-                builder.AppendBytes(Addresses[i].ToSpan());
+                builder.AppendBytes(Addresses[i]);
                 builder.AppendLong(_streamOffsets[i]);
             }
 

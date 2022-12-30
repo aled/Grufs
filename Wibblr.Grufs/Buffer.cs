@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Text;
 using System.Diagnostics;
+using Renci.SshNet.Common;
 
 namespace Wibblr.Grufs
 {
@@ -21,6 +22,8 @@ namespace Wibblr.Grufs
             Bytes = buf;
             Length = length;
         }
+
+        public static Buffer Empty = new Buffer(new byte[0], 0);
 
         public ReadOnlySpan<byte> AsSpan() => Bytes.AsSpan(0, Length);
 

@@ -1,6 +1,8 @@
 ﻿using System.Diagnostics;
 using System.Buffers.Binary;
 using System.Text;
+using System.IO;
+using System.Runtime.Serialization.Formatters.Binary;
 
 namespace Wibblr.Grufs
 {
@@ -23,12 +25,6 @@ namespace Wibblr.Grufs
             }
         }
 
-        public byte PeekByte()
-        {
-            CheckBounds(0);
-            return _buffer.Bytes[_offset];
-        }
-
         public byte ReadByte()
         {
             CheckBounds(0);
@@ -40,6 +36,20 @@ namespace Wibblr.Grufs
             CheckBounds(count);
             var s = _buffer.AsSpan(_offset, count);
             _offset += count;
+            return s;
+        }
+
+        public string ReadString()
+        {
+            int charCount = ReadVarInt();
+            int byteCount = charCount * sizeof(char);
+            var s = string.Create(charCount, charCount, (chars, state) =>
+            {
+                for (int i = 0; i < state; i++)
+                {
+                    chars[i] = (char)ReadUShort();
+                }
+            });
             return s;
         }
 
@@ -55,13 +65,7 @@ namespace Wibblr.Grufs
 
         public long ReadLong()
         {
-            CheckBounds(sizeof(long));
             return BinaryPrimitives.ReadInt64LittleEndian(ReadBytes(sizeof(long)));
-        }
-
-        public PathString ReadPathString()
-        {
-            return new PathString(this);
         }
 
         public VarInt ReadVarInt()
@@ -73,5 +77,26 @@ namespace Wibblr.Grufs
         {
             return new Timestamp(this);
         }
+
+        public RepositoryFilename ReadRepositoryFilename()
+        {
+            return new RepositoryFilename(this);
+        }
+
+        public RepositoryDirectoryPath ReadRepositoryDirectoryPath()
+        {
+            return new RepositoryDirectoryPath(this);
+        }
+
+        public RepositoryFile ReadRepositoryFile()
+        {
+            return new RepositoryFile(this);
+        }
+
+        public RepositoryDirectory ReadRepositoryDirectory()
+        {
+            return new RepositoryDirectory(this);
+        }
+
     }
 }

@@ -42,10 +42,30 @@ namespace Wibblr.Grufs
             return this;
         }
 
+        public BufferBuilder AppendBytes(byte b0, byte b1)
+        {
+            CheckBounds(2);
+            _buf[_offset++] = b0; 
+            _buf[_offset++] = b1;
+            return this;
+        }
+
         public BufferBuilder AppendByte(byte b)
         {
             _buf[_offset] = b;
             _offset += 1;
+            return this;
+        }
+
+        public BufferBuilder AppendString(string s)
+        {
+            AppendVarInt(new VarInt(s.Length));
+
+            // TODO: make this efficient
+            foreach (var c in s)
+            {
+                AppendUShort(c);
+            }
             return this;
         }
 
@@ -73,12 +93,6 @@ namespace Wibblr.Grufs
             return this;
         }
 
-        public BufferBuilder AppendPathString(PathString s)
-        {
-            s.SerializeTo(this);
-            return this;
-        }
-
         public BufferBuilder AppendVarInt(VarInt i)
         {
             i.SerializeTo(this);
@@ -91,6 +105,29 @@ namespace Wibblr.Grufs
             return this;
         }
 
+        public BufferBuilder AppendRepositoryFilename(RepositoryFilename s)
+        {
+            s.SerializeTo(this);
+            return this;
+        }
+
+        public BufferBuilder AppendRepositoryDirectoryPath(RepositoryDirectoryPath p)
+        {
+            p.SerializeTo(this);
+            return this;
+        }
+
+        public BufferBuilder AppendRepositoryFile(RepositoryFile f)
+        {
+            f.SerializeTo(this);
+            return this;
+        }
+
+        public BufferBuilder AppendRepositoryDirectory(RepositoryDirectory d)
+        {
+            d.SerializeTo(this);
+            return this;
+        }
 
         public Buffer ToBuffer()
         {

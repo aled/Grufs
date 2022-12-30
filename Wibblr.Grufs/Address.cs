@@ -12,6 +12,11 @@ namespace Wibblr.Grufs
 
         private byte[] _value { get; set; } = new byte[Length];
 
+        public Address()
+        {
+            throw new NotImplementedException();
+        }
+
         public Address(ReadOnlySpan<byte> value)
         {
             ArgumentNullException.ThrowIfNull("value");
@@ -27,6 +32,8 @@ namespace Wibblr.Grufs
         public Address(Hmac hmac) : this(hmac.ToSpan())
         {
         }
+
+        public static implicit operator ReadOnlySpan<byte>(Address address) => address.ToSpan();
 
         public bool Equals(Address other) => Vector256.EqualsAll(Vector256.Create(_value), Vector256.Create(other._value));
 

@@ -1,8 +1,13 @@
 ﻿using System;
+using System.Collections.Immutable;
+using System.ComponentModel.DataAnnotations;
+using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 
 using Wibblr.Grufs.Encryption;
+
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Wibblr.Grufs.Tests")]
 
@@ -118,74 +123,105 @@ namespace Wibblr.Grufs
             return true;
         }
 
-        // Non recursive upload of a local directory to the repository
-        public void UploadDirectory(string localDir)
+        private ReadOnlySpan<byte> GetDirectoryDictionaryKey(string path) => Encoding.UTF8.GetBytes("directory:" + path);
+
+        private (RepositoryDirectory?, long version) GetLatestRepositoryDirectory(RepositoryDirectoryPath path, long hintVersion = 0)
         {
-            // first, download the latest version of the directory info from the repository.
-            // Record the version number
+            var dictionaryKey = GetDirectoryDictionaryKey(path.CanonicalPath);
+            var dictionaryStorage = new VersionedDictionaryStorage(_chunkStorage);
+
+            var nextVersion = dictionaryStorage.GetNextSequenceNumber(_masterDictionaryAddressKey, dictionaryKey, hintVersion);
+
+            if (nextVersion == 0)
+            {
+                return (null, 0);
+            }
+
+            var currentVersion = nextVersion - 1;
+            if (dictionaryStorage.TryGetValue(_masterKey, _masterDictionaryAddressKey, dictionaryKey, currentVersion, out var buffer))
+            {
+                return (new RepositoryDirectory(new BufferReader(buffer)), currentVersion);
+            }
+
+            throw new Exception("Missing directory version");
+        }
+
+        private (RepositoryDirectory, long version) WriteRepositoryDirectoryVersion(RepositoryDirectory directory, long version)
+        {
+            var serialized = new BufferBuilder(directory.GetSerializedLength()).AppendRepositoryDirectory(directory).ToBuffer();
+            var lookupKey = GetDirectoryDictionaryKey(directory.Path.CanonicalPath);
+            new VersionedDictionaryStorage(_chunkStorage).TryPutValue(_masterKey, _masterDictionaryAddressKey, lookupKey, version, serialized.AsSpan());
+            return (directory, version);
+        }
+
+        private (RepositoryDirectory, long version) EnsureDirectoryContains(RepositoryDirectoryPath repositoryDirectoryPath, RepositoryFilename childDirectory, long parentVersion)
+        {
+            var (repositoryDirectory, version) = GetLatestRepositoryDirectory(repositoryDirectoryPath);
+
+            // If directory exists but the latest version does not contain the child directory, then update directory to contain the new child 
+            if (repositoryDirectory != null)
+            {
+                if (repositoryDirectory.Directories.Contains(childDirectory))
+                {
+                    return (repositoryDirectory, version);
+                }
+
+                return WriteRepositoryDirectoryVersion(
+                    repositoryDirectory with { Directories = repositoryDirectory.Directories.Add(childDirectory) },
+                    version + 1);
+            }
+
+            // directory does not exist, create.
+            return WriteRepositoryDirectoryVersion(
+                new RepositoryDirectory(repositoryDirectoryPath, parentVersion, Timestamp.Now, false, new RepositoryFile[0], new RepositoryFilename[] { childDirectory }), 
+                0);
+        }
+
+        // Non recursive upload of a local directory to the repository
+        public (RepositoryDirectory, long version) UploadDirectoryNonRecursive(string localDirectoryPath, RepositoryDirectoryPath repositoryDirectoryPath)
+        {
+            long parentVersion = 0; // default value for root directory
+
+            // Starting at the root and going down to the parent of this directory, ensure each directory exists and contains the child directory
+            // Not we do not go down to this directory, as it also needs the files before we write it.
+            foreach (var (dirPath, childDirName) in repositoryDirectoryPath.PathHierarchy())
+            {
+                // ensure that dir exists, and contains childDir
+                (_, parentVersion) = EnsureDirectoryContains(dirPath, childDirName, parentVersion);
+            }
 
             // Upload all local files, recording the address/chunk type/other metadata of each
-            // Any duplicate uploads are avoided by checking whether the address already exists.
+            // Ignore directories.
+            var filesBuilder = ImmutableArray.CreateBuilder<RepositoryFile>();
 
+            var di = new DirectoryInfo(localDirectoryPath);
+            if (!di.Exists)
+            {
+                throw new Exception("Invalid directory");
+            }
 
-            // Modify the exising directory by adding new entries, replacing existing entries, and leaving 
-            // missing ones alone.
+            foreach (var file in di.EnumerateFiles())
+            {
+                using (var stream = new FileStream(file.FullName, FileMode.Open))
+                {
+                    var (address, chunkType) = _streamStorage.Write(_masterKey, _masterContentAddressKey, stream);
+                    filesBuilder.Add(new RepositoryFile(new RepositoryFilename(file.Name), address, chunkType, new Timestamp(file.LastWriteTimeUtc)));
+                }
+            }
 
-            // Upload the modified directory info. If the new version number has not been used, end here.
+            // finally upload this directory
+            var (directory, version) = GetLatestRepositoryDirectory(repositoryDirectoryPath);
 
-            // If the new version number has been used, it means someone else has done an update. Try and 
-            // merge somehow. Initial MVP just downloads latest version again and repeats.
+            if (directory == null)
+            {
+                return WriteRepositoryDirectoryVersion(new RepositoryDirectory(repositoryDirectoryPath, parentVersion, new Timestamp(di.LastWriteTimeUtc), false, filesBuilder.ToImmutableArray(), new RepositoryFilename[0]), 0);
+            }
 
+            var oldFiles = directory.Files.Except(filesBuilder);
+            filesBuilder.AddRange(oldFiles);
 
-            //var di = new DirectoryInfo(localDir);
-
-            //if (!di.Exists)
-            //{
-            //    throw new Exception("Invalid directory");
-            //}
-
-            //// upload the file
-            //using (var stream = new FileStream(Path.Join(localDir, filename), FileMode.Open))
-            //{
-            //    var (address, chunkType) = _streamStorage.Write(_masterKey, _masterContentAddressKey, stream);
-            //}
-
-            //// download the current repository directory info
-            //var fullRemotePath = new FileInfo(Path.Join(repositoryDir, filename));
-
-
-            //var lookupKey = Encoding.UTF8.GetBytes("d:" + fullRemotePath.Directory.FullName.Length + ":" + fullRemotePath.Directory.FullName); 
-            //new VersionedDictionaryStorage(_chunkStorage).GetNextSequenceNumber(_masterDictionaryAddressKey, lookupKey, 0);
-
-
-
-            //    // Upload all files
-            //    var files = new List<RepositoryFile>();
-
-            //var contentKeyEncryptionKey = new KeyEncryptionKey();
-            //var hmacKey = new HmacKey();
-
-
-            //var wrappedHmacKey = hmacKey.Wrap(hmacKeyEncryptionKey);
-
-            //foreach (var file in di.GetFiles())
-            //{
-            //    using (var stream = new FileStream(file.FullName, FileMode.Open))
-            //    {
-            //        _streamStorage.EncryptStream(contentKeyEncryptionKey, wrappedHmacKey, hmacKeyEncryptionKey, stream!, _chunkStorage);
-            //    }
-            //}
-
-            //var gd = new GrufsDirectory
-            //{
-            //    Name = di.Name.Normalize(NormalizationForm.FormC),
-            //    Files = di.EnumerateFiles().Select(x => new GrufsFile()).ToList()
-            //};
-
-            // Encrypt the directory info and upload!
-
-
-
+            var updated = directory with { Files = filesBuilder.ToImmutableArray() };
+            return WriteRepositoryDirectoryVersion(updated, version + 1);
         }
     }
 }

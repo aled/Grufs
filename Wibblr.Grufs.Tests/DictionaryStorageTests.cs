@@ -87,9 +87,9 @@ namespace Wibblr.Grufs.Tests
                 dictionaryStorage.TryGetValue(keyEncryptionKey, addressKey, lookupKeyBytes, 1, out var retrievedValue1).Should().BeTrue();
                 dictionaryStorage.TryGetValue(keyEncryptionKey, addressKey, lookupKeyBytes, 2, out var retrievedValue2).Should().BeTrue();
 
-                retrievedValue0.ToArray().Should().BeEquivalentTo(GetValue(0));
-                retrievedValue1.ToArray().Should().BeEquivalentTo(GetValue(1));
-                retrievedValue2.ToArray().Should().BeEquivalentTo(GetValue(2));
+                retrievedValue0.AsSpan().ToArray().Should().BeEquivalentTo(GetValue(0));
+                retrievedValue1.AsSpan().ToArray().Should().BeEquivalentTo(GetValue(1));
+                retrievedValue2.AsSpan().ToArray().Should().BeEquivalentTo(GetValue(2));
             }
             finally
             {
