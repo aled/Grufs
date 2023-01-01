@@ -13,7 +13,7 @@ namespace Wibblr.Grufs
         private IChunkStorage _chunkStorage;
         private int _chunkSize;
 
-        public StreamStorage(IChunkStorage chunkStorage, int chunkSize = 128 * 1024)
+        public StreamStorage(IChunkStorage chunkStorage, int chunkSize)
         {
             if (chunkSize < 128)
             {

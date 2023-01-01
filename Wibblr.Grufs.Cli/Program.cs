@@ -37,31 +37,34 @@ namespace Wibblr.Grufs.Cli
                 Console.WriteLine("Initialized repository");
             }
 
-            var localBaseDir = "c:\\temp\\grufs-testing";
-
             Console.WriteLine("1. Upload directory (non recursive)");
-            var choice = Console.ReadKey().KeyChar;
+            Console.WriteLine("2. List all directories");
+            var choice = Console.ReadLine();
 
             switch (choice)
             {
-                case '1':
-                    {
-                        Console.WriteLine($"Enter local file path (relative to {localBaseDir})");
-                        var relativePath = Console.ReadLine();
-                        var fullLocalPath = Path.Combine(localBaseDir, relativePath);
+                case "1":
+                    Console.WriteLine($"Enter local directory path");
+                    var localPath = Console.ReadLine();
 
-                        if (!Directory.Exists(fullLocalPath))
-                        {
-                            Console.WriteLine($"No such directory: {fullLocalPath}");
-                        }
-                        else
-                        {
-                            var remotePath = relativePath;
-                            Console.WriteLine($"Uploading {fullLocalPath} to {remotePath}");
-                            repo.UploadDirectoryNonRecursive(fullLocalPath, new RepositoryDirectoryPath(remotePath));
-                        }
+                    if (!Directory.Exists(localPath))
+                    {
+                        Console.WriteLine($"No such directory: {localPath}");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Enter remote directory path");
+                        var remotePath = Console.ReadLine();
+
+                        Console.WriteLine($"Uploading {localPath} to {remotePath}");
+                        repo.UploadDirectoryNonRecursive(localPath, new RepositoryDirectoryPath(remotePath));
                     }
                     break;
+
+                case "2":
+                    repo.ListDirectory(new RepositoryDirectoryPath("/"));
+                    break;
+
                 default:
                     break;
 

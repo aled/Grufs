@@ -19,14 +19,6 @@ namespace Wibblr.Grufs
             _buf = new byte[capacity];
         }
 
-        public Span<byte> GetDestinationSpan(int length)
-        {
-            CheckBounds(length);
-            var destination = _buf.AsSpan(_offset, length);
-            _offset += length;
-            return destination;
-        }
-
         internal void CheckBounds(int i)
         {
             if (_offset + i > _buf.Length)
@@ -50,10 +42,39 @@ namespace Wibblr.Grufs
             return this;
         }
 
+        public BufferBuilder AppendBytes(byte b0, byte b1, byte b2)
+        {
+            CheckBounds(3);
+            _buf[_offset++] = b0;
+            _buf[_offset++] = b1;
+            _buf[_offset++] = b2;
+            return this;
+        }
+
+        public BufferBuilder AppendBytes(byte b0, byte b1, byte b2, byte b3)
+        {
+            CheckBounds(4);
+            _buf[_offset++] = b0;
+            _buf[_offset++] = b1;
+            _buf[_offset++] = b2;
+            _buf[_offset++] = b3;
+            return this;
+        }
+
+        public BufferBuilder AppendBytes(byte b0, byte b1, byte b2, byte b3, byte b4)
+        {
+            CheckBounds(5);
+            _buf[_offset++] = b0;
+            _buf[_offset++] = b1;
+            _buf[_offset++] = b2;
+            _buf[_offset++] = b3;
+            _buf[_offset++] = b4;
+            return this;
+        }
+
         public BufferBuilder AppendByte(byte b)
         {
-            _buf[_offset] = b;
-            _offset += 1;
+            _buf[_offset++] = b;
             return this;
         }
 

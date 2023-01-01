@@ -39,7 +39,7 @@ namespace Wibblr.Grufs.Tests
                 dictionaryStorage.TryPutValue(keyEncryptionKey, addressKey, lookupKeyBytes, valueBytes, OverwriteStrategy.DenyWithError).Should().BeFalse();
                 dictionaryStorage.TryGetValue(keyEncryptionKey, addressKey, lookupKeyBytes, out var retrievedValue).Should().BeTrue();
 
-                value.Should().Be(Encoding.ASCII.GetString(retrievedValue));
+                value.Should().Be(Encoding.ASCII.GetString(retrievedValue.AsSpan()));
 
                 // lookup with incorrect lookup key - item not found
                 dictionaryStorage.TryGetValue(keyEncryptionKey, addressKey, lookupKeyBytes.Take(1).ToArray(), out _).Should().BeFalse();

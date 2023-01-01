@@ -33,34 +33,23 @@ namespace Wibblr.Grufs
 
         public RepositoryMetadata(InitializationVector masterKeysInitializationVector, Salt salt, int iterations, ReadOnlySpan<byte> encryptedMasterKeys)
         {
-            MasterKeysInitializationVector= masterKeysInitializationVector;
-            Salt= salt;
-            Iterations= iterations;
+            MasterKeysInitializationVector = masterKeysInitializationVector;
+            Salt = salt;
+            Iterations = iterations;
             EncryptedMasterKeys = encryptedMasterKeys.ToArray();
         }
 
-        public RepositoryMetadata(ReadOnlySpan<byte> serialized)
+        public RepositoryMetadata(Buffer buffer)
         {
             try
             {
-                int pos = 0;
-                SerializationVersion = serialized[0]; 
-                pos += 1;
-
-                MasterKeysInitializationVector = new InitializationVector(serialized.Slice(pos, InitializationVector.Length)); 
-                pos += InitializationVector.Length;
-
-                Salt = new Salt(serialized.Slice(pos, Salt.Length));
-                pos += Salt.Length;
-
-                Iterations = BinaryPrimitives.ReadInt32LittleEndian(serialized.Slice(pos, 4));
-                pos += 4;
-
-                var EncryptedMasterKeysLength = serialized[pos];
-                pos += 1;
-
-                EncryptedMasterKeys = serialized.Slice(pos, EncryptedMasterKeysLength).ToArray();
-                pos += EncryptedMasterKeysLength;
+                var reader = new BufferReader(buffer);
+                SerializationVersion = reader.ReadByte();
+                MasterKeysInitializationVector = new InitializationVector(reader.ReadBytes(InitializationVector.Length));
+                Salt = new Salt(reader.ReadBytes(Salt.Length));
+                Iterations = reader.ReadInt();
+                var EncryptedMasterKeysLength = reader.ReadByte();
+                EncryptedMasterKeys = reader.ReadBytes(EncryptedMasterKeysLength).ToArray();
             }
             catch (Exception) 
             {

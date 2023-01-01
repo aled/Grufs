@@ -1,13 +1,8 @@
-﻿using System;
-using System.Collections.Immutable;
-using System.ComponentModel.DataAnnotations;
-using System.IO;
+﻿using System.Collections.Immutable;
 using System.Security.Cryptography;
 using System.Text;
 
 using Wibblr.Grufs.Encryption;
-
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Wibblr.Grufs.Tests")]
 
@@ -27,7 +22,7 @@ namespace Wibblr.Grufs
         private static readonly Salt wellKnownSalt0 = new Salt(new byte[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 });
         private static readonly Salt wellKnownSalt1 = new Salt(new byte[] { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 });
 
-        private static readonly int _chunkSize = 128 * 1024;
+        private static readonly int _chunkSize = 5 * 1024 * 1024; // 5MB chunks
         private IChunkStorage _chunkStorage;
         private StreamStorage _streamStorage;
 
@@ -222,6 +217,36 @@ namespace Wibblr.Grufs
 
             var updated = directory with { Files = filesBuilder.ToImmutableArray() };
             return WriteRepositoryDirectoryVersion(updated, version + 1);
+        }
+
+        public void ListDirectory(RepositoryDirectoryPath path)
+        {
+            var stack = new Stack<RepositoryDirectoryPath>();
+            stack.Push(path);
+            
+            while (stack.Any())
+            {
+                var (directory, version) = GetLatestRepositoryDirectory(stack.Pop());
+
+                if (directory == null)
+                {
+                    continue;
+                }
+                Console.WriteLine(directory.Path.NormalizedPath + "(v" + version + ") " + directory.LastModifiedTimestamp);
+                foreach (var file in directory.Files)
+                {
+                    Console.WriteLine(directory.Path.NormalizedPath + "/" + file.Name.ToString() + " " + file.LastModifiedTimestamp + "(" + file.Address.ToString().Substring(0, 6) + ")");
+                }
+                foreach (var subDir in directory.Directories)
+                {
+                    stack.Push(new RepositoryDirectoryPath(directory.Path + "/" + subDir.OriginalName));
+                }
+            }
+        }
+
+        public void Scrub(RepositoryDirectoryPath path, RepositoryFilename filename)
+        {
+
         }
     }
 }
