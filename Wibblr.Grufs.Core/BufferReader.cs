@@ -18,13 +18,13 @@ namespace Wibblr.Grufs
         {
             if (_offset + i > _buffer.Length)
             {
-                throw new ArgumentOutOfRangeException();
+                throw new IndexOutOfRangeException();
             }
         }
 
         public byte ReadByte()
         {
-            CheckBounds(0);
+            CheckBounds(1);
             return _buffer.Bytes[_offset++];
         }
 
@@ -74,26 +74,5 @@ namespace Wibblr.Grufs
         {
             return new Timestamp(this);
         }
-
-        public RepositoryFilename ReadRepositoryFilename()
-        {
-            return new RepositoryFilename(this);
-        }
-
-        public RepositoryDirectoryPath ReadRepositoryDirectoryPath()
-        {
-            return new RepositoryDirectoryPath(this);
-        }
-
-        public RepositoryFile ReadRepositoryFile()
-        {
-            return new RepositoryFile(this);
-        }
-
-        public RepositoryDirectory ReadRepositoryDirectory()
-        {
-            return new RepositoryDirectory(this);
-        }
-
     }
 }

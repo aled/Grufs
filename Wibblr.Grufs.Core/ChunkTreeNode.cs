@@ -55,7 +55,7 @@ namespace Wibblr.Grufs
         {
             var builder = new BufferBuilder(headerLength + (itemLength * Addresses.Count))
                 .AppendBytes(headerMagic)   // header to identify chunk tree nodes against known-format content chunks
-                .AppendByte((byte)0)       // serialization version
+                .AppendByte(0)              // serialization version
                 .AppendByte((byte)Level)
                 .AppendByte((byte)(Level == 0 ? ChunkType.Content : ChunkType.ChunkTreeNode))
                 .AppendInt(Count)

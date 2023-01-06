@@ -12,11 +12,12 @@ namespace Wibblr.Grufs.Tests
         private VersionedDictionaryStorage _dictionaryStorage;
         private KeyEncryptionKey keyEncryptionKey = new KeyEncryptionKey(Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000000000"));
         private HmacKey addressKey = new HmacKey(Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000000000"));
+        private Compressor _compressor = new Compressor(CompressionAlgorithm.None);
 
         public SequenceNumberTestsFixture()
         {
             _storage = new InMemoryChunkStorage();
-            _dictionaryStorage = new VersionedDictionaryStorage(_storage);
+            _dictionaryStorage = new VersionedDictionaryStorage(keyEncryptionKey, addressKey, _compressor, _storage);
 
             // Add a bunch of values into the dictionary storage. For each of these IDs, insert that many versions of the value
             foreach (var lookupKeyId in new[] { 0, 1, 2, 10, 100, 1000 })
@@ -25,21 +26,21 @@ namespace Wibblr.Grufs.Tests
                 {
                     var lookupKey = Encoding.ASCII.GetBytes($"lookupkey-{lookupKeyId}");
                     var value = Encoding.ASCII.GetBytes($"value-{lookupKeyId}-sequence-{sequence}");
-                    _dictionaryStorage.TryPutValue(keyEncryptionKey, addressKey, lookupKey, sequence, value).Should().BeTrue();
+                    _dictionaryStorage.TryPutValue(lookupKey, sequence, value).Should().BeTrue();
                 }
             }
         }
         public long GetNextSequenceNumber(long lookupKeyId, long sequenceNumberHint)
         {
             var lookupKey = Encoding.ASCII.GetBytes($"lookupkey-{lookupKeyId}");
-            var sequenceNumber = _dictionaryStorage.GetNextSequenceNumber(addressKey, lookupKey, sequenceNumberHint);
+            var sequenceNumber = _dictionaryStorage.GetNextSequenceNumber(lookupKey, sequenceNumberHint);
             return sequenceNumber;
         }
 
         public (long sequenceNumber, int lookupCount) GetNextSequenceNumberAndLookupCount(long lookupKeyId, long sequenceNumberHint)
         {
             var lookupKey = Encoding.ASCII.GetBytes($"lookupkey-{lookupKeyId}");
-            var sequenceNumber = _dictionaryStorage.GetNextSequenceNumber(addressKey, lookupKey, sequenceNumberHint, out var lookupCount);
+            var sequenceNumber = _dictionaryStorage.GetNextSequenceNumber(lookupKey, sequenceNumberHint, out var lookupCount);
             return (sequenceNumber, lookupCount);
         }
     }
@@ -47,6 +48,7 @@ namespace Wibblr.Grufs.Tests
     public class SequenceNumberTests : IClassFixture<SequenceNumberTestsFixture>
     {
         private SequenceNumberTestsFixture _fixture;
+        private Compressor _compressor = new Compressor(CompressionAlgorithm.None);
 
         public SequenceNumberTests(SequenceNumberTestsFixture fixture) 
         {
@@ -135,26 +137,24 @@ namespace Wibblr.Grufs.Tests
         [Fact]
         public void ShouldThrowWhenMaxSequenceReached()
         {
-            var storage = new InMemoryChunkStorage();
-
             Func<long, byte[]> GetValue = i => Encoding.ASCII.GetBytes($"The quick brown fox-{i}");
-
-            var DictionaryStorage = new VersionedDictionaryStorage(storage);
-            var lookupKeyBytes = Encoding.ASCII.GetBytes("lookupkey");
 
             var keyEncryptionKey = new KeyEncryptionKey(Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000000000"));
             var addressKey = new HmacKey(Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000000000"));
+            var storage = new InMemoryChunkStorage();
+            var dictionaryStorage = new VersionedDictionaryStorage(keyEncryptionKey, addressKey, _compressor, storage);
+            var lookupKeyBytes = Encoding.ASCII.GetBytes("lookupkey");
 
             // Should be exactly one 'exists' call on the storage layer if this key does not exist
             var i = long.MaxValue;
-            DictionaryStorage.TryPutValue(keyEncryptionKey, addressKey, lookupKeyBytes, i, GetValue(i)).Should().BeTrue();
+            dictionaryStorage.TryPutValue(lookupKeyBytes, i, GetValue(i)).Should().BeTrue();
 
             // Should be exactly two 'exists' calls when the actual highest used sequence number is given as a hint
             Console.WriteLine("hint is optimal");
             storage.ResetStats();
             var hint = long.MaxValue; // highest existing sequence number
 
-            new Action(() => DictionaryStorage.GetNextSequenceNumber(addressKey, lookupKeyBytes, hint)).Should().Throw<Exception>();
+            new Action(() => dictionaryStorage.GetNextSequenceNumber(lookupKeyBytes, hint)).Should().Throw<Exception>();
             storage.TotalExistsCalls.Should().Be(2);
         }
     }

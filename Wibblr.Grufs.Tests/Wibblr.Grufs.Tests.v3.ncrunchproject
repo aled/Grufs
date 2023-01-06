@@ -1,3 +1,10 @@
 ﻿<ProjectConfiguration>
-  <Settings />
+  <Settings>
+    <HiddenComponentWarnings />
+    <IgnoredTests>
+      <FixtureTestSelector>
+        <FixtureName>Wibblr.Grufs.Tests.SftpStorageTests</FixtureName>
+      </FixtureTestSelector>
+    </IgnoredTests>
+  </Settings>
 </ProjectConfiguration>

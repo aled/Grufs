@@ -3,8 +3,6 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.3.32901.215
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Wibblr.Grufs", "Wibblr.Grufs\Wibblr.Grufs.csproj", "{DB64E6F3-8EED-4334-8DF9-9F5E6BD87841}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Wibblr.Grufs.Tests", "Wibblr.Grufs.Tests\Wibblr.Grufs.Tests.csproj", "{91A49E11-0409-4C49-9C21-66DEE0DDC117}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Wibblr.Grufs.Encryption", "Wibblr.Grufs.Encryption\Wibblr.Grufs.Encryption.csproj", "{1149A617-6CDE-446E-888E-3C1C57B09969}"
@@ -15,7 +13,13 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		DirectoriesAndFiles.txt = DirectoriesAndFiles.txt
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wibblr.Grufs.Cli", "Wibblr.Grufs.Cli\Wibblr.Grufs.Cli.csproj", "{22BF7245-1D6A-4B17-9571-8BB5FFC1B8B9}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Wibblr.Grufs.Cli", "Wibblr.Grufs.Cli\Wibblr.Grufs.Cli.csproj", "{22BF7245-1D6A-4B17-9571-8BB5FFC1B8B9}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Wibblr.Grufs.Storage", "Wibblr.Grufs.Storage\Wibblr.Grufs.Storage.csproj", "{0D569FBC-4672-4EA0-A035-9AD003EF37B1}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Wibblr.Grufs.Filesystem", "Wibblr.Grufs.Filesystem\Wibblr.Grufs.Filesystem.csproj", "{C0FF3396-F81C-4931-A09E-CCF8AA9B346E}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Wibblr.Grufs.Core", "Wibblr.Grufs.Core\Wibblr.Grufs.Core.csproj", "{D6DD52BF-C001-4406-817E-03DAB47215E0}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -23,10 +27,6 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{DB64E6F3-8EED-4334-8DF9-9F5E6BD87841}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{DB64E6F3-8EED-4334-8DF9-9F5E6BD87841}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{DB64E6F3-8EED-4334-8DF9-9F5E6BD87841}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{DB64E6F3-8EED-4334-8DF9-9F5E6BD87841}.Release|Any CPU.Build.0 = Release|Any CPU
 		{91A49E11-0409-4C49-9C21-66DEE0DDC117}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{91A49E11-0409-4C49-9C21-66DEE0DDC117}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{91A49E11-0409-4C49-9C21-66DEE0DDC117}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -39,6 +39,18 @@ Global
 		{22BF7245-1D6A-4B17-9571-8BB5FFC1B8B9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{22BF7245-1D6A-4B17-9571-8BB5FFC1B8B9}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{22BF7245-1D6A-4B17-9571-8BB5FFC1B8B9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0D569FBC-4672-4EA0-A035-9AD003EF37B1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0D569FBC-4672-4EA0-A035-9AD003EF37B1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0D569FBC-4672-4EA0-A035-9AD003EF37B1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0D569FBC-4672-4EA0-A035-9AD003EF37B1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C0FF3396-F81C-4931-A09E-CCF8AA9B346E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C0FF3396-F81C-4931-A09E-CCF8AA9B346E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C0FF3396-F81C-4931-A09E-CCF8AA9B346E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C0FF3396-F81C-4931-A09E-CCF8AA9B346E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D6DD52BF-C001-4406-817E-03DAB47215E0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D6DD52BF-C001-4406-817E-03DAB47215E0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D6DD52BF-C001-4406-817E-03DAB47215E0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D6DD52BF-C001-4406-817E-03DAB47215E0}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -1,5 +1,7 @@
 ﻿using System;
 
+using Wibblr.Grufs;
+
 using FluentAssertions;
 
 namespace Wibblr.Grufs.Tests
@@ -9,24 +11,24 @@ namespace Wibblr.Grufs.Tests
         [Fact]
         public void InvalidFilenamesShouldThrow()
         {
-            new Action(() => new RepositoryFilename("/")).Should().ThrowExactly<ArgumentException>();
-            new Action(() => new RepositoryFilename(".")).Should().ThrowExactly<ArgumentException>();
-            new Action(() => new RepositoryFilename("..")).Should().ThrowExactly<ArgumentException>();
+            new Action(() => new Filename("/")).Should().ThrowExactly<ArgumentException>();
+            new Action(() => new Filename(".")).Should().ThrowExactly<ArgumentException>();
+            new Action(() => new Filename("..")).Should().ThrowExactly<ArgumentException>();
         }
 
         [Fact]
         public void NullFilenameConstructorArgShouldThrow()
         {
 #pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type.
-            new Action(() => new RepositoryFilename((string?)null)).Should().ThrowExactly<ArgumentNullException>();
-            new Action(() => new RepositoryFilename((BufferReader?)null)).Should().ThrowExactly<ArgumentNullException>();
+            new Action(() => new Filename((string?)null)).Should().ThrowExactly<ArgumentNullException>();
+            new Action(() => new Filename((BufferReader?)null)).Should().ThrowExactly<ArgumentNullException>();
 #pragma warning restore CS8625 // Cannot convert null literal to non-nullable reference type.
         }
 
         [Fact]
         public void FilenameShouldCanonicalize()
         {
-            var name = new RepositoryFilename("ASDF");
+            var name = new Filename("ASDF");
 
             name.ToString().Should().Be("ASDF");
             name.OriginalName.Should().Be("ASDF");
@@ -34,11 +36,11 @@ namespace Wibblr.Grufs.Tests
             name.GetSerializedLength().Should().Be(18); // length = 1 content = 2 * 4, so 9 for each of original and canonical
 
             var builder = new BufferBuilder(name.GetSerializedLength());
-            var buffer = builder.AppendRepositoryFilename(name).ToBuffer();
+            var buffer = builder.AppendFilename(name).ToBuffer();
             buffer.AsSpan().ToArray().Should().BeEquivalentTo(new byte[] { 4, (byte)'A', 0, (byte)'S', 0, (byte)'D', 0, (byte)'F', 0, 4, (byte)'a', 0, (byte)'s', 0, (byte)'d', 0, (byte)'f', 0 });
 
             var reader = new BufferReader(buffer);
-            var name2 = reader.ReadRepositoryFilename();
+            var name2 = reader.ReadFilename();
             name2.Should().Be(name);
         }
 
@@ -46,13 +48,13 @@ namespace Wibblr.Grufs.Tests
         [InlineData("aBc")]
         public void FilenameWithValidCharactersShouldRoundtrip(string s)
         {
-            var ps = new RepositoryFilename(s);
+            var ps = new Filename(s);
 
             var builder = new BufferBuilder(ps.GetSerializedLength());
-            var buffer = builder.AppendRepositoryFilename(ps).ToBuffer();
+            var buffer = builder.AppendFilename(ps).ToBuffer();
 
             var reader = new BufferReader(buffer);
-            var s2 = reader.ReadRepositoryFilename();
+            var s2 = reader.ReadFilename();
 
             ps.ToString().Should().Be(s2.ToString());
         }
@@ -61,35 +63,35 @@ namespace Wibblr.Grufs.Tests
         public void NullPathConstructorArgShouldThrow()
         {
 #pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type.
-            new Action(() => new RepositoryDirectoryPath((string?)null)).Should().ThrowExactly<ArgumentNullException>();
-            new Action(() => new RepositoryDirectoryPath((BufferReader?)null)).Should().ThrowExactly<ArgumentNullException>();
+            new Action(() => new DirectoryPath((string?)null)).Should().ThrowExactly<ArgumentNullException>();
+            new Action(() => new DirectoryPath((BufferReader?)null)).Should().ThrowExactly<ArgumentNullException>();
 #pragma warning restore CS8625 // Cannot convert null literal to non-nullable reference type.
         }
 
         [Fact]
         public void InvalidPathShouldThrow()
         {
-            new Action(() => new RepositoryDirectoryPath(".")).Should().ThrowExactly<ArgumentException>();
-            new Action(() => new RepositoryDirectoryPath("..")).Should().ThrowExactly<ArgumentException>();
-            new Action(() => new RepositoryDirectoryPath("./")).Should().ThrowExactly<ArgumentException>();
-            new Action(() => new RepositoryDirectoryPath("../")).Should().ThrowExactly<ArgumentException>();
-            new Action(() => new RepositoryDirectoryPath("/.")).Should().ThrowExactly<ArgumentException>();
-            new Action(() => new RepositoryDirectoryPath("/..")).Should().ThrowExactly<ArgumentException>();
-            new Action(() => new RepositoryDirectoryPath("/./")).Should().ThrowExactly<ArgumentException>();
-            new Action(() => new RepositoryDirectoryPath("/../")).Should().ThrowExactly<ArgumentException>();
+            new Action(() => new DirectoryPath(".")).Should().ThrowExactly<ArgumentException>();
+            new Action(() => new DirectoryPath("..")).Should().ThrowExactly<ArgumentException>();
+            new Action(() => new DirectoryPath("./")).Should().ThrowExactly<ArgumentException>();
+            new Action(() => new DirectoryPath("../")).Should().ThrowExactly<ArgumentException>();
+            new Action(() => new DirectoryPath("/.")).Should().ThrowExactly<ArgumentException>();
+            new Action(() => new DirectoryPath("/..")).Should().ThrowExactly<ArgumentException>();
+            new Action(() => new DirectoryPath("/./")).Should().ThrowExactly<ArgumentException>();
+            new Action(() => new DirectoryPath("/../")).Should().ThrowExactly<ArgumentException>();
         }
 
         [Theory]
         [InlineData("aBc/dEf")]
         public void PathWithValidCharactersShouldRoundtrip(string s)
         {
-            var p = new RepositoryDirectoryPath(s);
+            var p = new DirectoryPath(s);
 
             var builder = new BufferBuilder(p.GetSerializedLength());
-            var buffer = builder.AppendRepositoryDirectoryPath(p).ToBuffer();
+            var buffer = builder.AppendDirectoryPath(p).ToBuffer();
 
             var reader = new BufferReader(buffer);
-            var p2 = reader.ReadRepositoryDirectoryPath();
+            var p2 = reader.ReadDirectoryPath();
 
             p.Should().Be(p2); // has implicit conversion to string
             p.ToString().Should().Be(p2.ToString());
@@ -137,57 +139,57 @@ namespace Wibblr.Grufs.Tests
         }
 
         [Fact]
-        public void RepositoryFileShouldRoundtrip()
+        public void FileMetadataShouldRoundtrip()
         {
-            var name = new RepositoryFilename("asdf");
+            var name = new Filename("asdf");
             var address = new Address(new byte[32]);
             var timestamp = new Timestamp("2001-01-01T10:00:00.1234567");
 
-            var file = new RepositoryFile(name, address, ChunkType.Content, timestamp);
+            var file = new FileMetadata(name, address, ChunkType.Content, timestamp);
 
             var builder = new BufferBuilder(file.GetSerializedLength());
-            var buffer = builder.AppendRepositoryFile(file).ToBuffer();
+            var buffer = builder.AppendFileMetadata(file).ToBuffer();
             var reader = new BufferReader(buffer);
 
-            var file2 = reader.ReadRepositoryFile();
+            var file2 = reader.ReadFileMetadata();
 
             file.Should().Be(file2);
         }
 
         [Fact]
-        public void RepositoryDirectoryShouldRoundtrip()
+        public void MutableDirectoryShouldRoundtrip()
         {
-            var path = new RepositoryDirectoryPath("a/b/c/d/e");
+            var path = new DirectoryPath("a/b/c/d/e");
             var parentVersion = 123L;
             var timestamp = new Timestamp("2001-01-01T10:00:00.1234567");
             var isDeleted = false;
             var files = new[]
             {
-                new RepositoryFile(
-                    new RepositoryFilename("asdf"),
+                new FileMetadata(
+                    new Filename("asdf"),
                     new Address(new byte[32]),
                     ChunkType.Content,
                     new Timestamp("2001-01-01T10:00:00.1234567")),
 
-                new RepositoryFile(
-                    new RepositoryFilename("qwer"),
+                new FileMetadata(
+                    new Filename("qwer"),
                     new Address(new byte[32]),
                     ChunkType.Content,
                     new Timestamp("2001-01-01T10:00:00.1234567"))
             };
             var directories = new[]
             {
-                new RepositoryFilename("f"),
-                new RepositoryFilename("g")
+                new Filename("f"),
+                new Filename("g")
             };
 
-            var directory = new RepositoryDirectory(path, parentVersion, timestamp, isDeleted, files, directories);
+            var directory = new MutableDirectory(path, parentVersion, timestamp, isDeleted, files, directories);
             
             var builder = new BufferBuilder(directory.GetSerializedLength());
-            var buffer = builder.AppendRepositoryDirectory(directory).ToBuffer();
+            var buffer = builder.AppendMutableDirectory(directory).ToBuffer();
             var reader = new BufferReader(buffer);
 
-            var directory2 = reader.ReadRepositoryDirectory();
+            var directory2 = reader.ReadMutableDirectory();
 
             directory.Should().Be(directory2);
         }

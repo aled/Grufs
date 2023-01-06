@@ -1,31 +1,34 @@
 ﻿using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Wibblr.Grufs
 {
     [DebuggerDisplay("{ToString()}")]
-    public record struct RepositoryFile 
+    public record struct FileMetadata 
     {
-        public RepositoryFilename Name { get; private init; }
+        public required Filename Name { get; init; }
 
-        public Address Address { get; private init; }
+        public required Address Address { get; init; }
 
-        public ChunkType ChunkType { get; private init; }
+        public required ChunkType ChunkType { get; init; }
 
-        public Timestamp LastModifiedTimestamp { get; private init; }
+        public required Timestamp LastModifiedTimestamp { get; init; }
 
-        public RepositoryFile(RepositoryFilename name, Address address, ChunkType chunkType, Timestamp lastModifiedTimestamp)
+        [SetsRequiredMembers]
+        public FileMetadata(Filename name, Address address, ChunkType chunkType, Timestamp lastModifiedTimestamp)
         {
             Name = name;
             Address = address;
             ChunkType = chunkType;
             LastModifiedTimestamp = lastModifiedTimestamp;
         }
-        
-        public RepositoryFile(BufferReader reader)
+
+        [SetsRequiredMembers]
+        public FileMetadata(BufferReader reader)
         {
             ArgumentNullException.ThrowIfNull(reader);
 
-            Name = reader.ReadRepositoryFilename();
+            Name = new Filename(reader);
             Address = new Address(reader.ReadBytes(Address.Length));
             ChunkType = (ChunkType)reader.ReadByte();
             LastModifiedTimestamp = reader.ReadTimestamp();
@@ -39,7 +42,7 @@ namespace Wibblr.Grufs
 
         public void SerializeTo(BufferBuilder builder)
         {
-            builder.AppendRepositoryFilename(Name);
+            Name.SerializeTo(builder);
             builder.AppendBytes(Address);
             builder.AppendByte((byte)ChunkType);
             builder.AppendTimestamp(LastModifiedTimestamp);

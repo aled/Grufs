@@ -1,6 +1,8 @@
 ﻿using System.Reflection.Metadata.Ecma335;
 using System.Text.Json;
 
+using Wibblr.Grufs.Encryption;
+
 namespace Wibblr.Grufs.Cli
 {
     internal class Program
@@ -24,7 +26,7 @@ namespace Wibblr.Grufs.Cli
             var repo = new Repository(storage);
 
             Console.WriteLine("Enter password: ");
-            var password = Console.ReadLine();
+            var password = Console.ReadLine() ?? throw new Exception();
 
             if (storage.Exists())
             {
@@ -45,7 +47,7 @@ namespace Wibblr.Grufs.Cli
             {
                 case "1":
                     Console.WriteLine($"Enter local directory path");
-                    var localPath = Console.ReadLine();
+                    var localPath = Console.ReadLine() ?? throw new Exception();
 
                     if (!Directory.Exists(localPath))
                     {
@@ -54,15 +56,15 @@ namespace Wibblr.Grufs.Cli
                     else
                     {
                         Console.WriteLine($"Enter remote directory path");
-                        var remotePath = Console.ReadLine();
+                        var remotePath = Console.ReadLine() ?? throw new Exception();
 
                         Console.WriteLine($"Uploading {localPath} to {remotePath}");
-                        repo.UploadDirectoryNonRecursive(localPath, new RepositoryDirectoryPath(remotePath));
+                        new MutableFilesystem(repo, new HmacKey(Convert.FromHexString("1111111111111111111111111111111111111111111111111111111111111111"))).UploadDirectoryNonRecursive(localPath, new DirectoryPath(remotePath));
                     }
                     break;
 
                 case "2":
-                    repo.ListDirectory(new RepositoryDirectoryPath("/"));
+                    new MutableFilesystem(repo, new HmacKey(Convert.FromHexString("1111111111111111111111111111111111111111111111111111111111111111"))).ListDirectory(new DirectoryPath("/"));
                     break;
 
                 default:

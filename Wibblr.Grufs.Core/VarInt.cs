@@ -4,7 +4,7 @@ namespace Wibblr.Grufs
 {
     /// <summary>
     /// Uses a variable length encoding that is efficient for small unsigned values.
-    /// The total length of the serialized value in bytes is the number of leading binary ones in the first byte.
+    /// The number of leading ones in the first byte specifies the number of additional bytes to read.
     /// 0xxxxxxx -> 7-bit int
     /// 10xxxxxx xxxxxxxx -> 14-bit int
     /// 110xxxxx xxxxxxxx xxxxxxxx -> 21-bit int

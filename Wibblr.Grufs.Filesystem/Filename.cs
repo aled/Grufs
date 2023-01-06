@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Wibblr.Grufs
 {
@@ -16,12 +17,25 @@ namespace Wibblr.Grufs
     ///   Repository file with OriginalName = 'A:B?C' and CanonicalName 'a:b?c' => 
     ///     Windows file with OriginalName = 'A:B?C', CanonicalName = 'a:b?c' and WindowsName = A%3AB%3CC
     /// </summary>
-    public record struct RepositoryFilename
+    public record struct Filename
     {
-        public string OriginalName { get; private init; }
-        public string CanonicalName { get; private init; } // The name used for hashing. Normalized and case-insensitive.
+        public string OriginalName { get; init; }
+        public string CanonicalName { get; init; } // The name used for hashing. Normalized and case-insensitive.
 
-        public RepositoryFilename(BufferReader reader)
+        [SetsRequiredMembers]
+        public Filename(string value)
+        {
+            ArgumentNullException.ThrowIfNull(value, nameof(value));
+
+            OriginalName = value;
+            CanonicalName = Canonicalize(value);
+
+            Validate(OriginalName);
+            Validate(CanonicalName);
+        }
+
+        [SetsRequiredMembers]
+        public Filename(BufferReader reader)
         {
             ArgumentNullException.ThrowIfNull(reader);
 
@@ -32,17 +46,6 @@ namespace Wibblr.Grufs
             {
                 throw new ArgumentException($"Canonical name is not valid (actual {CanonicalName}, expected {Canonicalize(OriginalName)})");
             }
-
-            Validate(OriginalName);
-            Validate(CanonicalName);
-        }
-
-        public RepositoryFilename(string value)
-        {
-            ArgumentNullException.ThrowIfNull(value, nameof(value));
-
-            OriginalName = value;
-            CanonicalName = Canonicalize(value);
 
             Validate(OriginalName);
             Validate(CanonicalName);
@@ -61,7 +64,7 @@ namespace Wibblr.Grufs
             return (s.IsNormalized() ? s : s.Normalize()).ToLowerInvariant();
         }
 
-        public static implicit operator string(RepositoryFilename repositoryFilename) => repositoryFilename.OriginalName;
+        public static implicit operator string(Filename filename) => filename.OriginalName;
 
         public int GetSerializedLength()
         {

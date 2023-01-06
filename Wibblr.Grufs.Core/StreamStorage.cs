@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Diagnostics.CodeAnalysis;
+using System.IO.Compression;
 using System.Runtime.CompilerServices;
 
 using Wibblr.Grufs.Encryption;
@@ -9,22 +11,29 @@ namespace Wibblr.Grufs
 {
     public class StreamStorage
     {
-        private ChunkEncryptor _chunkEncryptor = new ChunkEncryptor();
+        private KeyEncryptionKey _contentKeyEncryptionKey;
+        private HmacKey _hmacKey; 
         private IChunkStorage _chunkStorage;
         private int _chunkSize;
+        private Compressor _compressor;
+        private ChunkEncryptor _chunkEncryptor;
 
-        public StreamStorage(IChunkStorage chunkStorage, int chunkSize)
+        public StreamStorage(KeyEncryptionKey contentKeyEncryptionKey, HmacKey hmacKey, Compressor compressor, IChunkStorage chunkStorage, int chunkSize)
         {
             if (chunkSize < 128)
             {
                 throw new ArgumentOutOfRangeException(nameof(chunkSize));
             }
 
+            _contentKeyEncryptionKey = contentKeyEncryptionKey;
+            _hmacKey = hmacKey;
+            _compressor = compressor;
             _chunkStorage = chunkStorage;
             _chunkSize = chunkSize;
+            _chunkEncryptor = new ChunkEncryptor(contentKeyEncryptionKey, hmacKey, compressor);
         }
 
-        public (Address, ChunkType) Write(KeyEncryptionKey contentKeyEncryptionKey, HmacKey hmacKey, Stream stream)
+        public (Address, ChunkType) Write(Stream stream)
         {
             var nodes = new List<ChunkTreeNode>(); // keep state for one node for each level of the tree
 
@@ -60,7 +69,7 @@ namespace Wibblr.Grufs
             Address WriteNode(ChunkTreeNode node)
             {
                 var content = node.Serialize();
-                var nodeChunk = _chunkEncryptor.EncryptChunk(contentKeyEncryptionKey, hmacKey, content);
+                var nodeChunk = _chunkEncryptor.EncryptChunk(content);
 
                 if (!_chunkStorage.TryPut(nodeChunk, OverwriteStrategy.DenyWithSuccess))
                 {
@@ -74,7 +83,7 @@ namespace Wibblr.Grufs
 
             void Write(ReadOnlySpan<byte> bytes, long streamOffset)
             {
-                var encryptedChunk = _chunkEncryptor.EncryptChunk(contentKeyEncryptionKey, hmacKey, bytes);
+                var encryptedChunk = _chunkEncryptor.EncryptChunk(bytes);
 
                 if (!_chunkStorage.TryPut(encryptedChunk, OverwriteStrategy.DenyWithSuccess))
                 {
@@ -135,14 +144,14 @@ namespace Wibblr.Grufs
         /// <param name="address"></param>
         /// <returns></returns>
         /// <exception cref="Exception"></exception>
-        public IEnumerable<Buffer> Read(ChunkType type, KeyEncryptionKey contentKeyEncryptionKey, HmacKey hmacKey, Address address)
+        public IEnumerable<Buffer> Read(ChunkType type, Address address)
         {
             if (!_chunkStorage.TryGet(address, out var chunk))
             {
                 throw new Exception($"Address {address} not found in repository");
             }
 
-            var buffer = _chunkEncryptor.DecryptChunkAndVerifyAddress(chunk, contentKeyEncryptionKey, hmacKey);
+            var buffer = _chunkEncryptor.DecryptChunkAndVerifyAddress(chunk);
 
             if (type == ChunkType.Content)
             {
@@ -154,7 +163,7 @@ namespace Wibblr.Grufs
 
                 foreach (var subAddress in node.Addresses) 
                 {
-                    foreach (var subBuffer in Read(node.SubchunkType, contentKeyEncryptionKey, hmacKey, subAddress))
+                    foreach (var subBuffer in Read(node.SubchunkType, subAddress))
                     {
                         yield return subBuffer;
                     }

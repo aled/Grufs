@@ -46,11 +46,11 @@ namespace Wibblr.Grufs.Encryption
             }
         }
 
-        public ReadOnlySpan<byte> Decrypt(ReadOnlySpan<byte> ciphertext, InitializationVector iv, EncryptionKey key)
+        public (byte[], int) Decrypt(ReadOnlySpan<byte> ciphertext, InitializationVector iv, EncryptionKey key)
         {
             var bytes = new byte[MaxPlaintextLength(ciphertext.Length)];
             var bytesWritten = Decrypt(ciphertext, iv, key, bytes);
-            return bytes.AsSpan(0, bytesWritten);
+            return (bytes, bytesWritten);
         }
 
         /// <summary>

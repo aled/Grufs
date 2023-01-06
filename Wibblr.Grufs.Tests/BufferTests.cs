@@ -1,9 +1,4 @@
 ﻿using System;
-using System.Buffers.Binary;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 using FluentAssertions;
 
@@ -14,27 +9,44 @@ namespace Wibblr.Grufs.Tests
     public class BufferTests
     {
         [Fact]
-        public void BufferShouldOverflow()
+        public void ConstructorShouldThrowIfLengthIsGreaterThanCapacity()
+        {
+            new Action(() => new Buffer(new byte[0], 1)).Should().ThrowExactly<ArgumentException>();
+        }
+
+        [Fact]
+        public void ShouldThrowOnInvalidSpanLength()
+        {
+            var b = new Buffer(new byte[10], 5);
+
+            b.AsSpan().Length.Should().Be(5);
+            new Action(() => b.AsSpan(0, 6)).Should().ThrowExactly<IndexOutOfRangeException>();
+        }
+
+        [Fact]
+        public void BuilderShouldThrowOnOverflow()
         {
             var b = new BufferBuilder(0);
 
-            new Action(() => b.AppendByte((byte)0)).Should().ThrowExactly<IndexOutOfRangeException>();
+            new Action(() => b.AppendByte(0)).Should().ThrowExactly<IndexOutOfRangeException>();
             new Action(() => b.AppendInt(0)).Should().ThrowExactly<IndexOutOfRangeException>();
-            new Action(() => b.AppendLong(0L)).Should().ThrowExactly<IndexOutOfRangeException>();
-            new Action(() => b.AppendByte((byte)0)).Should().ThrowExactly<IndexOutOfRangeException>();
-            new Action(() => b.AppendByte((byte)0)).Should().ThrowExactly<IndexOutOfRangeException>();
+            new Action(() => b.AppendLong(0)).Should().ThrowExactly<IndexOutOfRangeException>();
+        }
+
+
+        [Fact]
+        public void ReaderShouldThrowOnUnderflow()
+        {
+            var b = new Buffer(new byte[10], 1);
+            var r = new BufferReader(b);
+
+            r.ReadByte().Should().Be(0);
+            new Action(() => r.ReadByte()).Should().ThrowExactly<IndexOutOfRangeException>();
         }
 
         [Fact]
         public void BufferShouldRoundtrip()
         {
-            var bytes = new byte[100];
-            BinaryPrimitives.WriteInt64BigEndian(bytes.AsSpan(23), 0x12345678901234);
-            var x = BinaryPrimitives.ReadInt64BigEndian(bytes.AsSpan(23, sizeof(long)));
-            Console.WriteLine(Convert.ToHexString(bytes.AsSpan(23)));
-
-            x.Should().Be(0x12345678901234);
-
             var b = new BufferBuilder(100)
                 .AppendByte(0x56)
                 .AppendInt(unchecked((int)0xCE12BD34))

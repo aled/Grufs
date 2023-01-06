@@ -9,42 +9,48 @@ namespace Wibblr.Grufs
     /// </summary>
     public class VersionedDictionaryStorage
     {
+        private KeyEncryptionKey _contentKeyEncryptionKey;
+        private HmacKey _addressKey;
+        private Compressor _compressor;
         private IChunkStorage _chunkStorage;
-        private static readonly byte serializationVersion = 0;
-        private static readonly byte isVersioned = 1;
 
-        public VersionedDictionaryStorage(IChunkStorage chunkStorage)
+        private static readonly byte serializationVersion = 0;
+
+        public VersionedDictionaryStorage(KeyEncryptionKey contentKeyEncryptionKey, HmacKey addressKey, Compressor compressor, IChunkStorage chunkStorage)
         {
+            _contentKeyEncryptionKey = contentKeyEncryptionKey;
+            _addressKey = addressKey;
+            _compressor = compressor;
             _chunkStorage = chunkStorage;
         }
 
         private ReadOnlySpan<byte> GenerateStructuredLookupKey(ReadOnlySpan<byte> lookupKey, long sequenceNumber)
         {
-            return new BufferBuilder(1 + 1 + 4 + lookupKey.Length + 8)
+            return new BufferBuilder(1 + 4 + lookupKey.Length + 8)
                 .AppendByte(serializationVersion)
-                .AppendByte(isVersioned)
                 .AppendInt(lookupKey.Length)
                 .AppendBytes(lookupKey)
                 .AppendLong(sequenceNumber)
                 .ToSpan();
-        }
+        }   
 
-        public bool TryPutValue(KeyEncryptionKey contentKeyEncryptionKey, HmacKey addressKey, ReadOnlySpan<byte> lookupKey, long sequenceNumber, ReadOnlySpan<byte> value)
+        public bool TryPutValue(ReadOnlySpan<byte> lookupKey, long sequenceNumber, ReadOnlySpan<byte> value)
         {
-            var encryptedValue = new ChunkEncryptor().EncryptBytes(InitializationVector.Random(), EncryptionKey.Random(), contentKeyEncryptionKey, value);
             var structuredLookupKey = GenerateStructuredLookupKey(lookupKey, sequenceNumber);
-            var hmac = new Hmac(addressKey, structuredLookupKey);
-            var address = new Address(hmac);
+            var hmac = new Hmac(_addressKey, structuredLookupKey);
+            var address = new Address(hmac.ToSpan());
+            var chunkEncryptor = new ChunkEncryptor(_contentKeyEncryptionKey, _addressKey, _compressor);
+            var encryptedValue = chunkEncryptor.EncryptBytes(InitializationVector.Random(), EncryptionKey.Random(), value);
             var encryptedChunk = new EncryptedChunk(address, encryptedValue);
 
             return _chunkStorage.TryPut(encryptedChunk, OverwriteStrategy.DenyWithError);
         }
 
-        public bool TryGetValue(KeyEncryptionKey contentKeyEncryptionKey, HmacKey addressKey, ReadOnlySpan<byte> lookupKey, long sequenceNumber, out Buffer value)
+        public bool TryGetValue(ReadOnlySpan<byte> lookupKey, long sequenceNumber, out Buffer value)
         {
             var structuredLookupKey = GenerateStructuredLookupKey(lookupKey, sequenceNumber);
-            var hmac = new Hmac(addressKey, structuredLookupKey);
-            var address = new Address(hmac);
+            var hmac = new Hmac(_addressKey, structuredLookupKey);
+            var address = new Address(hmac.ToSpan());
 
             if (!_chunkStorage.TryGet(address, out var chunk))
             {
@@ -52,15 +58,15 @@ namespace Wibblr.Grufs
                 return false;
             }
 
-            value = new ChunkEncryptor().DecryptBytes(chunk.Content, contentKeyEncryptionKey);
+            value = new ChunkEncryptor(_contentKeyEncryptionKey, _addressKey, _compressor).DecryptBytes(chunk.Content);
             return true;
         }
 
-        private bool SequenceNumberExists(long sequenceNumber, HmacKey addressKey, ReadOnlySpan<byte> lookupKey, ref int lookupCount)
+        private bool SequenceNumberExists(long sequenceNumber, ReadOnlySpan<byte> lookupKey, ref int lookupCount)
         {
             var structuredLookupKey = GenerateStructuredLookupKey(lookupKey, sequenceNumber);
-            var hmac = new Hmac(addressKey, structuredLookupKey);
-            var address = new Address(hmac);
+            var hmac = new Hmac(_addressKey, structuredLookupKey);
+            var address = new Address(hmac.ToSpan());
             var exists = _chunkStorage.Exists(address);
             lookupCount++;
             //Console.WriteLine($"Searching for seq# {sequenceNumber} - {(exists ? "found" : "missing")}");
@@ -80,12 +86,12 @@ namespace Wibblr.Grufs
         /// <param name="hintSequenceNumber"></param>
         /// <returns></returns>
         /// <exception cref="Exception"></exception>
-        public long GetNextSequenceNumber(HmacKey addressKey, ReadOnlySpan<byte> lookupKey, long hintSequenceNumber)
+        public long GetNextSequenceNumber(ReadOnlySpan<byte> lookupKey, long hintSequenceNumber)
         {
-            return GetNextSequenceNumber(addressKey, lookupKey, hintSequenceNumber, out _);
+            return GetNextSequenceNumber(lookupKey, hintSequenceNumber, out _);
         }
 
-        public long GetNextSequenceNumber(HmacKey addressKey, ReadOnlySpan<byte> lookupKey, long hintSequenceNumber, out int lookupCount)
+        public long GetNextSequenceNumber(ReadOnlySpan<byte> lookupKey, long hintSequenceNumber, out int lookupCount)
         {
             lookupCount = 0;
 
@@ -98,7 +104,7 @@ namespace Wibblr.Grufs
             // Caller has hinted that some sequence number exists. Verify if true or not.
             long highestExisting = hintSequenceNumber;
             long lowestMissing = long.MaxValue;
-            while (!SequenceNumberExists(highestExisting, addressKey, lookupKey, ref lookupCount))
+            while (!SequenceNumberExists(highestExisting, lookupKey, ref lookupCount))
             {
                 if (highestExisting == 0)
                 {
@@ -118,7 +124,7 @@ namespace Wibblr.Grufs
                 var increment = 1L;
                 lowestMissing = (long)Math.Min((ulong)originalHighestExisting + (ulong)increment, long.MaxValue);
 
-                while (SequenceNumberExists(lowestMissing, addressKey, lookupKey, ref lookupCount))
+                while (SequenceNumberExists(lowestMissing, lookupKey, ref lookupCount))
                 {
                     if (lowestMissing == long.MaxValue)
                     {
@@ -140,7 +146,7 @@ namespace Wibblr.Grufs
 
                 //Console.WriteLine($"Searching for sequence higher than {highestExisting} and less-than-or-equal to {lowestMissing}; trying {candidate}");
 
-                if (SequenceNumberExists(candidate, addressKey, lookupKey, ref lookupCount))
+                if (SequenceNumberExists(candidate, lookupKey, ref lookupCount))
                 {
                     highestExisting = candidate;
                 }

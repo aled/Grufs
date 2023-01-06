@@ -1,26 +1,39 @@
 ﻿using System;
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Wibblr.Grufs
 {
     /// <summary>
-    /// A directory is stored in the repository using the versioned dictionary storage.
+    /// A mutable directory is stored in the repository using the versioned dictionary storage.
     /// 
     /// To find a subdirectory, find the directory with the appropriate name, and the latest version
     /// that has it's parent version set to this directory version.
     /// </summary>
-    public sealed record RepositoryDirectory
+    public record MutableDirectory
     {
-        public RepositoryDirectoryPath Path { get; private init; }  // set to 
-        public long ParentVersion { get; private init; }
-        public Timestamp LastModifiedTimestamp { get; private init; }
-        public bool IsDeleted { get; private init; }
-        public ImmutableArray<RepositoryFile> Files { get; set; }
-        public ImmutableArray<RepositoryFilename> Directories { get; set; }
-        
-        public RepositoryDirectory(BufferReader reader)
+        public required DirectoryPath Path { get; init; }  // set to 
+        public required long ParentVersion { get; init; }
+        public required Timestamp LastModifiedTimestamp { get; init; }
+        public required bool IsDeleted { get; init; }
+        public required ImmutableArray<FileMetadata> Files { get; init; }
+        public required ImmutableArray<Filename> Directories { get; init; }
+
+        [SetsRequiredMembers]
+        public MutableDirectory(DirectoryPath path, long parentVersion, Timestamp lastModifiedTimestamp, bool isDeleted, IEnumerable<FileMetadata> files, IEnumerable<Filename> directories)
         {
-            Path = reader.ReadRepositoryDirectoryPath();
+            Path = path;
+            ParentVersion = parentVersion;
+            LastModifiedTimestamp = lastModifiedTimestamp;
+            IsDeleted = isDeleted;
+            Files = files.OrderBy(x => x.Name.CanonicalName).ToImmutableArray();
+            Directories = directories.OrderBy(x => x.CanonicalName).ToImmutableArray();
+        }
+
+        [SetsRequiredMembers]
+        public MutableDirectory(BufferReader reader)
+        {
+            Path = reader.ReadDirectoryPath();
             ParentVersion = reader.ReadLong();
             LastModifiedTimestamp = reader.ReadTimestamp();
             IsDeleted = reader.ReadByte() != 0;
@@ -33,10 +46,10 @@ namespace Wibblr.Grufs
                 throw new Exception("Too many files in directory - limit is 10000");
             }
 
-            var filesBuilder = ImmutableArray.CreateBuilder<RepositoryFile>();
+            var filesBuilder = ImmutableArray.CreateBuilder<FileMetadata>();
             for (int i = 0; i < fileCount; i++)
             {
-                filesBuilder.Add(reader.ReadRepositoryFile());
+                filesBuilder.Add(reader.ReadFileMetadata());
             }
             Files = filesBuilder.OrderBy(x => x.Name.CanonicalName).ToImmutableArray();
 
@@ -45,22 +58,12 @@ namespace Wibblr.Grufs
             {
                 throw new Exception("Too many subdirectories in directory - limit is 10000");
             }
-            var directoriesBuilder = ImmutableArray.CreateBuilder<RepositoryFilename>();
+            var directoriesBuilder = ImmutableArray.CreateBuilder<Filename>();
             for (int i = 0; i < directoryCount; i++)
             {
-                directoriesBuilder.Add(reader.ReadRepositoryFilename());
+                directoriesBuilder.Add(reader.ReadFilename());
             }
             Directories = directoriesBuilder.OrderBy(x => x.CanonicalName).ToImmutableArray();
-        }
-
-        public RepositoryDirectory(RepositoryDirectoryPath path, long parentVersion, Timestamp lastModifiedTimestamp, bool isDeleted, IEnumerable<RepositoryFile> files, IEnumerable<RepositoryFilename> directories)
-        {
-            Path = path;
-            ParentVersion = parentVersion;
-            LastModifiedTimestamp = lastModifiedTimestamp;
-            IsDeleted = isDeleted;
-            Files = files.OrderBy(x => x.Name.CanonicalName).ToImmutableArray();
-            Directories = directories.OrderBy(x => x.CanonicalName).ToImmutableArray();
         }
 
         public int GetSerializedLength() =>
@@ -75,23 +78,23 @@ namespace Wibblr.Grufs
 
         public void SerializeTo(BufferBuilder builder)
         {
-            builder.AppendRepositoryDirectoryPath(Path);
+            Path.SerializeTo(builder);
             builder.AppendLong(ParentVersion);
             builder.AppendTimestamp(LastModifiedTimestamp);
             builder.AppendByte((byte)(IsDeleted ? 1 : 0));
             builder.AppendVarInt(new VarInt(Files.Count()));
             foreach (var file in Files)
             {
-                builder.AppendRepositoryFile(file);
+                file.SerializeTo(builder);
             }
             builder.AppendVarInt(new VarInt(Directories.Count()));
             foreach (var directory in Directories)
             {
-                builder.AppendRepositoryFilename(directory);
+                directory.SerializeTo(builder);
             }
         }
 
-        public bool Equals(RepositoryDirectory? other)
+        public virtual bool Equals(MutableDirectory? other)
         {
             return other != null &&
                 Path == other.Path &&

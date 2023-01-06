@@ -18,6 +18,7 @@ namespace Wibblr.Grufs
             _password = password;
 
             _client = new SftpClient(_host, _username, _password);
+            _baseDir = "";
         }
 
         public IFileStorage WithBaseDir(string baseDir)

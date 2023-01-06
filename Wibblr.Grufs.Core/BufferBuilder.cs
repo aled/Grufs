@@ -1,10 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Buffers.Binary;
-using System.Numerics;
-using System.Runtime.CompilerServices;
-using System.Text.Unicode;
-using System.Text;
 
 namespace Wibblr.Grufs
 {
@@ -123,30 +119,6 @@ namespace Wibblr.Grufs
         public BufferBuilder AppendTimestamp(Timestamp t)
         {
             t.SerializeTo(this);
-            return this;
-        }
-
-        public BufferBuilder AppendRepositoryFilename(RepositoryFilename s)
-        {
-            s.SerializeTo(this);
-            return this;
-        }
-
-        public BufferBuilder AppendRepositoryDirectoryPath(RepositoryDirectoryPath p)
-        {
-            p.SerializeTo(this);
-            return this;
-        }
-
-        public BufferBuilder AppendRepositoryFile(RepositoryFile f)
-        {
-            f.SerializeTo(this);
-            return this;
-        }
-
-        public BufferBuilder AppendRepositoryDirectory(RepositoryDirectory d)
-        {
-            d.SerializeTo(this);
             return this;
         }
 

@@ -1,16 +1,13 @@
 ﻿using System;
-using System.Text;
 using System.Diagnostics;
-using Renci.SshNet.Common;
 
 namespace Wibblr.Grufs
 {
-
     [DebuggerDisplay("{ToString()}")]
     public class Buffer
     {
         internal byte[] Bytes { get; set; }
-        public int Length { get; set; } = 0;
+        internal int Length { get; set; } = 0;
 
         public Buffer(byte[] buf, int length)
         {
@@ -31,16 +28,13 @@ namespace Wibblr.Grufs
         {
             if (offset + length > Length)
             {
-                throw new Exception();
+                throw new IndexOutOfRangeException();
             }
             return Bytes.AsSpan(offset, length);
         }
 
         public override string ToString()
         {
-            if (AsSpan().ToArray().All(x => char.IsAscii((char)x)))
-                return Encoding.UTF8.GetString(AsSpan());
-
             return Convert.ToHexString(AsSpan());
         }
     }

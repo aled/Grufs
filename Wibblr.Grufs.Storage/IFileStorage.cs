@@ -1,6 +1,4 @@
-﻿using Wibblr.Grufs.Encryption;
-
-namespace Wibblr.Grufs
+﻿namespace Wibblr.Grufs
 {
     public interface IFileStorage : IChunkStorage
     {

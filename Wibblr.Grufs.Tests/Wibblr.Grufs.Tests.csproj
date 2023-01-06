@@ -23,7 +23,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Wibblr.Grufs\Wibblr.Grufs.csproj" />
+    <ProjectReference Include="..\Wibblr.Grufs.Core\Wibblr.Grufs.Core.csproj" />
+    <ProjectReference Include="..\Wibblr.Grufs.Filesystem\Wibblr.Grufs.Filesystem.csproj" />
   </ItemGroup>
 
   <ItemGroup>

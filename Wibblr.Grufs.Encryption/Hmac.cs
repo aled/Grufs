@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Diagnostics;
-using System.Runtime.Intrinsics;
 using System.Security.Cryptography;
 
 namespace Wibblr.Grufs.Encryption

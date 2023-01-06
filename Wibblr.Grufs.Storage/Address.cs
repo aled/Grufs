@@ -1,8 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Runtime.Intrinsics;
 
-using Wibblr.Grufs.Encryption;
-
 namespace Wibblr.Grufs
 {
     [DebuggerDisplay("{ToString()}")]
@@ -27,10 +25,6 @@ namespace Wibblr.Grufs
             }
 
             value.CopyTo(_value);
-        }
-
-        public Address(Hmac hmac) : this(hmac.ToSpan())
-        {
         }
 
         public static implicit operator ReadOnlySpan<byte>(Address address) => address.ToSpan();
