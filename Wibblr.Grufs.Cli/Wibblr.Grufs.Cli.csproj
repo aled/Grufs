@@ -11,6 +11,7 @@
   <PropertyGroup>
     <PublishAot>true</PublishAot>
     <StripSymbols>true</StripSymbols>
+    <AssemblyName>grufs</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>
