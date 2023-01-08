@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Buffers.Binary;
+
 using Wibblr.Grufs.Encryption;
 
 namespace Wibblr.Grufs
@@ -156,10 +157,11 @@ namespace Wibblr.Grufs
             return new Buffer(_buf, _offset);
         }
 
+        internal byte[] GetUnderlyingArray() => _buf;
+
         public ReadOnlySpan<byte> ToSpan()
         {
             return new ReadOnlySpan<byte>(_buf, 0, _offset);
         }
-
     }
 }

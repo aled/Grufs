@@ -9,11 +9,6 @@ namespace Wibblr.Grufs
     /// </summary>
     public class ChunkEncryptor
     {
-        private static readonly int ivOffset = 0;
-        private static readonly int wrappedKeyOffset = ivOffset + InitializationVector.Length;
-        private static readonly int compressionAlgorithmOffset = wrappedKeyOffset + WrappedEncryptionKey.Length;
-        private static readonly int encryptedContentOffset = compressionAlgorithmOffset + 1;
-
         private KeyEncryptionKey _keyEncryptionKey;
         private HmacKey _addressKey;
         private Compressor _compressor;
@@ -25,21 +20,23 @@ namespace Wibblr.Grufs
             _compressor = compressor;
         }
 
-        public EncryptedChunk EncryptChunk(ReadOnlySpan<byte> plaintext) =>
-            EncryptChunk(InitializationVector.Random(), EncryptionKey.Random(), plaintext);
+        public EncryptedChunk EncryptChunk(ReadOnlySpan<byte> plaintext)
+        {
+            return EncryptChunk(InitializationVector.Random(), EncryptionKey.Random(), plaintext);
+        }
 
         public EncryptedChunk EncryptChunk(InitializationVector iv, EncryptionKey key, ReadOnlySpan<byte> plaintext)
         {
-            var bytes = EncryptBytes(iv, key, plaintext);
+            var buf = EncryptBytes(iv, key, plaintext);
 
             // The address is a hash of the content (excluding checksum) and nothing else
             var hmac = new Hmac(_addressKey, plaintext);
             var address = new Address(hmac.ToSpan());
 
-            return new EncryptedChunk(address, bytes);
+            return new EncryptedChunk(address, buf);
         }
 
-        public Buffer EncryptBytes(InitializationVector iv, EncryptionKey key, ReadOnlySpan<byte> source)
+        public byte[] EncryptBytes(InitializationVector iv, EncryptionKey key, ReadOnlySpan<byte> source)
         {
             var encryptor = new Encryptor();
 
@@ -54,15 +51,17 @@ namespace Wibblr.Grufs
                 .AppendInitializationVector(iv)
                 .AppendWrappedKey(wrappedKey)
                 .AppendByte((byte)compressionAlgorithm)
-                .AppendCiphertext(encryptor, source, iv, key)
+                .AppendCiphertext(encryptor, compressedSource, iv, key)
                 .AppendChecksum();
 
-            return builder.ToBuffer();
+            // Return the internal array of the buffer, as we know there is no unused space at the end of the array,
+            // and the buffer object goes out of scope here anyway
+            return builder.GetUnderlyingArray();
         }
 
         public Buffer DecryptChunkAndVerifyAddress(EncryptedChunk chunk)
         {
-            // Checksum is validated as part of decryption. 
+            // Both inner (encrypted) and outer (unencrypted) checksums are validated as part of decryption. 
             var plaintextBuffer = DecryptBytes(chunk.Content);
 
             // Additionally verify/authenticate the chunk with the hmac
@@ -77,36 +76,27 @@ namespace Wibblr.Grufs
             return plaintextBuffer;
         }
 
-        public Buffer DecryptBytes(ReadOnlySpan<byte> bytes)
+        public Buffer DecryptBytes(byte[] chunkContent)
         {
-            if (bytes.Length < encryptedContentOffset + Checksum.Length)
+            var encryptedBuffer = new Buffer(chunkContent, chunkContent.Length);
+            var reader = new BufferReader(encryptedBuffer);
+
+            var iv = reader.ReadInitializationVector();
+            var wrappedKey = reader.ReadWrappedEncryptionKey();
+            var compressionAlgorithm = (CompressionAlgorithm)reader.ReadByte();
+            var ciphertextBytes = reader.ReadBytes(reader.RemainingLength - Checksum.Length);
+            var checksum = reader.ReadChecksum();
+
+            // Outer (unencrypted) chunk checksum is validated here, before attempting decryption
+            var computedChecksum = Checksum.Build(encryptedBuffer.AsSpan(0, encryptedBuffer.Length - Checksum.Length));
+            if (checksum != computedChecksum) 
             {
-                throw new Exception($"Invalid content length {bytes.Length}");
+                throw new Exception("Failed to verify chunk - invalid chunk checksum");
             }
 
-            var e = new Encryptor();
-            var maxPlaintextLength = e.MaxPlaintextLength(bytes.Length - encryptedContentOffset - Checksum.Length);
-
-            // Allocate a buffer to hold the decrypted text
-            var buf = new byte[maxPlaintextLength];
-
-            var iv = new InitializationVector(bytes.Slice(ivOffset, InitializationVector.Length));
-            var wrappedKey = new WrappedEncryptionKey(bytes.Slice(wrappedKeyOffset, WrappedEncryptionKey.Length));
+            // Inner (encrypted) checksum is validated as part of decryption
             var key = wrappedKey.Unwrap(_keyEncryptionKey);
-
-            var compressionAlgorithm = (CompressionAlgorithm)bytes[compressionAlgorithmOffset];
-            var ciphertextBytes = bytes.Slice(encryptedContentOffset, bytes.Length - encryptedContentOffset - Checksum.Length);
-
-            // Verify checksum before decrypting
-            var actualChecksum = new Checksum(bytes.Slice(bytes.Length - Checksum.Length, Checksum.Length));
-            var computedChecksum = Checksum.Build(bytes.Slice(0, bytes.Length - Checksum.Length));
-
-            if (actualChecksum != computedChecksum)
-            {
-                throw new Exception("Failed to verify chunk - invalid checksum");
-            }
-
-            int length = e.Decrypt(ciphertextBytes, iv, key, buf);
+            var (buf, length) = new Encryptor().Decrypt(ciphertextBytes, iv, key);
 
             switch (compressionAlgorithm)
             {

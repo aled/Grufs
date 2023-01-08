@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Buffers.Binary;
+using Wibblr.Grufs.Encryption;
 
 namespace Wibblr.Grufs
 {
@@ -13,6 +14,8 @@ namespace Wibblr.Grufs
         {
             _buffer = buffer;
         }
+
+        public int RemainingLength => _buffer.Length - _offset;
 
         private void CheckBounds(int i)
         {
@@ -73,6 +76,21 @@ namespace Wibblr.Grufs
         public Timestamp ReadTimestamp()
         {
             return new Timestamp(this);
+        }
+
+        public InitializationVector ReadInitializationVector()
+        {
+            return new InitializationVector(ReadBytes(InitializationVector.Length));
+        }
+
+        public WrappedEncryptionKey ReadWrappedEncryptionKey()
+        {
+            return new WrappedEncryptionKey(ReadBytes(WrappedEncryptionKey.Length));
+        }
+
+        public Checksum ReadChecksum()
+        {
+            return new Checksum(ReadBytes(Checksum.Length));
         }
     }
 }

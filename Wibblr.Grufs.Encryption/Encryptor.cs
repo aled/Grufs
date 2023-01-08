@@ -45,6 +45,14 @@ namespace Wibblr.Grufs.Encryption
             }
         }
 
+        /// <summary>
+        /// It is not possible to know the exact plaintext length until the decryption is complete.
+        /// However using PKCS7 padding, the upper bound on the plaintext length is the ciphertext length - 1
+        /// </summary>
+        /// <param name="ciphertextLength"></param>
+        /// <returns></returns>
+        private int MaxPlaintextLength(int ciphertextLength) => ciphertextLength - 1 - Checksum.Length;
+
         public (byte[], int) Decrypt(ReadOnlySpan<byte> ciphertext, InitializationVector iv, EncryptionKey key)
         {
             var bytes = new byte[MaxPlaintextLength(ciphertext.Length)];
@@ -52,15 +60,7 @@ namespace Wibblr.Grufs.Encryption
             return (bytes, bytesWritten);
         }
 
-        /// <summary>
-        /// It is not possible to know the exact plaintext length until the decryption is complete.
-        /// However using PKCS7 padding, the upper bound on the plaintext length is the ciphertext length - 1
-        /// </summary>
-        /// <param name="ciphertextLength"></param>
-        /// <returns></returns>
-        public int MaxPlaintextLength(int ciphertextLength) => ciphertextLength - 1 - Checksum.Length;
-
-        public int Decrypt(ReadOnlySpan<byte> ciphertext, InitializationVector iv, EncryptionKey key, Span<byte> destination)
+        private int Decrypt(ReadOnlySpan<byte> ciphertext, InitializationVector iv, EncryptionKey key, Span<byte> destination)
         {
             var temp = new byte[MaxPlaintextLength(ciphertext.Length + Checksum.Length)];
 
@@ -75,7 +75,7 @@ namespace Wibblr.Grufs.Encryption
 
             if (checksum != calculatedChecksum)
             {
-                throw new Exception("Failed to decrypt - checksum mismatch");
+                throw new Exception("Failed to decrypt - invalid encrypted checksum");
             }
 
             temp.AsSpan(0, bytesWritten - Checksum.Length).CopyTo(destination);
