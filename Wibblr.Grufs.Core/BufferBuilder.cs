@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Buffers.Binary;
+using Wibblr.Grufs.Encryption;
 
 namespace Wibblr.Grufs
 {
@@ -122,6 +123,34 @@ namespace Wibblr.Grufs
             return this;
         }
 
+        public BufferBuilder AppendInitializationVector(InitializationVector iv)
+        {
+            AppendBytes(iv.ToSpan());
+            return this;
+        }
+
+        public BufferBuilder AppendWrappedKey(WrappedEncryptionKey wrappedKey)
+        {
+            AppendBytes(wrappedKey.ToSpan());
+            return this;
+        }
+
+        public BufferBuilder AppendChecksum()
+        {
+            var checksum = Checksum.Build(ToSpan());
+            AppendBytes(checksum.ToSpan());
+            return this;
+        }
+
+        public BufferBuilder AppendCiphertext(Encryptor encryptor, ReadOnlySpan<byte> plaintext, InitializationVector iv, EncryptionKey key)
+        {
+            var ciphertextLength = encryptor.CiphertextLength(plaintext.Length);
+            var destination = _buf.AsSpan(_offset, ciphertextLength);
+            encryptor.Encrypt(plaintext, iv, key, destination);
+            _offset += ciphertextLength;
+            return this;
+        }
+
         public Buffer ToBuffer()
         {
             return new Buffer(_buf, _offset);
@@ -131,5 +160,6 @@ namespace Wibblr.Grufs
         {
             return new ReadOnlySpan<byte>(_buf, 0, _offset);
         }
+
     }
 }

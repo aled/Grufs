@@ -30,46 +30,34 @@ namespace Wibblr.Grufs
 
         public EncryptedChunk EncryptChunk(InitializationVector iv, EncryptionKey key, ReadOnlySpan<byte> plaintext)
         {
-            var buf = EncryptBytes(iv, key, plaintext);
+            var bytes = EncryptBytes(iv, key, plaintext);
 
             // The address is a hash of the content (excluding checksum) and nothing else
             var hmac = new Hmac(_addressKey, plaintext);
             var address = new Address(hmac.ToSpan());
 
-            return new EncryptedChunk(address, buf);
+            return new EncryptedChunk(address, bytes);
         }
 
-        public byte[] EncryptBytes(InitializationVector iv, EncryptionKey key, ReadOnlySpan<byte> source)
+        public Buffer EncryptBytes(InitializationVector iv, EncryptionKey key, ReadOnlySpan<byte> source)
         {
-            var e = new Encryptor();
+            var encryptor = new Encryptor();
 
+            var wrappedKey = key.Wrap(_keyEncryptionKey);
             var compressedSource = _compressor.Compress(source, out var compressionAlgorithm);
-            var ciphertextLength = e.CiphertextLength(compressedSource.Length);
+            var ciphertextLength = encryptor.CiphertextLength(compressedSource.Length);
 
             // content is:
             //   iv + wrapped-key + compression-type + encrypt(compressed-plaintext) + checksum-of-all-previous-bytes
             //   16 + 40          + 1                + ciphertext-length             + 32
-            var checksumOffset = encryptedContentOffset + ciphertextLength;
-            var buf = new byte[checksumOffset + Checksum.Length];
+            var builder = new BufferBuilder(InitializationVector.Length + WrappedEncryptionKey.Length + 1 + ciphertextLength + Checksum.Length)
+                .AppendInitializationVector(iv)
+                .AppendWrappedKey(wrappedKey)
+                .AppendByte((byte)compressionAlgorithm)
+                .AppendCiphertext(encryptor, source, iv, key)
+                .AppendChecksum();
 
-            var ivDestination = new Span<byte>(buf, ivOffset, InitializationVector.Length);
-            iv.ToSpan().CopyTo(ivDestination);
-
-            var wrappedKey = key.Wrap(_keyEncryptionKey);
-            var wrappedKeyDestination = new Span<byte>(buf, wrappedKeyOffset, WrappedEncryptionKey.Length);
-            wrappedKey.ToSpan().CopyTo(wrappedKeyDestination);
-
-            
-            buf[compressionAlgorithmOffset] = (byte)compressionAlgorithm;
-
-            var encryptedContentDestination = new Span<byte>(buf, encryptedContentOffset, ciphertextLength);
-            e.Encrypt(compressedSource, iv, key, encryptedContentDestination);
-
-            var checksum = Checksum.Build(buf.AsSpan(0, checksumOffset));
-            var checksumDestination = new Span<byte>(buf, checksumOffset, Checksum.Length);
-            checksum.ToSpan().CopyTo(checksumDestination);
-
-            return buf;
+            return builder.ToBuffer();
         }
 
         public Buffer DecryptChunkAndVerifyAddress(EncryptedChunk chunk)
