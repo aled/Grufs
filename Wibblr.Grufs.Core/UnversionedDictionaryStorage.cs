@@ -1,25 +1,18 @@
 ﻿using System;
-using System.IO.Compression;
-
-using Wibblr.Grufs.Encryption;
 
 namespace Wibblr.Grufs
 {
     public class UnversionedDictionaryStorage
     {
-        private KeyEncryptionKey _contentKeyEncryptionKey;
-        private HmacKey _addressKey;
-        private Compressor _compressor;
-        private IChunkStorage _chunkStorage;
+        private readonly IChunkStorage _chunkStorage;
+        private readonly ChunkEncryptor _chunkEncryptor;
       
         private static readonly byte serializationVersion = 0;
      
-        public UnversionedDictionaryStorage(KeyEncryptionKey contentKeyEncryptionKey, HmacKey addressKey, Compressor compressor, IChunkStorage chunkStorage)
+        public UnversionedDictionaryStorage(IChunkStorage chunkStorage, ChunkEncryptor chunkEncryptor)
         {
-            _contentKeyEncryptionKey = contentKeyEncryptionKey;
-            _addressKey = addressKey;
-            _compressor = compressor;
             _chunkStorage = chunkStorage;
+            _chunkEncryptor = chunkEncryptor;
         }
 
         private ReadOnlySpan<byte> GenerateStructuredLookupKey(ReadOnlySpan<byte> lookupKey)
@@ -33,11 +26,8 @@ namespace Wibblr.Grufs
 
         public bool TryPutValue(ReadOnlySpan<byte> lookupKey, ReadOnlySpan<byte> value, OverwriteStrategy overwrite)
         {
-            var encryptedValue = new ChunkEncryptor(_contentKeyEncryptionKey, _addressKey, _compressor).EncryptBytes(InitializationVector.Random(), EncryptionKey.Random(), value);
             var structuredLookupKey = GenerateStructuredLookupKey(lookupKey);
-            var hmac = new Hmac(_addressKey, structuredLookupKey);
-            var address = new Address(hmac.ToSpan());
-            var encryptedChunk = new EncryptedChunk(address, encryptedValue);
+            var encryptedChunk = _chunkEncryptor.EncryptKeyAddressedChunk(structuredLookupKey, value);
 
             return _chunkStorage.TryPut(encryptedChunk, overwrite);
         }
@@ -45,8 +35,7 @@ namespace Wibblr.Grufs
         public bool TryGetValue(ReadOnlySpan<byte> lookupKey, out Buffer value)
         {
             var structuredLookupKey = GenerateStructuredLookupKey(lookupKey);
-            var hmac = new Hmac(_addressKey, structuredLookupKey);
-            var address = new Address(hmac.ToSpan());
+            var address = _chunkEncryptor.GetLookupKeyAddress(structuredLookupKey);
 
             if (!_chunkStorage.TryGet(address, out var chunk))
             {
@@ -54,7 +43,7 @@ namespace Wibblr.Grufs
                 return false;
             }
 
-            value = new ChunkEncryptor(_contentKeyEncryptionKey, _addressKey, _compressor).DecryptBytes(chunk.Content);
+            value = _chunkEncryptor.DecryptBytes(chunk.Content);
             return true;
         }
     }

@@ -9,9 +9,9 @@ namespace Wibblr.Grufs
     /// </summary>
     public class ChunkEncryptor
     {
-        private KeyEncryptionKey _keyEncryptionKey;
-        private HmacKey _addressKey;
-        private Compressor _compressor;
+        private readonly KeyEncryptionKey _keyEncryptionKey;
+        private readonly HmacKey _addressKey;
+        private readonly Compressor _compressor;
 
         public ChunkEncryptor(KeyEncryptionKey keyEncryptionKey, HmacKey addressKey, Compressor compressor)
         {
@@ -20,20 +20,37 @@ namespace Wibblr.Grufs
             _compressor = compressor;
         }
 
-        public EncryptedChunk EncryptChunk(ReadOnlySpan<byte> plaintext)
+        public EncryptedChunk EncryptContentAddressedChunk(ReadOnlySpan<byte> plaintext)
         {
-            return EncryptChunk(InitializationVector.Random(), EncryptionKey.Random(), plaintext);
+            return EncryptContentAddressedChunk(InitializationVector.Random(), EncryptionKey.Random(), plaintext);
         }
 
-        public EncryptedChunk EncryptChunk(InitializationVector iv, EncryptionKey key, ReadOnlySpan<byte> plaintext)
+        public EncryptedChunk EncryptContentAddressedChunk(InitializationVector iv, EncryptionKey key, ReadOnlySpan<byte> plaintext)
         {
             var buf = EncryptBytes(iv, key, plaintext);
 
-            // The address is a hash of the content (excluding checksum) and nothing else
+            // The address is a secure hash of the content (excluding the plaintext chunk checksum) and nothing else
             var hmac = new Hmac(_addressKey, plaintext);
             var address = new Address(hmac.ToSpan());
 
             return new EncryptedChunk(address, buf);
+        }
+
+        public Address GetLookupKeyAddress(ReadOnlySpan<byte> lookupKey)
+        {
+            var hmac = new Hmac(_addressKey, lookupKey);
+            return new Address(hmac.ToSpan());
+        }
+
+        public EncryptedChunk EncryptKeyAddressedChunk(ReadOnlySpan<byte> lookupKey, ReadOnlySpan<byte> plaintext)
+        {
+            return EncryptKeyAddressedChunk(InitializationVector.Random(), EncryptionKey.Random(), lookupKey, plaintext);
+        }
+
+        public EncryptedChunk EncryptKeyAddressedChunk(InitializationVector iv, EncryptionKey key, ReadOnlySpan<byte> lookupKey, ReadOnlySpan<byte> plaintext)
+        {
+            var buf = EncryptBytes(iv, key, plaintext);
+            return new EncryptedChunk(GetLookupKeyAddress(lookupKey), buf);
         }
 
         public byte[] EncryptBytes(InitializationVector iv, EncryptionKey key, ReadOnlySpan<byte> source)
@@ -59,7 +76,7 @@ namespace Wibblr.Grufs
             return builder.GetUnderlyingArray();
         }
 
-        public Buffer DecryptChunkAndVerifyAddress(EncryptedChunk chunk)
+        public Buffer DecryptContentAddressedChunk(EncryptedChunk chunk)
         {
             // Both inner (encrypted) and outer (unencrypted) checksums are validated as part of decryption. 
             var plaintextBuffer = DecryptBytes(chunk.Content);

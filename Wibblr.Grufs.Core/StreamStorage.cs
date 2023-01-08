@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Diagnostics.CodeAnalysis;
-using System.IO.Compression;
 using System.Runtime.CompilerServices;
 
 using Wibblr.Grufs.Encryption;
@@ -11,11 +9,8 @@ namespace Wibblr.Grufs
 {
     public class StreamStorage
     {
-        private KeyEncryptionKey _contentKeyEncryptionKey;
-        private HmacKey _hmacKey; 
         private IChunkStorage _chunkStorage;
         private int _chunkSize;
-        private Compressor _compressor;
         private ChunkEncryptor _chunkEncryptor;
 
         public StreamStorage(KeyEncryptionKey contentKeyEncryptionKey, HmacKey hmacKey, Compressor compressor, IChunkStorage chunkStorage, int chunkSize)
@@ -25,9 +20,6 @@ namespace Wibblr.Grufs
                 throw new ArgumentOutOfRangeException(nameof(chunkSize));
             }
 
-            _contentKeyEncryptionKey = contentKeyEncryptionKey;
-            _hmacKey = hmacKey;
-            _compressor = compressor;
             _chunkStorage = chunkStorage;
             _chunkSize = chunkSize;
             _chunkEncryptor = new ChunkEncryptor(contentKeyEncryptionKey, hmacKey, compressor);
@@ -69,7 +61,7 @@ namespace Wibblr.Grufs
             Address WriteNode(ChunkTreeNode node)
             {
                 var content = node.Serialize();
-                var nodeChunk = _chunkEncryptor.EncryptChunk(content);
+                var nodeChunk = _chunkEncryptor.EncryptContentAddressedChunk(content);
 
                 if (!_chunkStorage.TryPut(nodeChunk, OverwriteStrategy.DenyWithSuccess))
                 {
@@ -83,7 +75,7 @@ namespace Wibblr.Grufs
 
             void Write(ReadOnlySpan<byte> bytes, long streamOffset)
             {
-                var encryptedChunk = _chunkEncryptor.EncryptChunk(bytes);
+                var encryptedChunk = _chunkEncryptor.EncryptContentAddressedChunk(bytes);
 
                 if (!_chunkStorage.TryPut(encryptedChunk, OverwriteStrategy.DenyWithSuccess))
                 {
@@ -151,7 +143,7 @@ namespace Wibblr.Grufs
                 throw new Exception($"Address {address} not found in repository");
             }
 
-            var buffer = _chunkEncryptor.DecryptChunkAndVerifyAddress(chunk);
+            var buffer = _chunkEncryptor.DecryptContentAddressedChunk(chunk);
 
             if (type == ChunkType.Content)
             {

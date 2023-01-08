@@ -1,7 +1,5 @@
 ﻿using System;
 
-using Wibblr.Grufs.Encryption;
-
 namespace Wibblr.Grufs
 {
     /// <summary>
@@ -9,39 +7,34 @@ namespace Wibblr.Grufs
     /// </summary>
     public class VersionedDictionaryStorage
     {
-        private KeyEncryptionKey _contentKeyEncryptionKey;
-        private HmacKey _addressKey;
-        private Compressor _compressor;
-        private IChunkStorage _chunkStorage;
+        private readonly byte[] _keyNamespace;
+        private readonly IChunkStorage _chunkStorage;
+        private readonly ChunkEncryptor _chunkEncryptor;
 
         private static readonly byte serializationVersion = 0;
 
-        public VersionedDictionaryStorage(KeyEncryptionKey contentKeyEncryptionKey, HmacKey addressKey, Compressor compressor, IChunkStorage chunkStorage)
+        public VersionedDictionaryStorage(string keyNamespace, IChunkStorage chunkStorage, ChunkEncryptor chunkEncryptor)
         {
-            _contentKeyEncryptionKey = contentKeyEncryptionKey;
-            _addressKey = addressKey;
-            _compressor = compressor;
+            _keyNamespace = new BufferBuilder(4 + (2 * keyNamespace.Length)).AppendString(keyNamespace).GetUnderlyingArray();
             _chunkStorage = chunkStorage;
+            _chunkEncryptor = chunkEncryptor;
         }
 
         private ReadOnlySpan<byte> GenerateStructuredLookupKey(ReadOnlySpan<byte> lookupKey, long sequenceNumber)
         {
-            return new BufferBuilder(1 + 4 + lookupKey.Length + 8)
+            return new BufferBuilder(1 + _keyNamespace.Length + 4 + lookupKey.Length + 8)
                 .AppendByte(serializationVersion)
+                .AppendBytes(_keyNamespace)
                 .AppendInt(lookupKey.Length)
                 .AppendBytes(lookupKey)
                 .AppendLong(sequenceNumber)
                 .ToSpan();
-        }   
+        }
 
         public bool TryPutValue(ReadOnlySpan<byte> lookupKey, long sequenceNumber, ReadOnlySpan<byte> value)
         {
             var structuredLookupKey = GenerateStructuredLookupKey(lookupKey, sequenceNumber);
-            var hmac = new Hmac(_addressKey, structuredLookupKey);
-            var address = new Address(hmac.ToSpan());
-            var chunkEncryptor = new ChunkEncryptor(_contentKeyEncryptionKey, _addressKey, _compressor);
-            var encryptedValue = chunkEncryptor.EncryptBytes(InitializationVector.Random(), EncryptionKey.Random(), value);
-            var encryptedChunk = new EncryptedChunk(address, encryptedValue);
+            var encryptedChunk = _chunkEncryptor.EncryptKeyAddressedChunk(structuredLookupKey, value);
 
             return _chunkStorage.TryPut(encryptedChunk, OverwriteStrategy.DenyWithError);
         }
@@ -49,8 +42,7 @@ namespace Wibblr.Grufs
         public bool TryGetValue(ReadOnlySpan<byte> lookupKey, long sequenceNumber, out Buffer value)
         {
             var structuredLookupKey = GenerateStructuredLookupKey(lookupKey, sequenceNumber);
-            var hmac = new Hmac(_addressKey, structuredLookupKey);
-            var address = new Address(hmac.ToSpan());
+            var address =_chunkEncryptor.GetLookupKeyAddress(structuredLookupKey);
 
             if (!_chunkStorage.TryGet(address, out var chunk))
             {
@@ -58,15 +50,24 @@ namespace Wibblr.Grufs
                 return false;
             }
 
-            value = new ChunkEncryptor(_contentKeyEncryptionKey, _addressKey, _compressor).DecryptBytes(chunk.Content);
+            value = _chunkEncryptor.DecryptBytes(chunk.Content);
             return true;
+        }
+
+        public IEnumerable<(long, Buffer)> Values(byte[] lookupKey)
+        {
+            long i = 0;
+            while (TryGetValue(lookupKey, i, out Buffer value))
+            {
+                yield return (i, value);
+                i++;
+            }
         }
 
         private bool SequenceNumberExists(long sequenceNumber, ReadOnlySpan<byte> lookupKey, ref int lookupCount)
         {
             var structuredLookupKey = GenerateStructuredLookupKey(lookupKey, sequenceNumber);
-            var hmac = new Hmac(_addressKey, structuredLookupKey);
-            var address = new Address(hmac.ToSpan());
+            var address = _chunkEncryptor.GetLookupKeyAddress(structuredLookupKey);
             var exists = _chunkStorage.Exists(address);
             lookupCount++;
             //Console.WriteLine($"Searching for seq# {sequenceNumber} - {(exists ? "found" : "missing")}");

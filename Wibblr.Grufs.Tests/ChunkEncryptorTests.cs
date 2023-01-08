@@ -53,9 +53,9 @@ namespace Wibblr.Grufs.Tests
 
             var encryptor = new ChunkEncryptor(keyEncryptionKey, hmacKey, compressor);
 
-            var chunk = encryptor.EncryptChunk(iv, key, plaintextBytes);
+            var chunk = encryptor.EncryptContentAddressedChunk(iv, key, plaintextBytes);
 
-            var decryptedCiphertext = Encoding.ASCII.GetString(encryptor.DecryptChunkAndVerifyAddress(chunk).AsSpan());
+            var decryptedCiphertext = Encoding.ASCII.GetString(encryptor.DecryptContentAddressedChunk(chunk).AsSpan());
 
             Console.WriteLine($"plaintext: {plaintext}");
             Console.WriteLine($"address:   {chunk.Address}");
@@ -80,9 +80,9 @@ namespace Wibblr.Grufs.Tests
             var encryptor = new ChunkEncryptor(keyEncryptionKey, hmacKey, compressor);
             var buffer = new BufferBuilder(100).AppendBytes(plaintextBytes).ToBuffer();
 
-            var chunk = encryptor.EncryptChunk(iv, key, buffer.AsSpan());
+            var chunk = encryptor.EncryptContentAddressedChunk(iv, key, buffer.AsSpan());
 
-            var decryptedCiphertext = Encoding.ASCII.GetString(encryptor.DecryptChunkAndVerifyAddress(chunk).AsSpan());
+            var decryptedCiphertext = Encoding.ASCII.GetString(encryptor.DecryptContentAddressedChunk(chunk).AsSpan());
 
             Console.WriteLine($"plaintext: {plaintext}");
             Console.WriteLine($"address:   0x{chunk.Address}");

@@ -10,14 +10,15 @@ namespace Wibblr.Grufs.Tests
     {
         private InMemoryChunkStorage _storage;
         private VersionedDictionaryStorage _dictionaryStorage;
-        private KeyEncryptionKey keyEncryptionKey = new KeyEncryptionKey(Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000000000"));
-        private HmacKey addressKey = new HmacKey(Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000000000"));
-        private Compressor _compressor = new Compressor(CompressionAlgorithm.None);
+        private KeyEncryptionKey _keyEncryptionKey = new KeyEncryptionKey(Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000000000"));
+        private HmacKey _addressKey = new HmacKey(Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000000000"));
+        private string _keyNamespace = nameof(SequenceNumberTests);
 
         public SequenceNumberTestsFixture()
         {
             _storage = new InMemoryChunkStorage();
-            _dictionaryStorage = new VersionedDictionaryStorage(keyEncryptionKey, addressKey, _compressor, _storage);
+            var chunkEncryptor = new ChunkEncryptor(_keyEncryptionKey, _addressKey, Compressor.None);
+            _dictionaryStorage = new VersionedDictionaryStorage(_keyNamespace, _storage, chunkEncryptor);
 
             // Add a bunch of values into the dictionary storage. For each of these IDs, insert that many versions of the value
             foreach (var lookupKeyId in new[] { 0, 1, 2, 10, 100, 1000 })
@@ -141,8 +142,11 @@ namespace Wibblr.Grufs.Tests
 
             var keyEncryptionKey = new KeyEncryptionKey(Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000000000"));
             var addressKey = new HmacKey(Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000000000"));
+            var chunkEncryptor = new ChunkEncryptor(keyEncryptionKey, addressKey, Compressor.None);
+            
+            var keyNamespace = "asdf";
             var storage = new InMemoryChunkStorage();
-            var dictionaryStorage = new VersionedDictionaryStorage(keyEncryptionKey, addressKey, _compressor, storage);
+            var dictionaryStorage = new VersionedDictionaryStorage(keyNamespace, storage, chunkEncryptor);
             var lookupKeyBytes = Encoding.ASCII.GetBytes("lookupkey");
 
             // Should be exactly one 'exists' call on the storage layer if this key does not exist

@@ -4,6 +4,7 @@ using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
 
+using Wibblr.Grufs.Core;
 using Wibblr.Grufs.Encryption;
 
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Wibblr.Grufs.Tests")]
@@ -32,6 +33,8 @@ namespace Wibblr.Grufs
         // because the metadata will be stored at different addresses. Data will be deduplicated if the same file is in multiple
         // repositories.
         private const string _defaultRepositoryName = "[default]";
+        private const string _repositoryKeyNamespace = "repository:";
+
         private static readonly ImmutableArray<byte> _metadataLookupKey = Encoding.ASCII.GetBytes("metadata:").ToImmutableArray();
 
         private static readonly Salt wellKnownSalt0 = new Salt(new byte[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 });
@@ -40,6 +43,7 @@ namespace Wibblr.Grufs
         private int _chunkSize = 5 * 1024 * 1024;
 
         public IChunkStorage ChunkStorage { get; private set; }
+
         private StreamStorage? _streamStorage;
         public StreamStorage StreamStorage { get => _streamStorage ?? throw new NullReferenceException(); }
         public KeyEncryptionKey MasterKey { get; private set; }
@@ -94,8 +98,9 @@ namespace Wibblr.Grufs
             var normalizedRepositoryName = Encoding.UTF8.GetBytes(repositoryName.Normalize(NormalizationForm.FormC));
             var metadataKeyEncryptionKey = new KeyEncryptionKey(new Rfc2898DeriveBytes(normalizedRepositoryName, wellKnownSalt0.ToSpan().ToArray(), iterations, HashAlgorithmName.SHA256).GetBytes(KeyEncryptionKey.Length));
             var metadataAddressKey = new HmacKey(new Rfc2898DeriveBytes(normalizedRepositoryName, wellKnownSalt1.ToSpan().ToArray(), iterations, HashAlgorithmName.SHA256).GetBytes(KeyEncryptionKey.Length));
+            var metadataChunkEncryptor = new ChunkEncryptor(metadataKeyEncryptionKey, metadataAddressKey, Compressor.None);
 
-            if (!new UnversionedDictionaryStorage(metadataKeyEncryptionKey, metadataAddressKey, _compressor, ChunkStorage).TryPutValue(_metadataLookupKey.AsSpan(), repositoryMetadata.Serialize(), OverwriteStrategy.DenyWithError))
+            if (!new UnversionedDictionaryStorage(ChunkStorage, metadataChunkEncryptor).TryPutValue(_metadataLookupKey.AsSpan(), repositoryMetadata.Serialize(), OverwriteStrategy.DenyWithError))
             {
                 throw new Exception("Error initializing repository - already exists");
             }
@@ -119,8 +124,9 @@ namespace Wibblr.Grufs
             var iterations = 500000;
             var metadataAddressKey = new HmacKey(new Rfc2898DeriveBytes(normalizedMetadataPassword, wellKnownSalt1.ToSpan().ToArray(), iterations, HashAlgorithmName.SHA256).GetBytes(KeyEncryptionKey.Length));
             var metadataKeyEncryptionKey = new KeyEncryptionKey(new Rfc2898DeriveBytes(normalizedMetadataPassword, wellKnownSalt0.ToSpan().ToArray(), iterations, HashAlgorithmName.SHA256).GetBytes(KeyEncryptionKey.Length));
+            var metadataChunkEncryptor = new ChunkEncryptor(metadataKeyEncryptionKey, metadataAddressKey, Compressor.None);
 
-            if (!new UnversionedDictionaryStorage(metadataKeyEncryptionKey, metadataAddressKey, new Compressor(CompressionAlgorithm.None), ChunkStorage).TryGetValue(_metadataLookupKey.AsSpan(), out var serialized))
+            if (!new UnversionedDictionaryStorage(ChunkStorage, metadataChunkEncryptor).TryGetValue(_metadataLookupKey.AsSpan(), out var serialized))
             {
                 throw new Exception();
             }
@@ -156,6 +162,11 @@ namespace Wibblr.Grufs
             return true;
         }
 
+        public CollectionStorage GetCollectionStorage(string collectionName)
+        {
+            return new CollectionStorage(new VersionedDictionaryStorage("collection:", ChunkStorage, new ChunkEncryptor(MasterKey, VersionedDictionaryAddressKey, Compressor.None)), collectionName);
+        }
+
         /// <summary>
         /// A list of all immutable filesystems is stored in the repository using the versioned dictionary storage with a random address key. Each 
         /// </summary>
@@ -163,8 +174,9 @@ namespace Wibblr.Grufs
         public List<string> ListBackupSets()
         {
             // Each version of the value in the dictionary is a changeset that needs to be applied to get the total list.
-            var dict = new VersionedDictionaryStorage(MasterKey, UnversionedDictionaryAddressKey, Compressor.None, ChunkStorage);
-            var lookupKey = Encoding.UTF8.GetBytes("ImmutableFilesystems:");
+            var chunkEncryptor = new ChunkEncryptor(MasterKey, VersionedDictionaryAddressKey, Compressor.None);
+            var dict = new VersionedDictionaryStorage(_repositoryKeyNamespace, ChunkStorage, chunkEncryptor);
+            var lookupKey = Encoding.UTF8.GetBytes("backupSets:");
 
             var sequenceNumber = 0L;
             while (dict.TryGetValue(lookupKey, sequenceNumber++, out var buffer))

@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using System.IO.Compression;
 using System.Text;
 
 using Wibblr.Grufs.Encryption;
@@ -7,23 +8,27 @@ namespace Wibblr.Grufs
 {
     public class MutableFilesystem
     {
-        private Repository _repository;
-        private HmacKey _directoryKey;
+        //private readonly Repository _repository;
+        //private readonly HmacKey _directoryKey;
 
-        public MutableFilesystem(Repository repository, HmacKey directoryKey)
+        private readonly string _keyNamespace = "directory:";
+        private readonly VersionedDictionaryStorage _dictionaryStorage;
+        private readonly StreamStorage _streamStorage;
+
+        public MutableFilesystem(Repository repository, HmacKey addressKey)
         {
-            _repository = repository;
-            _directoryKey = directoryKey;
+            var chunkEncryptor = new ChunkEncryptor(repository.MasterKey, repository.VersionedDictionaryAddressKey, new Compressor(CompressionAlgorithm.Brotli, CompressionLevel.Optimal));
+            _dictionaryStorage = new VersionedDictionaryStorage(_keyNamespace, repository.ChunkStorage, chunkEncryptor);
+            _streamStorage = repository.StreamStorage;
         }
 
-        private ReadOnlySpan<byte> GetDirectoryLookupKey(string path) => Encoding.UTF8.GetBytes("directory:" + path);
+        private ReadOnlySpan<byte> GetDirectoryLookupKey(string path) => Encoding.UTF8.GetBytes(path);
 
         private (MutableDirectory?, long version) GetLatestMutableDirectory(DirectoryPath path, long hintVersion = 0)
         {
             var directoryLookupKey = GetDirectoryLookupKey(path.CanonicalPath);
-            var dictionaryStorage = new VersionedDictionaryStorage(_repository.MasterKey, _directoryKey, _repository.Compressor, _repository.ChunkStorage);
 
-            var nextVersion = dictionaryStorage.GetNextSequenceNumber(directoryLookupKey, hintVersion);
+            var nextVersion = _dictionaryStorage.GetNextSequenceNumber(directoryLookupKey, hintVersion);
 
             if (nextVersion == 0)
             {
@@ -31,7 +36,7 @@ namespace Wibblr.Grufs
             }
 
             var currentVersion = nextVersion - 1;
-            if (dictionaryStorage.TryGetValue(directoryLookupKey, currentVersion, out var buffer))
+            if (_dictionaryStorage.TryGetValue(directoryLookupKey, currentVersion, out var buffer))
             {
                 return (new MutableDirectory(new BufferReader(buffer)), currentVersion);
             }
@@ -43,7 +48,7 @@ namespace Wibblr.Grufs
         {
             var serialized = new BufferBuilder(directory.GetSerializedLength()).AppendMutableDirectory(directory).ToBuffer();
             var lookupKey = GetDirectoryLookupKey(directory.Path.CanonicalPath);
-            new VersionedDictionaryStorage(_repository.MasterKey, _directoryKey, _repository.Compressor, _repository.ChunkStorage).TryPutValue(lookupKey, version, serialized.AsSpan());
+            _dictionaryStorage.TryPutValue(lookupKey, version, serialized.AsSpan());
             return (directory, version);
         }
 
@@ -97,7 +102,7 @@ namespace Wibblr.Grufs
             {
                 using (var stream = new FileStream(file.FullName, FileMode.Open))
                 {
-                    var (address, chunkType) = _repository.StreamStorage.Write(stream);
+                    var (address, chunkType) = _streamStorage.Write(stream);
                     filesBuilder.Add(new FileMetadata(new Filename(file.Name), address, chunkType, new Timestamp(file.LastWriteTimeUtc)));
                 }
             }
