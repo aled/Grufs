@@ -21,6 +21,50 @@ namespace Wibblr.Grufs.Core
             _changes = new Dictionary<string, byte[]?>();
         }
 
+        public IEnumerable<byte[]> Values()
+        {
+            Dictionary<string, byte[]> dict = new Dictionary<string, byte[]>();
+
+            // Each buffer here represents a number of changesets
+            foreach (var buffer in _storage.Values(_name).Select(x => x.Item2))
+            {
+                var reader = new BufferReader(buffer);
+
+                var serializationVersion = reader.ReadByte(); // serialization version
+                var changeCount = reader.ReadVarInt().Value;
+
+                for (int i = 0; i < changeCount; i++)
+                {
+                    var operation = reader.ReadByte();
+
+                    switch (operation)
+                    {
+                        case 0:
+                            {
+                                var keyLength = reader.ReadVarInt().Value;
+                                var key = reader.ReadBytes(keyLength);
+                                var valueLength = reader.ReadVarInt().Value;
+                                var value = reader.ReadBytes(valueLength);
+
+                                dict[Convert.ToHexString(key)] = value.ToArray();
+                            }
+                            break;
+
+                        case 1:
+                            {
+                                var keyLength = reader.ReadVarInt().Value;
+                                var key = reader.ReadBytes(keyLength);
+
+                                dict.Remove(Convert.ToHexString(key));
+                            }
+                            break;
+                    }
+                }
+            }
+
+            return dict.Values;
+        }
+
         public void PrepareUpdate(byte[] lookupKey, byte[] value)
         {
             _changes[Convert.ToHexString(lookupKey)] = value;
@@ -54,14 +98,14 @@ namespace Wibblr.Grufs.Core
 
         private int GetSerializedLength()
         {
-            return 1 + GetSerializedLengths().Sum();
+            return 1 + new VarInt(_changes.Count).GetSerializedLength() + GetSerializedLengths().Sum();
         }
 
         public long WriteChanges(long previousVersion)
         {
             var nextVersion = _storage.GetNextSequenceNumber(_name, previousVersion);
 
-            if (nextVersion != previousVersion + 1) 
+            if (previousVersion > 0 && nextVersion != previousVersion + 1) 
             {
                 throw new Exception("Collection has changed since last retrieved - cannot update");
             }
@@ -79,12 +123,13 @@ namespace Wibblr.Grufs.Core
             var builder = new BufferBuilder(GetSerializedLength());
 
             builder.AppendByte(0);
+            builder.AppendVarInt(new VarInt(_changes.Count()));
             foreach (var kv in _changes)
             {
                 if (kv.Value != null)
                 {
                     builder.AppendByte(0);
-                    builder.AppendVarInt(new VarInt(kv.Key.Length));
+                    builder.AppendVarInt(new VarInt(kv.Key.Length / 2));
                     builder.AppendBytes(Convert.FromHexString(kv.Key));
                     builder.AppendVarInt(new VarInt(kv.Value.Length));
                     builder.AppendBytes(kv.Value);
@@ -92,7 +137,7 @@ namespace Wibblr.Grufs.Core
                 else
                 {
                     builder.AppendByte(1);
-                    builder.AppendVarInt(new VarInt(kv.Key.Length));
+                    builder.AppendVarInt(new VarInt(kv.Key.Length / 2));
                     builder.AppendBytes(Convert.FromHexString(kv.Key));
                 }
             }
