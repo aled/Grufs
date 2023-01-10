@@ -25,6 +25,40 @@ namespace Wibblr.Grufs
             _chunkEncryptor = new ChunkEncryptor(contentKeyEncryptionKey, hmacKey, compressor);
         }
 
+        public void StreamSplitFixedSize(Stream stream, Action<byte[], int, long> ProcessChunk)
+        {
+            var buf = new byte[_chunkSize];
+            var bytesRead = 0;
+            var bufContentLength = 0;
+            var streamOffset = 0L;
+
+            while ((bytesRead = stream.Read(buf, bufContentLength, _chunkSize - bufContentLength)) != 0)
+            {
+                bufContentLength += bytesRead;
+                if (_chunkSize == bufContentLength)
+                {
+                    ProcessChunk(buf, bufContentLength, streamOffset);
+                    streamOffset += bufContentLength;
+                    bufContentLength = 0;
+                }
+            }
+
+            if (bufContentLength > 0)
+            {
+                ProcessChunk(buf, bufContentLength, streamOffset);
+            }
+        }
+
+        public void StreamSplitOnRollingHashTrailingZeros(Stream stream, Action<byte[], int, long> ProcessChunk)
+        {
+            var splitter = new RollingHashStreamSplitter(stream);
+
+            foreach (var (buf, length, streamOffset) in splitter.Chunks())
+            {
+                ProcessChunk(buf, length, streamOffset);
+            }
+        }
+
         public (Address, ChunkType) Write(Stream stream)
         {
             var nodes = new List<ChunkTreeNode>(); // keep state for one node for each level of the tree
@@ -73,8 +107,9 @@ namespace Wibblr.Grufs
                 return nodeChunk.Address;
             }
 
-            void Write(ReadOnlySpan<byte> bytes, long streamOffset)
+            void Write(byte[] buf, int len, long streamOffset)
             {
+                var bytes = buf.AsSpan(0, len);
                 var encryptedChunk = _chunkEncryptor.EncryptContentAddressedChunk(bytes);
 
                 if (!_chunkStorage.TryPut(encryptedChunk, OverwriteStrategy.DenyWithSuccess))
@@ -85,26 +120,9 @@ namespace Wibblr.Grufs
                 AppendToNode(encryptedChunk.Address, level: 0, streamOffset, bytes.Length);
             }
 
-            var buf = new byte[_chunkSize];
-            var bytesRead = 0;
-            var bufContentLength = 0;
-            var streamOffset = 0L;
+            //StreamSplitFixedSize(stream, Write);
 
-            while ((bytesRead = stream.Read(buf, bufContentLength, _chunkSize - bufContentLength)) != 0)
-            {
-                bufContentLength += bytesRead;
-                if (_chunkSize == bufContentLength)
-                {
-                    Write(buf, streamOffset);
-                    streamOffset += bufContentLength;
-                    bufContentLength = 0;
-                }
-            }
-
-            if (bufContentLength > 0)
-            {
-                Write(buf.AsSpan(0, bufContentLength), streamOffset);
-            }
+            StreamSplitOnRollingHashTrailingZeros(stream, Write);
 
             var node = nodes[0];
             var address = node.Addresses[0];
