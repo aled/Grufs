@@ -111,7 +111,10 @@ namespace Wibblr.Grufs
             UnversionedDictionaryAddressKey = unversionedDictionaryAddressKey;
 
             // metadata itself is always stored uncompressed
-            _streamStorage = new StreamStorage(MasterKey, MasterContentAddressKey, new Compressor(CompressionAlgorithm.None), ChunkStorage, _chunkSize);
+            var chunkEncryptor = new ChunkEncryptor(MasterKey, MasterContentAddressKey, new Compressor(CompressionAlgorithm.None));
+            var chunkSourceFactory = new ContentDefinedChunkSourceFactory(13);
+
+            _streamStorage = new StreamStorage(ChunkStorage, chunkSourceFactory, chunkEncryptor);
 
             return true;
         }
@@ -157,7 +160,10 @@ namespace Wibblr.Grufs
             VersionedDictionaryAddressKey = new HmacKey(masterKeys.ReadBytes(HmacKey.Length));
             UnversionedDictionaryAddressKey = new HmacKey(masterKeys.ReadBytes(HmacKey.Length));
 
-            _streamStorage = new StreamStorage(MasterKey, MasterContentAddressKey, Compressor, ChunkStorage, _chunkSize);
+            var chunkEncryptor = new ChunkEncryptor(MasterKey, MasterContentAddressKey, Compressor);
+            var chunkSourceFactory = new ContentDefinedChunkSourceFactory(13);
+
+            _streamStorage = new StreamStorage(ChunkStorage, chunkSourceFactory, chunkEncryptor);
 
             return true;
         }

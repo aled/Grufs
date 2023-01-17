@@ -102,7 +102,8 @@ namespace Wibblr.Grufs
             {
                 using (var stream = new FileStream(file.FullName, FileMode.Open))
                 {
-                    var (address, chunkType) = _streamStorage.Write(stream);
+                    var (address, level) = _streamStorage.Write(stream);
+                    var chunkType = (level == 0 ? ChunkType.Content : ChunkType.ChunkTreeNode);
                     filesBuilder.Add(new FileMetadata(new Filename(file.Name), address, chunkType, new Timestamp(file.LastWriteTimeUtc)));
                 }
             }

@@ -4,7 +4,7 @@ using FluentAssertions;
 
 namespace Wibblr.Grufs.Tests
 {
-    public class RollingHashStreamSplitterTests
+    public class ContentDefinedSizeChunkSourceTests
     {
         [Fact]
         public void ShouldSplitAtPreviouslyCalculatedLocations()
@@ -14,13 +14,15 @@ namespace Wibblr.Grufs.Tests
                 sb.Append($"{i} - The quick brown fox jumps over the lazy dog - {i}...");
 
             var bytes = Encoding.ASCII.GetBytes(sb.ToString());
-            var s = new MemoryStream(bytes);
-            var rhs = new RollingHashStreamSplitter(s);
+            var stream = new MemoryStream(bytes);
+            var byteSource = new StreamByteSource(stream);
+            var chunkSource = new ContentDefinedChunkSourceFactory(13).Create(byteSource);
 
             var chunkSizes = new List<int>();
 
-            foreach (var (buf, length, streamOffset) in rhs.Chunks())
+            while (chunkSource.Available())
             {
+                var (buf, streamOffset, length) = chunkSource.Next();
                 chunkSizes.Add(length);
                 Console.WriteLine($"Split at {streamOffset + length}, preceding chunk size {length}");
                 //Console.WriteLine($"  checksum window:{Encoding.ASCII.GetString(buf.AsSpan(length - RollingHash.WindowSize, RollingHash.WindowSize))}");

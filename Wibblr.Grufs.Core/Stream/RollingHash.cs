@@ -13,6 +13,7 @@ namespace Wibblr.Grufs
         private static readonly uint byteRemovalMultiplier = 1;
 
         public static readonly int WindowSize = 64;
+
         public uint Value { get; private set; } = 0;
 
         static RollingHash()
@@ -37,7 +38,7 @@ namespace Wibblr.Grufs
             //Console.WriteLine("initial hash " + hash);
         }
 
-        public void Append(byte oldByte, byte newByte)
+        public void Roll(byte oldByte, byte newByte)
         {
             Value = (Value + modulus - ((oldByte * byteRemovalMultiplier) % modulus)) % modulus; // remove old byte, ensuring the intermediate result can never go negative.
             Value = ((Value << 8) + newByte) % modulus; // add new byte

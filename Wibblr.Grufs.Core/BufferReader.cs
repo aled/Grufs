@@ -15,7 +15,7 @@ namespace Wibblr.Grufs
             _buffer = buffer;
         }
 
-        public int RemainingLength => _buffer.Length - _offset;
+        public int RemainingLength() => _buffer.Length - _offset;
 
         private void CheckBounds(int i)
         {

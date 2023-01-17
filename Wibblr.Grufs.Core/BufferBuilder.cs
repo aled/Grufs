@@ -152,6 +152,8 @@ namespace Wibblr.Grufs
             return this;
         }
 
+        public int RemainingLength() => _buf.Length - _offset;
+
         public Buffer ToBuffer()
         {
             return new Buffer(_buf, _offset);
@@ -162,6 +164,11 @@ namespace Wibblr.Grufs
         public ReadOnlySpan<byte> ToSpan()
         {
             return new ReadOnlySpan<byte>(_buf, 0, _offset);
+        }
+
+        public void Clear()
+        {
+            _offset = 0;
         }
     }
 }

@@ -47,13 +47,13 @@ namespace Wibblr.Grufs
             return EncryptKeyAddressedChunk(InitializationVector.Random(), EncryptionKey.Random(), lookupKey, plaintext);
         }
 
-        public EncryptedChunk EncryptKeyAddressedChunk(InitializationVector iv, EncryptionKey key, ReadOnlySpan<byte> lookupKey, ReadOnlySpan<byte> plaintext)
+        private EncryptedChunk EncryptKeyAddressedChunk(InitializationVector iv, EncryptionKey key, ReadOnlySpan<byte> lookupKey, ReadOnlySpan<byte> plaintext)
         {
             var buf = EncryptBytes(iv, key, plaintext);
             return new EncryptedChunk(GetLookupKeyAddress(lookupKey), buf);
         }
 
-        public byte[] EncryptBytes(InitializationVector iv, EncryptionKey key, ReadOnlySpan<byte> source)
+        private byte[] EncryptBytes(InitializationVector iv, EncryptionKey key, ReadOnlySpan<byte> source)
         {
             var encryptor = new Encryptor();
 
@@ -101,7 +101,7 @@ namespace Wibblr.Grufs
             var iv = reader.ReadInitializationVector();
             var wrappedKey = reader.ReadWrappedEncryptionKey();
             var compressionAlgorithm = (CompressionAlgorithm)reader.ReadByte();
-            var ciphertextBytes = reader.ReadBytes(reader.RemainingLength - Checksum.Length);
+            var ciphertextBytes = reader.ReadBytes(reader.RemainingLength() - Checksum.Length);
             var checksum = reader.ReadChecksum();
 
             // Outer (unencrypted) chunk checksum is validated here, before attempting decryption

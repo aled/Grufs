@@ -72,10 +72,12 @@ namespace Wibblr.Grufs.Tests
             using (var temp = new TemporarySftpStorage())
             {
                 var storage = temp.Storage;
-                var streamStorage = new StreamStorage(keyEncryptionKey, hmacKey, compressor, storage, 128);
-                var (address, type) = streamStorage.Write(stream);
+                var chunkEncryptor = new ChunkEncryptor(keyEncryptionKey, hmacKey, compressor);
+                var chunkSourceFactory = new FixedSizeChunkSourceFactory(128);
+                var streamStorage = new StreamStorage(storage, chunkSourceFactory, chunkEncryptor);
+                var (address, level) = streamStorage.Write(stream);
 
-                foreach (var decryptedBuffer in streamStorage.Read(type, address))
+                foreach (var decryptedBuffer in streamStorage.Read(level, address))
                 {
                     decryptedStream.Write(decryptedBuffer.AsSpan());
                 }

@@ -30,7 +30,7 @@ namespace Wibblr.Grufs.Tests
 
             for (int i = RollingHash.WindowSize; i < bytes.Length; i++)
             {
-                hash.Append(bytes[i - RollingHash.WindowSize], bytes[i]);
+                hash.Roll(bytes[i - RollingHash.WindowSize], bytes[i]);
                 values.Add(hash.Value);
                 Console.WriteLine(hash.Value);
             }

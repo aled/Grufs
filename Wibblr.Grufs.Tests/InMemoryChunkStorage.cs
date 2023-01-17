@@ -6,8 +6,8 @@ namespace Wibblr.Grufs.Tests
     {
         private Dictionary<Address, EncryptedChunk> _dict = new Dictionary<Address, EncryptedChunk>();
 
-        public int TotalPutCalls = 0;
-        public int TotalExistsCalls = 0;
+        public int TotalPutCalls { get; private set; }
+        public int TotalExistsCalls { get; private set; }
 
         public void ResetStats()
         {
@@ -69,7 +69,8 @@ namespace Wibblr.Grufs.Tests
             return _dict.Keys.ToArray();
         }
 
-        public float DeduplicationRatio => TotalPutCalls == 0 ? 100f : (_dict.Count * 100f) / TotalPutCalls;
+        public float DeduplicationCompressionRatio() =>
+            TotalPutCalls == 0 ? 1f : _dict.Count / (float)TotalPutCalls;
     }
 }
     

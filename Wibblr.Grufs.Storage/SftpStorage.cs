@@ -58,14 +58,14 @@ namespace Wibblr.Grufs
 
         public bool Upload(string path, byte[] content, OverwriteStrategy overwrite)
         {
-            // treat path as relative to the base path, even if it starts with a separator
+            // treat path as relative to the base path, even if it starts with a directory separator
             if (path.StartsWith("/"))
             {
                 path = path.Substring(1);
             }
             var fullRelativePath = Path.Combine(_baseDir, path).Replace("\\", "/");
             EnsureConnected();
-            
+
             if (_client.Exists(fullRelativePath))
             {
                 switch (overwrite)
@@ -77,19 +77,30 @@ namespace Wibblr.Grufs
                     case OverwriteStrategy.DenyWithError:
                         return false;
 
-                    case OverwriteStrategy.DenyWithSuccess: 
+                    case OverwriteStrategy.DenyWithSuccess:
                         return true;
 
                     case OverwriteStrategy.VerifyChecksum:
                         throw new NotImplementedException();
-               }
+                }
             }
 
             foreach (var directory in ((IFileStorage)this).GetParentDirectories(fullRelativePath))
             {
                 if (!_client.Exists(directory))
                 {
-                    _client.CreateDirectory(directory);
+                    try
+                    {
+                        _client.CreateDirectory(directory);
+                    }
+                    catch (Exception e)
+                    {
+                        // maybe directory was created after the existence test
+                        if (!_client.Exists(directory))
+                        {
+                            throw;
+                        }
+                    }
                 }
             }
             using (var stream = _client.OpenWrite(fullRelativePath))

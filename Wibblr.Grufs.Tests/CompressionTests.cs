@@ -16,29 +16,28 @@ namespace Wibblr.Grufs.Tests
         [InlineData(CompressionAlgorithm.Zlib)]
         public void EncryptStreamWithCompression(CompressionAlgorithm compressionAlgorithm)
         {
+            var chunkStorage = new InMemoryChunkStorage();
             var keyEncryptionKey = new KeyEncryptionKey("0000000000000000000000000000000000000000000000000000000000000000".ToBytes());
             var hmacKey = new HmacKey("0000000000000000000000000000000000000000000000000000000000000000".ToBytes());
             var compressor = new Compressor(compressionAlgorithm);
+            var chunkEncryptor = new ChunkEncryptor(keyEncryptionKey, hmacKey, compressor);
+            var chunkSourceFactory = new ContentDefinedChunkSourceFactory(13);
+            var streamStorage = new StreamStorage(chunkStorage, chunkSourceFactory, chunkEncryptor);
 
             var plaintext = "";
             for (int i = 0; i < 999; i++)
             {
                 plaintext += $"{i} The quick brown fox jumps over the lazy dog {i}\n";
             }
-
             var plaintextBytes = Encoding.UTF8.GetBytes(plaintext);
-
-            var chunkStorage = new InMemoryChunkStorage();
-            var streamStorage = new StreamStorage(keyEncryptionKey, hmacKey, compressor, chunkStorage, 1024*1024);
-
             var stream = new MemoryStream(plaintextBytes);
 
             var repository = new InMemoryChunkStorage();
-            var (address, type) = streamStorage.Write(stream);
+            var (address, level) = streamStorage.Write(stream);
 
             var decryptedStream = new MemoryStream();
 
-            foreach (var decryptedBuffer in streamStorage.Read(type, address))
+            foreach (var decryptedBuffer in streamStorage.Read(level, address))
             {
                 decryptedStream.Write(decryptedBuffer.AsSpan());
             }
@@ -47,7 +46,7 @@ namespace Wibblr.Grufs.Tests
 
             decryptedText.Should().Be(plaintext);
 
-            Console.WriteLine("Dedup ratio: " + repository.DeduplicationRatio);
+            Console.WriteLine("Dedup ratio: " + repository.DeduplicationCompressionRatio());
         }
     }
 }
