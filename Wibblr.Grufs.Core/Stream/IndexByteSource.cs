@@ -2,7 +2,7 @@
 
 namespace Wibblr.Grufs.Core
 {
-    public class AddressQueueByteSource : IByteSource
+    public class IndexByteSource : IByteSource
     {
         private readonly byte serializationVersion = 0;
         public byte Level { get; init; }
@@ -11,7 +11,7 @@ namespace Wibblr.Grufs.Core
         private Queue<byte> _queue = new Queue<byte>();
         private bool _isAddingCompleted;
         
-        public AddressQueueByteSource(int level)
+        public IndexByteSource(int level)
         {
             if (level > byte.MaxValue)
             {

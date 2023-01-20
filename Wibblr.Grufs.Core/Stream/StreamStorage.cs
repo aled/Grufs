@@ -24,75 +24,78 @@ namespace Wibblr.Grufs
         {
             var byteSource = new StreamByteSource(stream);
             var chunkSource = _chunkSourceFactory.Create(byteSource);
+            var indexByteSources = new List<IndexByteSource>();
+            var indexChunkSources = new List<IChunkSource>();
 
-            var addresses = new List<(AddressQueueByteSource x, IChunkSource addressChunkSource)>();
+            return Write(chunkSource, 0);
 
-            return Write(chunkSource, addresses, 0);
-        }
-
-        private (Address, int) Write(IChunkSource chunkSource, List<(AddressQueueByteSource x, IChunkSource addressChunkSource)> addresses, int level)
-        {
-            if (!chunkSource.Available())
+            (Address, int) Write(IChunkSource chunkSource, int level)
             {
-                throw new Exception();
-            }
+                // When writing chunks, write to an index containing the addresses of all the chunks.
+                // (The index will itself be recursively indexed, if it is more than one chunk in length)
+                IndexByteSource index;
+                IChunkSource indexChunkSource;
+                var returnLevel = level;
 
-            AddressQueueByteSource addressQueueByteSource;
-            IChunkSource addressChunkSource;
-            if (addresses.Count <= level)
-            {
-                addressQueueByteSource = new AddressQueueByteSource(level + 1);
-                addressChunkSource = _chunkSourceFactory.Create(addressQueueByteSource);
-                addresses.Add((addressQueueByteSource, addressChunkSource));
-            }
-            else
-            {
-                (addressQueueByteSource, addressChunkSource) = addresses[level];
-            }
+                Address address;
+                Address? indexAddress = null;
 
-            var returnLevel = level;
-
-            // When writing chunks, recursively write to a queue containing the addresses of all the chunks
-            // in the stream. (That stream will also have another level of chunk addresses)
-            Address address;
-            Address? addressStreamAddress = null;
-
-            while (chunkSource.Available())
-            {
-                var (buf, streamOffset, len) = chunkSource.Next();
-                var bytes = buf.AsSpan(0, len);
-                var encryptedChunk = _chunkEncryptor.EncryptContentAddressedChunk(bytes);
-                if (!_chunkStorage.TryPut(encryptedChunk, OverwriteStrategy.DenyWithSuccess))
+                if (!chunkSource.Available())
                 {
-                    throw new Exception("Failed to store chunk in repository");
+                    throw new Exception();
                 }
-                Console.WriteLine($"Wrote chunk, level {level}, offset {streamOffset}, length {bytes.Length}, compressed/encrypted length {encryptedChunk.Content.Length}, address {encryptedChunk.Address}");
-                //Console.WriteLine(level == 0 ? Encoding.ASCII.GetString(bytes) : $"   {Convert.ToHexString(bytes)}");
-                //Console.WriteLine("-----------------");
 
-                address = encryptedChunk.Address;
-                addressQueueByteSource.Add(address, streamOffset, len);
-
-                if (addressChunkSource.Available())
+                do
                 {
-                    (addressStreamAddress, returnLevel) = Write(addressChunkSource, addresses, level + 1);
-                }
-            }
+                    var (buf, streamOffset, len) = chunkSource.Next();
+                    var bytes = buf.AsSpan(0, len);
+                    var encryptedChunk = _chunkEncryptor.EncryptContentAddressedChunk(bytes);
+                    if (!_chunkStorage.TryPut(encryptedChunk, OverwriteStrategy.DenyWithSuccess))
+                    {
+                        throw new Exception("Failed to store chunk in repository");
+                    }
+                    Console.WriteLine($"Wrote chunk, level {level}, offset {streamOffset}, length {bytes.Length}, compressed/encrypted length {encryptedChunk.Content.Length}, address {encryptedChunk.Address}");
+                    //Console.WriteLine(level == 0 ? Encoding.ASCII.GetString(bytes) : $"   {Convert.ToHexString(bytes)}");
+                    //Console.WriteLine("-----------------");
 
-            if (chunkSource.IsCompleted())
-            {
-                addressQueueByteSource.CompleteAdding();
+                    address = encryptedChunk.Address;
 
-                // only write the address chunk if there was more than one address written to it.
-                if (addressChunkSource.Available() && addressQueueByteSource.TotalAddressCount > 1)
+                    if (indexByteSources.Count <= level)
+                    {
+                        index = new IndexByteSource(level + 1);
+                        indexChunkSource = _chunkSourceFactory.Create(index);
+                        indexByteSources.Add(index);
+                        indexChunkSources.Add(indexChunkSource);
+                    }
+                    else
+                    {
+                        index = indexByteSources[level];
+                        indexChunkSource = indexChunkSources[level];
+                    }
+
+                    index.Add(address, streamOffset, len);
+
+                    if (indexChunkSource.Available())
+                    {
+                        (indexAddress, returnLevel) = Write(indexChunkSource, level + 1);
+                    }
+                } while (chunkSource.Available());
+
+                if (chunkSource.IsCompleted())
                 {
-                    (addressStreamAddress, returnLevel) = Write(addressChunkSource, addresses, level + 1);
+                    index.CompleteAdding();
+
+                    // only write the address chunk if there was more than one address written to it.
+                    if (indexChunkSource.Available() && index.TotalAddressCount > 1)
+                    {
+                        (indexAddress, returnLevel) = Write(indexChunkSource, level + 1);
+                    }
                 }
+
+                //Console.WriteLine($"Returning from Write: address = {addressStreamAddress ?? address}, level = {returnLevel}");
+
+                return (indexAddress ?? address, returnLevel);
             }
-
-            //Console.WriteLine($"Returning from Write: address = {addressStreamAddress ?? address}, level = {returnLevel}");
-
-            return (addressStreamAddress ?? address, returnLevel);
         }
 
         /// <summary>
@@ -109,7 +112,7 @@ namespace Wibblr.Grufs
             return Read(level, address, new BufferBuilder[level]);
         }
 
-        private IEnumerable<Buffer> Read(int level, Address address, BufferBuilder[] partialAddressBuilders)
+        private IEnumerable<Buffer> Read(int level, Address address, BufferBuilder[] indexBuilders)
         {
             if (!_chunkStorage.TryGet(address, out var chunk))
             {
@@ -127,9 +130,9 @@ namespace Wibblr.Grufs
             {
                 var reader = new BufferReader(buffer);
 
-                if (partialAddressBuilders[level - 1] == null)
+                if (indexBuilders[level - 1] == null)
                 {
-                    partialAddressBuilders[level - 1] = new BufferBuilder(Address.Length + 4);
+                    indexBuilders[level - 1] = new BufferBuilder(Address.Length + 4);
                 
                     var serializationVersion = reader.ReadByte(); // serialization version
 
@@ -138,41 +141,38 @@ namespace Wibblr.Grufs
                         throw new Exception();
                     }
 
-                    var actualLevel = reader.ReadByte(); // level
+                    var deserializedLevel = reader.ReadByte(); // level
 
-                    if (actualLevel != level)
+                    if (deserializedLevel != level)
                     {
                         throw new Exception();
                     }
-
-                    //Console.WriteLine($"  serialization version = {serializationVersion}, actualLevel = {actualLevel}");
+                    //Console.WriteLine($"  serialization version = {serializationVersion}, deserializedLevel = {deserializedLevel}");
                 }
 
-                var partialAddressBuilder = partialAddressBuilders[level - 1];
+                var indexBuilder = indexBuilders[level - 1];
                 while (reader.RemainingLength() > 0)
                 {
-                    int bytesToCopy = Math.Min(reader.RemainingLength(), partialAddressBuilder.RemainingLength());
-                    partialAddressBuilder.AppendBytes(reader.ReadBytes(bytesToCopy));
+                    int bytesToCopy = Math.Min(reader.RemainingLength(), indexBuilder.RemainingLength());
+                    indexBuilder.AppendBytes(reader.ReadBytes(bytesToCopy));
 
-                    if (partialAddressBuilder.RemainingLength() == 0)
+                    if (indexBuilder.RemainingLength() == 0)
                     {
-                        var subAddress = new Address(partialAddressBuilder.GetUnderlyingArray().AsSpan(0, Address.Length));
-                        var chunkLength = partialAddressBuilder.GetUnderlyingArray().AsSpan(Address.Length, 4);
+                        var subAddress = new Address(indexBuilder.GetUnderlyingArray().AsSpan(0, Address.Length));
+                        var chunkLength = indexBuilder.GetUnderlyingArray().AsSpan(Address.Length, 4);
 
-                        partialAddressBuilder.Clear();
+                        indexBuilder.Clear();
 
                         var subchunkLevel = level - 1;
 
                         //Console.WriteLine($"  Read subchunk addresses for level {subchunkLevel}: {subAddress}");
 
-                        foreach (var subBuffer in Read(subchunkLevel, subAddress, partialAddressBuilders))
+                        foreach (var subBuffer in Read(subchunkLevel, subAddress, indexBuilders))
                         {
                             yield return subBuffer;
                         }
                     }
                 }
-
-                //Console.WriteLine($"  Level {level}: {queue.Count} bytes remain in queue");
             }
         }
     }
