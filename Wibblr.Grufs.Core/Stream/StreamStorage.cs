@@ -20,7 +20,7 @@ namespace Wibblr.Grufs
             _chunkEncryptor = chunkEncryptor;
         }
 
-        public (Address, int) Write(Stream stream)
+        public (Address, byte) Write(Stream stream)
         {
             var byteSource = new StreamByteSource(stream);
             var chunkSource = _chunkSourceFactory.Create(byteSource);
@@ -29,21 +29,28 @@ namespace Wibblr.Grufs
 
             return Write(chunkSource, 0);
 
-            (Address, int) Write(IChunkSource chunkSource, int level)
+            (Address, byte) Write(IChunkSource chunkSource, byte level)
             {
                 // When writing chunks, write to an index containing the addresses of all the chunks.
                 // (The index will itself be recursively indexed, if it is more than one chunk in length)
-                IndexByteSource index;
-                IChunkSource indexChunkSource;
-                var returnLevel = level;
-
-                Address address;
-                Address? indexAddress = null;
-
                 if (!chunkSource.Available())
                 {
                     throw new Exception();
                 }
+                if (level > 100)
+                {
+                    throw new Exception();
+                }
+
+
+                IndexByteSource index;
+                IChunkSource indexChunkSource;
+                byte returnLevel = level;
+                byte indexLevel = (byte)(level + 1);
+
+                Address address;
+                Address? indexAddress = null;
+
 
                 do
                 {
@@ -54,7 +61,7 @@ namespace Wibblr.Grufs
                     {
                         throw new Exception("Failed to store chunk in repository");
                     }
-                    Console.WriteLine($"Wrote chunk, level {level}, offset {streamOffset}, length {bytes.Length}, compressed/encrypted length {encryptedChunk.Content.Length}, address {encryptedChunk.Address}");
+                    //Console.WriteLine($"Wrote chunk, level {level}, offset {streamOffset}, length {bytes.Length}, compressed/encrypted length {encryptedChunk.Content.Length}, address {encryptedChunk.Address}");
                     //Console.WriteLine(level == 0 ? Encoding.ASCII.GetString(bytes) : $"   {Convert.ToHexString(bytes)}");
                     //Console.WriteLine("-----------------");
 
@@ -77,7 +84,7 @@ namespace Wibblr.Grufs
 
                     if (indexChunkSource.Available())
                     {
-                        (indexAddress, returnLevel) = Write(indexChunkSource, level + 1);
+                        (indexAddress, returnLevel) = Write(indexChunkSource, indexLevel);
                     }
                 } while (chunkSource.Available());
 
@@ -88,7 +95,7 @@ namespace Wibblr.Grufs
                     // only write the address chunk if there was more than one address written to it.
                     if (indexChunkSource.Available() && index.TotalAddressCount > 1)
                     {
-                        (indexAddress, returnLevel) = Write(indexChunkSource, level + 1);
+                        (indexAddress, returnLevel) = Write(indexChunkSource, indexLevel);
                     }
                 }
 

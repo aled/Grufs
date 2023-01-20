@@ -131,7 +131,7 @@ namespace Wibblr.Grufs
 
             if (!new UnversionedDictionaryStorage(ChunkStorage, metadataChunkEncryptor).TryGetValue(_metadataLookupKey.AsSpan(), out var serialized))
             {
-                throw new Exception();
+                return false;
             }
 
             // Deserialize

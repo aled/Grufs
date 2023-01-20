@@ -145,7 +145,7 @@ namespace Wibblr.Grufs.Tests
             var address = new Address(new byte[32]);
             var timestamp = new Timestamp("2001-01-01T10:00:00.1234567");
 
-            var file = new FileMetadata(name, address, ChunkType.Content, timestamp);
+            var file = new FileMetadata(name, address, 0, timestamp);
 
             var builder = new BufferBuilder(file.GetSerializedLength());
             var buffer = builder.AppendFileMetadata(file).ToBuffer();
@@ -168,13 +168,13 @@ namespace Wibblr.Grufs.Tests
                 new FileMetadata(
                     new Filename("asdf"),
                     new Address(new byte[32]),
-                    ChunkType.Content,
+                    0,
                     new Timestamp("2001-01-01T10:00:00.1234567")),
 
                 new FileMetadata(
                     new Filename("qwer"),
                     new Address(new byte[32]),
-                    ChunkType.Content,
+                    0,
                     new Timestamp("2001-01-01T10:00:00.1234567"))
             };
             var directories = new[]

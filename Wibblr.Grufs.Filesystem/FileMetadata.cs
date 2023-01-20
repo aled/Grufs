@@ -10,16 +10,16 @@ namespace Wibblr.Grufs
 
         public required Address Address { get; init; }
 
-        public required ChunkType ChunkType { get; init; }
+        public required byte IndexLevel { get; init; }
 
         public required Timestamp LastModifiedTimestamp { get; init; }
 
         [SetsRequiredMembers]
-        public FileMetadata(Filename name, Address address, ChunkType chunkType, Timestamp lastModifiedTimestamp)
+        public FileMetadata(Filename name, Address address, byte indexLevel, Timestamp lastModifiedTimestamp)
         {
             Name = name;
             Address = address;
-            ChunkType = chunkType;
+            IndexLevel = indexLevel;
             LastModifiedTimestamp = lastModifiedTimestamp;
         }
 
@@ -30,7 +30,7 @@ namespace Wibblr.Grufs
 
             Name = new Filename(reader);
             Address = new Address(reader.ReadBytes(Address.Length));
-            ChunkType = (ChunkType)reader.ReadByte();
+            IndexLevel = reader.ReadByte();
             LastModifiedTimestamp = reader.ReadTimestamp();
         }
 
@@ -44,7 +44,7 @@ namespace Wibblr.Grufs
         {
             Name.SerializeTo(builder);
             builder.AppendBytes(Address);
-            builder.AppendByte((byte)ChunkType);
+            builder.AppendByte(IndexLevel);
             builder.AppendTimestamp(LastModifiedTimestamp);
         }
 

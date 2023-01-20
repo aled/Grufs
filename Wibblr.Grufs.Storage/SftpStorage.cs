@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 
 using Renci.SshNet;
 using Renci.SshNet.Common;
@@ -27,6 +28,11 @@ namespace Wibblr.Grufs
             return this;
         }
 
+        public bool IsConnected()
+        {
+            return _client.IsConnected;
+        }
+
         public void EnsureConnected()
         {
             if (!_client.IsConnected)
@@ -53,6 +59,47 @@ namespace Wibblr.Grufs
             {
                 bytes = new byte[0];
                 throw;
+            }
+        }
+
+        // TODO: fix this
+        public void TryCreateDirectory(string path)
+        {
+            if (path.StartsWith("/"))
+            {
+                path = path.Substring(1);
+            }
+            var fullRelativePath = Path.Combine(_baseDir, path).Replace("\\", "/");
+            EnsureConnected();
+
+            var created = new HashSet<string>();
+
+            foreach (var directory in ((IFileStorage)this).GetParentDirectories(fullRelativePath))
+            {
+                Console.WriteLine($"Checking directory {directory}");
+                if (created.Contains(directory) || _client.Exists(directory))
+                    continue;
+
+                try
+                {
+                    _client.CreateDirectory(directory);
+                    created.Add(directory);
+                    Console.WriteLine($"Created directory {directory}");
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"Could not create directory {directory}");
+                }
+            }
+            try
+            {
+                _client.CreateDirectory(fullRelativePath);
+                created.Add(fullRelativePath);
+                Console.WriteLine($"Created directory {fullRelativePath}");
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"Could not create directory {fullRelativePath}");
             }
         }
 
@@ -85,29 +132,64 @@ namespace Wibblr.Grufs
                 }
             }
 
-            foreach (var directory in ((IFileStorage)this).GetParentDirectories(fullRelativePath))
+
+            // Assume that all directories are pre-created
+            //foreach (var directory in ((IFileStorage)this).GetParentDirectories(fullRelativePath))
+            //{
+            //    if (!_client.Exists(directory))
+            //    {
+            //        try
+            //        {
+            //            _client.CreateDirectory(directory);
+            //        }
+            //        catch (Exception e)
+            //        {
+            //            // maybe directory was created after the existence test
+            //            if (!_client.Exists(directory))
+            //            {
+            //                throw;
+            //            }
+            //        }
+            //    }
+            //}
+            bool willRetry = true;
+            while (willRetry)
             {
-                if (!_client.Exists(directory))
+                try
                 {
-                    try
+                    using (var stream = _client.OpenWrite(fullRelativePath))
                     {
-                        _client.CreateDirectory(directory);
+                        stream.Write(content, 0, content.Length);
+                        //Console.WriteLine($"Wrote {fullRelativePath}");
+                        willRetry = false;
                     }
-                    catch (Exception e)
+                }
+                catch (Exception e)
+                {
+                    // maybe directories were not pre-created
+                    willRetry = false;
+                    foreach (var directory in ((IFileStorage)this).GetParentDirectories(fullRelativePath))
                     {
-                        // maybe directory was created after the existence test
                         if (!_client.Exists(directory))
                         {
-                            throw;
+                            try
+                            {
+                                _client.CreateDirectory(directory);
+                                willRetry = true;
+                            }
+                            catch (Exception)
+                            {
+                                // maybe directory was created after the existence test
+                                if (!_client.Exists(directory))
+                                {
+                                    throw;
+                                }
+                            }
                         }
                     }
                 }
             }
-            using (var stream = _client.OpenWrite(fullRelativePath))
-            {
-                stream.Write(content, 0, content.Length);
-                return true;
-            }
+            return true;
         }
 
         public bool Exists(string path = "")

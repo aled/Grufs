@@ -7,9 +7,10 @@
         IEnumerable<string> GetParentDirectories(string path)
         {
             int lastSeparator = -1;
-            while ((lastSeparator = path.IndexOf('/', lastSeparator + 1)) != -1)
+            while ((lastSeparator = path.IndexOf('/', lastSeparator + 2)) != -1)
             {
-                yield return path.Substring(0, lastSeparator);
+                var ret = path.Substring(0, lastSeparator);
+                if (ret != "") yield return ret;
             }
         }
 

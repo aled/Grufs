@@ -2,21 +2,17 @@
 using System.IO.Compression;
 using System.Text;
 
-using Wibblr.Grufs.Encryption;
-
 namespace Wibblr.Grufs
 {
     public class MutableFilesystem
     {
-        //private readonly Repository _repository;
-        //private readonly HmacKey _directoryKey;
-
-        private readonly string _keyNamespace = "directory:";
+        private readonly string _keyNamespace;
         private readonly VersionedDictionaryStorage _dictionaryStorage;
         private readonly StreamStorage _streamStorage;
 
-        public MutableFilesystem(Repository repository, HmacKey addressKey)
+        public MutableFilesystem(Repository repository, string filesystemName)
         {
+            _keyNamespace = $"mutable-filesystem:{filesystemName.Length}-{filesystemName}";
             var chunkEncryptor = new ChunkEncryptor(repository.MasterKey, repository.VersionedDictionaryAddressKey, new Compressor(CompressionAlgorithm.Brotli, CompressionLevel.Optimal));
             _dictionaryStorage = new VersionedDictionaryStorage(_keyNamespace, repository.ChunkStorage, chunkEncryptor);
             _streamStorage = repository.StreamStorage;
@@ -75,13 +71,89 @@ namespace Wibblr.Grufs
                 0);
         }
 
+        // TODO: refactor this
+        public (MutableDirectory, long version) UploadDirectoryRecursive(string localDirectoryPath, DirectoryPath directoryPath, bool recursive = true)
+        {
+            (MutableDirectory, long version) UploadDirectoryRecursive(string localDirectoryPath, DirectoryPath directoryPath, long parentVersion, bool recursive)
+            {
+                // Upload all local files, recording the address/chunk type/other metadata of each
+                var filesBuilder = ImmutableArray.CreateBuilder<FileMetadata>();
+                var directoriesBuilder = ImmutableArray.CreateBuilder<Filename>();
+
+                var di = new DirectoryInfo(localDirectoryPath);
+                if (!di.Exists)
+                {
+                    throw new Exception("Invalid directory");
+                }
+
+                foreach (var fsi in di.EnumerateFileSystemInfos())
+                {
+                    if (fsi is FileInfo file)
+                    {
+                        using (var stream = new FileStream(file.FullName, FileMode.Open))
+                        {
+                            var (address, level) = _streamStorage.Write(stream);
+                            Console.WriteLine($"Wrote file {file.FullName} to {directoryPath.NormalizedPath}/{file.Name}");
+                            filesBuilder.Add(new FileMetadata(new Filename(file.Name), address, level, new Timestamp(file.LastWriteTimeUtc)));
+                        }
+                    }
+                    if (fsi is DirectoryInfo dir)
+                    {
+                        directoriesBuilder.Add(new Filename(dir.Name));
+                    }
+                }
+
+                // upload this directory
+                var (directory, version) = GetLatestMutableDirectory(directoryPath);
+                (MutableDirectory, long version) ret;
+
+                if (directory == null)
+                {
+                    ret = WriteMutableDirectoryVersion(new MutableDirectory(directoryPath, 0, new Timestamp(di.LastWriteTimeUtc), false, filesBuilder.ToImmutableArray(), new Filename[0]), 0);
+                }
+                else
+                {
+                    var preExistingFiles = directory.Files.Except(filesBuilder);
+                    filesBuilder.AddRange(preExistingFiles);
+
+                    var preExistingDirectories = directory.Directories.Except(directoriesBuilder);
+                    directoriesBuilder.AddRange(preExistingDirectories);
+
+                    var updated = recursive
+                        ? directory with { Files = filesBuilder.ToImmutableArray(), Directories = directoriesBuilder.ToImmutableArray() }
+                        : directory with { Files = filesBuilder.ToImmutableArray() };
+     
+                    ret = WriteMutableDirectoryVersion(updated, version + 1);
+                }
+
+                foreach (var d in directoriesBuilder)
+                {
+                    UploadDirectoryRecursive(new DirectoryPath(di.FullName) + "/" + d, new DirectoryPath(directoryPath + "/" + d), version + 1, recursive);
+                }
+
+                return ret;
+            }
+
+            long parentVersion = 0; // default value for root directory
+
+            // Starting at the root and going down to the parent of this directory, ensure each directory exists and contains the child directory
+            // Note we do not go down to this directory, as it also needs the files before we write it.
+            foreach (var (dirPath, childDirName) in directoryPath.PathHierarchy())
+            {
+                // ensure that dir exists, and contains childDir
+                (_, parentVersion) = EnsureDirectoryContains(dirPath, childDirName, parentVersion);
+            }
+
+            return UploadDirectoryRecursive(localDirectoryPath, directoryPath, parentVersion, recursive);
+        }
+
         // Non recursive upload of a local directory to the repository
         public (MutableDirectory, long version) UploadDirectoryNonRecursive(string localDirectoryPath, DirectoryPath directoryPath)
         {
             long parentVersion = 0; // default value for root directory
 
             // Starting at the root and going down to the parent of this directory, ensure each directory exists and contains the child directory
-            // Not we do not go down to this directory, as it also needs the files before we write it.
+            // Note we do not go down to this directory, as it also needs the files before we write it.
             foreach (var (dirPath, childDirName) in directoryPath.PathHierarchy())
             {
                 // ensure that dir exists, and contains childDir
@@ -103,8 +175,7 @@ namespace Wibblr.Grufs
                 using (var stream = new FileStream(file.FullName, FileMode.Open))
                 {
                     var (address, level) = _streamStorage.Write(stream);
-                    var chunkType = (level == 0 ? ChunkType.Content : ChunkType.ChunkTreeNode);
-                    filesBuilder.Add(new FileMetadata(new Filename(file.Name), address, chunkType, new Timestamp(file.LastWriteTimeUtc)));
+                    filesBuilder.Add(new FileMetadata(new Filename(file.Name), address, level, new Timestamp(file.LastWriteTimeUtc)));
                 }
             }
 
