@@ -66,7 +66,7 @@ namespace Wibblr.Grufs
                 {
                     throw new Exception("Failed to store chunk in repository");
                 }
-                Console.WriteLine($"Wrote chunk, level {level}, offset {streamOffset}, length {bytes.Length}, address {encryptedChunk.Address}");
+                Console.WriteLine($"Wrote chunk, level {level}, offset {streamOffset}, length {bytes.Length}, compressed/encrypted length {encryptedChunk.Content.Length}, address {encryptedChunk.Address}");
                 //Console.WriteLine(level == 0 ? Encoding.ASCII.GetString(bytes) : $"   {Convert.ToHexString(bytes)}");
                 //Console.WriteLine("-----------------");
 
@@ -106,11 +106,10 @@ namespace Wibblr.Grufs
         /// <exception cref="Exception"></exception>
         public IEnumerable<Buffer> Read(int level, Address address)
         {
-            var queueIsNew = new List<bool>();
-            return Read(level, address, new List<BufferBuilder>(), queueIsNew);
+            return Read(level, address, new BufferBuilder[level]);
         }
 
-        private IEnumerable<Buffer> Read(int level, Address address, List<BufferBuilder> partialAddressBuilders, List<bool> partialAddressBuilderIsNew)
+        private IEnumerable<Buffer> Read(int level, Address address, BufferBuilder[] partialAddressBuilders)
         {
             if (!_chunkStorage.TryGet(address, out var chunk))
             {
@@ -126,16 +125,12 @@ namespace Wibblr.Grufs
             }
             else
             {
-                while (partialAddressBuilders.Count < level)
-                {
-                    partialAddressBuilderIsNew.Add(true);
-                    partialAddressBuilders.Add(new BufferBuilder(Address.Length + 4));
-                }
-
                 var reader = new BufferReader(buffer);
 
-                if (partialAddressBuilderIsNew[level - 1])
+                if (partialAddressBuilders[level - 1] == null)
                 {
+                    partialAddressBuilders[level - 1] = new BufferBuilder(Address.Length + 4);
+                
                     var serializationVersion = reader.ReadByte(); // serialization version
 
                     if (serializationVersion != 0)
@@ -151,7 +146,6 @@ namespace Wibblr.Grufs
                     }
 
                     //Console.WriteLine($"  serialization version = {serializationVersion}, actualLevel = {actualLevel}");
-                    partialAddressBuilderIsNew[level - 1] = false;
                 }
 
                 var partialAddressBuilder = partialAddressBuilders[level - 1];
@@ -171,7 +165,7 @@ namespace Wibblr.Grufs
 
                         //Console.WriteLine($"  Read subchunk addresses for level {subchunkLevel}: {subAddress}");
 
-                        foreach (var subBuffer in Read(subchunkLevel, subAddress, partialAddressBuilders, partialAddressBuilderIsNew))
+                        foreach (var subBuffer in Read(subchunkLevel, subAddress, partialAddressBuilders))
                         {
                             yield return subBuffer;
                         }
