@@ -1,0 +1,16 @@
+{
+  "profiles": {
+    "WSL": {
+      "commandName": "WSL2",
+      "distributionName": ""
+    },
+    "interactive": {
+      "commandName": "Project",
+      "commandLineArgs": "interactive"
+    },
+    "storage init": {
+      "commandName": "Project",
+      "commandLineArgs": "storage init --name mystorage --protocol sftp"
+    }
+  }
+}

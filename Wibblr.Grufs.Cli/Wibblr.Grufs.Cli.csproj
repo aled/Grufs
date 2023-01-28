@@ -22,5 +22,11 @@
     <ProjectReference Include="..\Wibblr.Grufs.Core\Wibblr.Grufs.Core.csproj" />
     <ProjectReference Include="..\Wibblr.Grufs.Filesystem\Wibblr.Grufs.Filesystem.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="backup\" />
+    <Folder Include="sync\" />
+    <Folder Include="restore\" />
+  </ItemGroup>
   
 </Project>

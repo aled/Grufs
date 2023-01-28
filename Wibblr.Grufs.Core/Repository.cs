@@ -4,13 +4,23 @@ using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
 
-using Wibblr.Grufs.Core;
 using Wibblr.Grufs.Encryption;
 
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Wibblr.Grufs.Tests")]
 
-namespace Wibblr.Grufs
+namespace Wibblr.Grufs.Core
 {
+    public enum OpenRepositoryStatus
+    {
+        Unknown = 0,
+        Success = 1,
+        MissingMetadata = 2,
+        InvalidMetadata = 3,
+        BadPassword = 4,
+    }
+
+    public record struct OpenRepositoryResult(OpenRepositoryStatus Status, string Message);
+
     /// <summary>
     /// The Repository specifies the encryption key and address key for all content within the repository. Anything written to storage that
     /// uses the same repository will be deduplicated against all existing files in that repository.
@@ -40,8 +50,6 @@ namespace Wibblr.Grufs
         private static readonly Salt wellKnownSalt0 = new Salt(new byte[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 });
         private static readonly Salt wellKnownSalt1 = new Salt(new byte[] { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 });
 
-        private int _chunkSize = 5 * 1024 * 1024;
-
         public IChunkStorage ChunkStorage { get; private set; }
 
         private StreamStorage? _streamStorage;
@@ -59,7 +67,7 @@ namespace Wibblr.Grufs
             ChunkStorage = chunkStorage;
         }
 
-        public bool Initialize(string password, string repositoryName = _defaultRepositoryName, Compressor? compressor = null)
+        public bool Initialize(string password, Compressor? compressor = null)
         {
             _compressor = compressor ?? new Compressor(CompressionAlgorithm.Brotli, CompressionLevel.Optimal);
 
@@ -93,9 +101,11 @@ namespace Wibblr.Grufs
 
             var repositoryMetadata = new RepositoryMetadata(masterKeysInitializationVector, salt, iterations, encryptedMasterKeys);
 
-            // Finally store the metadata using the DictionaryStorage. This will encrypt with either a well-known default or custom repository name. This is not necessary for security, but is there to make all the chunks in the repository look the same.
+            // Finally store the metadata using the DictionaryStorage. This will encrypt with a well-known default name. This does not provide any security, but is there to make all the chunks
+            // in the repository look the same, so that no special cases are needed for copying chunks around.
             // Note there is no random salt in this usage of the key derivation function as it depends on the password alone (otherwise the metadata could not be located)
-            var normalizedRepositoryName = Encoding.UTF8.GetBytes(repositoryName.Normalize(NormalizationForm.FormC));
+            // Although the metadata can be trivially decrypted, the actual keys have another layer of proper encryption.
+            var normalizedRepositoryName = Encoding.UTF8.GetBytes(_defaultRepositoryName.Normalize(NormalizationForm.FormC));
             var metadataKeyEncryptionKey = new KeyEncryptionKey(new Rfc2898DeriveBytes(normalizedRepositoryName, wellKnownSalt0.ToSpan().ToArray(), iterations, HashAlgorithmName.SHA256).GetBytes(KeyEncryptionKey.Length));
             var metadataAddressKey = new HmacKey(new Rfc2898DeriveBytes(normalizedRepositoryName, wellKnownSalt1.ToSpan().ToArray(), iterations, HashAlgorithmName.SHA256).GetBytes(KeyEncryptionKey.Length));
             var metadataChunkEncryptor = new ChunkEncryptor(metadataKeyEncryptionKey, metadataAddressKey, Compressor.None);
@@ -119,11 +129,11 @@ namespace Wibblr.Grufs
             return true;
         }
 
-        public bool Open(string password, string metadataPassword = _defaultRepositoryName)
+        public OpenRepositoryResult Open(string password, string repositoryName = _defaultRepositoryName)
         {
             // Get the serialized metadata from the dictionary storage. Note the encryption used for this is weak as it uses well known salts and probably a well known password.
             // The keys embedded in the metadata are wrapped with another layer of (strong) encryption.
-            var normalizedMetadataPassword = Encoding.UTF8.GetBytes(metadataPassword.Normalize(NormalizationForm.FormC));
+            var normalizedMetadataPassword = Encoding.UTF8.GetBytes(repositoryName.Normalize(NormalizationForm.FormC));
             var iterations = 500000;
             var metadataAddressKey = new HmacKey(new Rfc2898DeriveBytes(normalizedMetadataPassword, wellKnownSalt1.ToSpan().ToArray(), iterations, HashAlgorithmName.SHA256).GetBytes(KeyEncryptionKey.Length));
             var metadataKeyEncryptionKey = new KeyEncryptionKey(new Rfc2898DeriveBytes(normalizedMetadataPassword, wellKnownSalt0.ToSpan().ToArray(), iterations, HashAlgorithmName.SHA256).GetBytes(KeyEncryptionKey.Length));
@@ -131,7 +141,7 @@ namespace Wibblr.Grufs
 
             if (!new UnversionedDictionaryStorage(ChunkStorage, metadataChunkEncryptor).TryGetValue(_metadataLookupKey.AsSpan(), out var serialized))
             {
-                return false;
+                return new OpenRepositoryResult(OpenRepositoryStatus.MissingMetadata, $"Unable to find metadata '{repositoryName}' in storage");
             }
 
             // Deserialize
@@ -141,31 +151,39 @@ namespace Wibblr.Grufs
             var encryptor = new Encryptor(); 
             var normalizedPassword = Encoding.UTF8.GetBytes(password.Normalize(NormalizationForm.FormC));
             var masterKeysKey = new EncryptionKey(new Rfc2898DeriveBytes(normalizedPassword, metadata.Salt.ToSpan().ToArray(), metadata.Iterations, HashAlgorithmName.SHA256).GetBytes(EncryptionKey.Length));
-            
-            var (decryptedBuffer, decryptedCount) = encryptor.Decrypt(metadata.EncryptedMasterKeys, metadata.MasterKeysInitializationVector, masterKeysKey);
-            var masterKeys = new BufferReader(new Buffer(decryptedBuffer, decryptedCount));
 
-            var serializationVersion = masterKeys.ReadByte();
-            if (serializationVersion != 0)
+            // this will fail to decrypt if the entered password is incorrect.
+            try
             {
-                throw new Exception("Invalid metadata");
+                var (decryptedBuffer, decryptedCount) = encryptor.Decrypt(metadata.EncryptedMasterKeys, metadata.MasterKeysInitializationVector, masterKeysKey);
+
+                var masterKeys = new BufferReader(new Buffer(decryptedBuffer, decryptedCount));
+
+                var serializationVersion = masterKeys.ReadByte();
+                if (serializationVersion != 0)
+                {
+                    return new OpenRepositoryResult(OpenRepositoryStatus.InvalidMetadata, $"Invalid serialization version '{serializationVersion}' in metadata");
+                }
+
+                var compressionAlgorithm = (CompressionAlgorithm)masterKeys.ReadByte();
+                var compressionLevel = (CompressionLevel)masterKeys.ReadByte();
+                _compressor = new Compressor(compressionAlgorithm, compressionLevel);
+
+                MasterKey = new KeyEncryptionKey(masterKeys.ReadBytes(KeyEncryptionKey.Length));
+                MasterContentAddressKey = new HmacKey(masterKeys.ReadBytes(HmacKey.Length));
+                VersionedDictionaryAddressKey = new HmacKey(masterKeys.ReadBytes(HmacKey.Length));
+                UnversionedDictionaryAddressKey = new HmacKey(masterKeys.ReadBytes(HmacKey.Length));
+
+                var chunkEncryptor = new ChunkEncryptor(MasterKey, MasterContentAddressKey, Compressor);
+                var chunkSourceFactory = new ContentDefinedChunkSourceFactory(13);
+
+                _streamStorage = new StreamStorage(ChunkStorage, chunkSourceFactory, chunkEncryptor);
             }
-            
-            var compressionAlgorithm = (CompressionAlgorithm)masterKeys.ReadByte();
-            var compressionLevel = (CompressionLevel)masterKeys.ReadByte();
-            _compressor = new Compressor(compressionAlgorithm, compressionLevel);
-
-            MasterKey = new KeyEncryptionKey(masterKeys.ReadBytes(KeyEncryptionKey.Length));
-            MasterContentAddressKey = new HmacKey(masterKeys.ReadBytes(HmacKey.Length));
-            VersionedDictionaryAddressKey = new HmacKey(masterKeys.ReadBytes(HmacKey.Length));
-            UnversionedDictionaryAddressKey = new HmacKey(masterKeys.ReadBytes(HmacKey.Length));
-
-            var chunkEncryptor = new ChunkEncryptor(MasterKey, MasterContentAddressKey, Compressor);
-            var chunkSourceFactory = new ContentDefinedChunkSourceFactory(13);
-
-            _streamStorage = new StreamStorage(ChunkStorage, chunkSourceFactory, chunkEncryptor);
-
-            return true;
+            catch(Exception)
+            {
+                return new OpenRepositoryResult(OpenRepositoryStatus.BadPassword, $"Unable to decrypt metadata with given password");
+            }
+            return new OpenRepositoryResult(OpenRepositoryStatus.Success, "OK");
         }
 
         public CollectionStorage GetCollectionStorage(string collectionName)
