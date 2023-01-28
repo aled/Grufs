@@ -4,6 +4,8 @@ using FluentAssertions;
 
 using Xunit;
 
+using Wibblr.Grufs.Core;
+
 namespace Wibblr.Grufs.Tests
 {
     public class RepositoryTest

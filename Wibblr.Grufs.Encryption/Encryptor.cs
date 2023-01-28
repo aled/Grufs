@@ -5,7 +5,7 @@ namespace Wibblr.Grufs.Encryption
 {
     /// <summary>
     /// Thin wrapper around all cryptographic operations. Encapsulates the algorithm used and all encryption parameters.
-    /// 
+    ///
     /// When encrypting, append a checksum to the plaintext, and validate this checksum on decryption.
     /// </summary>
     public class Encryptor

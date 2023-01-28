@@ -2,6 +2,8 @@
 using System.IO.Compression;
 using System.Text;
 
+using Wibblr.Grufs.Core;
+
 namespace Wibblr.Grufs
 {
     public class MutableFilesystem
@@ -216,6 +218,24 @@ namespace Wibblr.Grufs
                 {
                     stack.Push(new DirectoryPath(directory.Path + "/" + subDir.OriginalName));
                 }
+            }
+        }
+
+        public void DownloadFile(DirectoryPath path, Filename filename, string localDirectoryPath)
+        {
+            var stream = new FileStream(Path.Join(localDirectoryPath, filename.OriginalName), FileMode.CreateNew);
+
+            var (directory, version) = GetLatestMutableDirectory(path);
+
+            var file = directory.Files.SingleOrDefault(x => x.Name == filename);
+            var level = file.IndexLevel;
+            var address = file.Address;
+
+            var buffers = _streamStorage.Read(level, address);
+
+            foreach (var buffer in buffers)
+            {
+                stream.Write(buffer.AsSpan());
             }
         }
 

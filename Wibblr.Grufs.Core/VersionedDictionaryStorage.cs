@@ -123,7 +123,7 @@ namespace Wibblr.Grufs
             if (lowestMissing == long.MaxValue)
             {
                 var increment = 1L;
-                lowestMissing = (long)Math.Min((ulong)originalHighestExisting + (ulong)increment, long.MaxValue);
+                lowestMissing = (long)Math.Min((ulong)originalHighestExisting + (ulong)increment, long.MaxValue); // this cannot overflow as originalHighestExisting and increment are signed
 
                 while (SequenceNumberExists(lowestMissing, lookupKey, ref lookupCount))
                 {

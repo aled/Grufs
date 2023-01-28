@@ -2,8 +2,6 @@
 
 using FluentAssertions;
 
-using Xunit;
-
 namespace Wibblr.Grufs.Tests
 {
     public class BufferTests
@@ -32,7 +30,6 @@ namespace Wibblr.Grufs.Tests
             new Action(() => b.AppendInt(0)).Should().ThrowExactly<IndexOutOfRangeException>();
             new Action(() => b.AppendLong(0)).Should().ThrowExactly<IndexOutOfRangeException>();
         }
-
 
         [Fact]
         public void ReaderShouldThrowOnUnderflow()

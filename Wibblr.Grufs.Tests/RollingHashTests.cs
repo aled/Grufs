@@ -1,5 +1,4 @@
-﻿using System;
-using System.Text;
+﻿using System.Text;
 
 using FluentAssertions;
 
@@ -38,5 +37,4 @@ namespace Wibblr.Grufs.Tests
             values[bytes.Length - RollingHash.WindowSize].Should().Be(6492841u);
         }
     }
-
 }

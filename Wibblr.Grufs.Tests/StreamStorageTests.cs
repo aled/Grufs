@@ -6,7 +6,6 @@ using Wibblr.Grufs.Encryption;
 
 namespace Wibblr.Grufs.Tests
 {
-
     public class StreamStorageTests
     {
         // encrypt stream (single chunk)
@@ -85,7 +84,6 @@ namespace Wibblr.Grufs.Tests
             Console.WriteLine("Dedup ratio: " + chunkStorage.DeduplicationCompressionRatio());
             Console.WriteLine($"Stored {chunkStorage.Count()} chunks");
 
-
             plaintext = "";
             for (int i = 10; i < 1099; i++)
             {
@@ -109,7 +107,6 @@ namespace Wibblr.Grufs.Tests
             Console.WriteLine("Dedup ratio: " + chunkStorage.DeduplicationCompressionRatio());
 
             Console.WriteLine($"Stored {chunkStorage.Count()} chunks");
-
         }
     }
 }
