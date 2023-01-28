@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Net.Sockets;
 
 using Renci.SshNet;
 using Renci.SshNet.Common;
@@ -10,15 +11,17 @@ namespace Wibblr.Grufs
     public class SftpStorage : IFileStorage, IDisposable
     {
         private string _host, _username, _password, _baseDir;
+        private int _port;
         private SftpClient _client;
 
-        public SftpStorage(string host, string username, string password)
+        public SftpStorage(string host, int port, string username, string password)
         {
             _host = host;
+            _port = port;
             _username = username;
             _password = password;
 
-            _client = new SftpClient(_host, _username, _password);
+            _client = new SftpClient(_host, _port, _username, _password);
             _baseDir = "";
         }
 
@@ -33,12 +36,27 @@ namespace Wibblr.Grufs
             return _client.IsConnected;
         }
 
-        public void EnsureConnected()
+        public SftpStorage EnsureConnected(int maxTries = 10)
         {
-            if (!_client.IsConnected)
+            var triesRemaining = maxTries;
+
+            while (!_client.IsConnected)
             {
-                _client.Connect();
+                try
+                {
+                    _client.Connect();
+                }
+                catch (Exception)
+                {
+                    Thread.Sleep(1000);
+                    Console.WriteLine($"Error connecting to host {_host}:{_port}; {--triesRemaining} try(s) remaining");
+                    if (triesRemaining <= 0)
+                    {
+                        throw new Exception();
+                    }
+                }
             }
+            return this;
         }
 
         public bool TryDownload(string path, out byte[] bytes)
@@ -110,7 +128,7 @@ namespace Wibblr.Grufs
             {
                 path = path.Substring(1);
             }
-            var fullRelativePath = Path.Combine(_baseDir, path).Replace("\\", "/");
+            var fullRelativePath = (_baseDir + "/" + path).Replace("\\", "/");
             EnsureConnected();
 
             if (_client.Exists(fullRelativePath))

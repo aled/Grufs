@@ -64,6 +64,7 @@ namespace Wibblr.Grufs.Cli
 
             var storage = (SftpStorage)new SftpStorage(
                     sftpCredentials.Hostname ?? throw new Exception("Invalid SFTP hostname"),
+                    22,
                     sftpCredentials.Username ?? throw new Exception("Invalid SFTP username"),
                     sftpCredentials.Password ?? throw new Exception("Invalid SFTP password"));
 
