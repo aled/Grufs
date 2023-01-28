@@ -1,9 +1,41 @@
 # Wibblr.Grufs
 
-A deduplicating, encrypted file storage system. Works in two modes:
+A deduplicating, encrypted file storage system that supports Windows as a first class client. Works in two modes:
 
 - as a repository for backups
 - as a repository for continuous syncing of files from multiple clients
+
+Regardless of the mode, content is stored using the same algorithms, so a file backed up
+from one client is deduplicated against a similar file synced from some other client.
+
+The difference is in how the filesystem metadata is stored. 
+
+## Backup mode
+In backup mode, the entire tree of directories and filenames is stored in a single immutable stream
+(and when a new backup is written, the metadata stream itself is deduplicated against existing backups). This means that 
+the entire metadata must be retrieved for a restore, but files may be restored individually.
+
+Any number of backup sets may be stored in the repository (using a unique name for each), and new backups can be added as needed.
+
+e.g. 
+- client 1 backs up directory "c:\my music" using backup name "client1-music"
+- client 2 backs up directory "c:\mp3s" using backup name "client2-mp3s"
+
+## Sync mode
+In sync mode, metadata for each directory is stored separately. Directory metadata contains a list of files and directories, plus 
+the version number of the parent directory.
+
+For files, the metadata contains the filename and it's address. For directories, the metadata contains only the directory name.
+This means that any updates are localized; a change to a file or directory changes only the containing directory and does not
+propagate up to the root. When traversing down the directory tree, it is necessary to find the correct version of the child 
+directory; this is done using the stored parent version.
+
+## Deduplication algorithm
+- File is split into chunks of variable size using a content-defined chunking algorithm. The chunk size averages 16KB but can be
+  as low as 512 bytes or as large as 128KB.
+- Deduplicates whole chunks only - Each difference in a file will cause approximately 2 additional chunks to be stored (it would 
+  be possible to get better performance by identifying 'before' and 'after' chunks and running an diff algorithm over them.
+  have changed, and performing a diff algorithm on them.
 
 ## Encryption Goals
 - Use standard algorithms only.
