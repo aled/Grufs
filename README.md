@@ -35,7 +35,6 @@ directory; this is done using the stored parent version.
   as low as 512 bytes or as large as 128KB.
 - Deduplicates whole chunks only - Each difference in a file will cause approximately 2 additional chunks to be stored (it would 
   be possible to get better performance by identifying 'before' and 'after' chunks and running an diff algorithm over them.
-  have changed, and performing a diff algorithm on them.
 
 ## Encryption Goals
 - Use standard algorithms only.
