@@ -8,6 +8,36 @@ namespace Wibblr.Grufs.Tests
 {
     public class StreamStorageTests
     {
+        [Fact]
+        public void EncryptZeroLengthStream()
+        {
+            var chunkStorage = new InMemoryChunkStorage();
+            var keyEncryptionKey = new KeyEncryptionKey("0000000000000000000000000000000000000000000000000000000000000000".ToBytes());
+            var hmacKey = new HmacKey("0000000000000000000000000000000000000000000000000000000000000000".ToBytes());
+            var compressor = new Compressor(CompressionAlgorithm.None);
+            var chunkEncryptor = new ChunkEncryptor(keyEncryptionKey, hmacKey, compressor);
+            var chunkSourceFactory = new FixedSizeChunkSourceFactory(128);
+            var streamStorage = new StreamStorage(chunkStorage, chunkSourceFactory, chunkEncryptor);
+
+            var plaintext = "";
+            var plaintextBytes = Encoding.UTF8.GetBytes(plaintext);
+            var stream = new MemoryStream(plaintextBytes);
+
+            var (address, level) = streamStorage.Write(stream);
+
+            chunkStorage.Count().Should().Be(1);
+
+            var decryptedStream = new MemoryStream();
+            foreach (var decryptedBuffer in streamStorage.Read(level, address))
+            {
+                decryptedStream.Write(decryptedBuffer.AsSpan());
+            }
+
+            var decryptedText = Encoding.UTF8.GetString(decryptedStream.ToArray());
+
+            decryptedText.Should().Be(plaintext);
+        }
+
         // encrypt stream (single chunk)
         [Fact]
         public void EncryptStreamWithSingleChunk()

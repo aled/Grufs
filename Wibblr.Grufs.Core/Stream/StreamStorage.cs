@@ -33,10 +33,6 @@ namespace Wibblr.Grufs
             {
                 // When writing chunks, write to an index containing the addresses of all the chunks.
                 // (The index will itself be recursively indexed, if it is more than one chunk in length)
-                if (!chunkSource.Available())
-                {
-                    throw new Exception();
-                }
                 if (level > 100)
                 {
                     throw new Exception();
@@ -50,11 +46,9 @@ namespace Wibblr.Grufs
 
                 Address address;
                 Address? indexAddress = null;
-
-
                 do
                 {
-                    var (buf, streamOffset, len) = chunkSource.Next();
+                    var (buf, streamOffset, len) = chunkSource.Available() ? chunkSource.Next() : (new byte[0], 0, 0);
                     var bytes = buf.AsSpan(0, len);
                     var encryptedChunk = _chunkEncryptor.EncryptContentAddressedChunk(bytes);
                     if (!_chunkStorage.TryPut(encryptedChunk, OverwriteStrategy.DenyWithSuccess))
