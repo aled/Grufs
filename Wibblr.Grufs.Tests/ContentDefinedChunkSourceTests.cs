@@ -4,7 +4,7 @@ using FluentAssertions;
 
 namespace Wibblr.Grufs.Tests
 {
-    public class ContentDefinedSizeChunkSourceTests
+    public class ContentDefinedChunkSourceTests
     {
         [Fact]
         public void ShouldSplitAtPreviouslyCalculatedLocations()
