@@ -46,6 +46,7 @@ namespace Wibblr.Grufs
         {
             var serialized = new BufferBuilder(directory.GetSerializedLength()).AppendMutableDirectory(directory).ToBuffer();
             var lookupKey = GetDirectoryLookupKey(directory.Path.CanonicalPath);
+            //[x] return value?
             _dictionaryStorage.TryPutValue(lookupKey, version, serialized.AsSpan());
             return (directory, version);
         }
@@ -92,11 +93,22 @@ namespace Wibblr.Grufs
                 {
                     if (fsi is FileInfo file)
                     {
-                        using (var stream = new FileStream(file.FullName, FileMode.Open))
+                        try
                         {
-                            var (address, level) = _streamStorage.Write(stream);
-                            Console.WriteLine($"Wrote file {file.FullName} to {directoryPath.NormalizedPath}/{file.Name}");
-                            filesBuilder.Add(new FileMetadata(new Filename(file.Name), address, level, new Timestamp(file.LastWriteTimeUtc)));
+                            using (var stream = new FileStream(file.FullName, FileMode.Open))
+                            {
+                                var (address, level) = _streamStorage.Write(stream);
+                                Console.WriteLine($"Wrote file {file.FullName} to {directoryPath.NormalizedPath}/{file.Name}");
+                                filesBuilder.Add(new FileMetadata(new Filename(file.Name), address, level, new Timestamp(file.LastWriteTimeUtc)));
+                            }
+                        }
+                        catch (IOException ioe)
+                        {
+                            Console.WriteLine($"IO Exception for {file.FullName}");
+                        }
+                        catch (UnauthorizedAccessException e)
+                        {
+                            Console.WriteLine($"Unauthorized access for {file.FullName}");
                         }
                     }
                     if (fsi is DirectoryInfo dir)
@@ -112,6 +124,7 @@ namespace Wibblr.Grufs
                 if (directory == null)
                 {
                     ret = WriteMutableDirectoryVersion(new MutableDirectory(directoryPath, 0, new Timestamp(di.LastWriteTimeUtc), false, filesBuilder.ToImmutableArray(), new Filename[0]), 0);
+                    Console.WriteLine($"Write new virtual directory version: {directoryPath}, {version}");
                 }
                 else
                 {
@@ -124,8 +137,16 @@ namespace Wibblr.Grufs
                     var updated = recursive
                         ? directory with { Files = filesBuilder.ToImmutableArray(), Directories = directoriesBuilder.ToImmutableArray() }
                         : directory with { Files = filesBuilder.ToImmutableArray() };
-     
-                    ret = WriteMutableDirectoryVersion(updated, version + 1);
+
+                    if (!updated.Equals(directory))
+                    {
+                        ret = WriteMutableDirectoryVersion(updated, version + 1);
+                    }
+                    else
+                    {
+                        // directory unchanged; return existing version
+                        ret = (directory, version);
+                    }
                 }
 
                 foreach (var d in directoriesBuilder)
