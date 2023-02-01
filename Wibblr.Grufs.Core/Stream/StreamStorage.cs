@@ -38,7 +38,6 @@ namespace Wibblr.Grufs
                     throw new Exception();
                 }
 
-
                 IndexByteSource index;
                 IChunkSource indexChunkSource;
                 byte returnLevel = level;
@@ -48,7 +47,11 @@ namespace Wibblr.Grufs
                 Address? indexAddress = null;
                 do
                 {
-                    var (buf, streamOffset, len) = chunkSource.Available() ? chunkSource.Next() : (new byte[0], 0, 0);
+                    // Get next chunk if available. If not available, this must be a zero-length stream.
+                    var (buf, streamOffset, len) = chunkSource.Available() 
+                        ? chunkSource.Next() 
+                        : (new byte[0], 0, 0);
+
                     var bytes = buf.AsSpan(0, len);
                     var encryptedChunk = _chunkEncryptor.EncryptContentAddressedChunk(bytes);
                     if (!_chunkStorage.TryPut(encryptedChunk, OverwriteStrategy.DenyWithSuccess))

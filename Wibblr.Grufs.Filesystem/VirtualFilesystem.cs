@@ -6,13 +6,13 @@ using Wibblr.Grufs.Core;
 
 namespace Wibblr.Grufs
 {
-    public class MutableFilesystem
+    public class VirtualFilesystem
     {
         private readonly string _keyNamespace;
         private readonly VersionedDictionaryStorage _dictionaryStorage;
         private readonly StreamStorage _streamStorage;
 
-        public MutableFilesystem(Repository repository, string filesystemName)
+        public VirtualFilesystem(Repository repository, string filesystemName)
         {
             _keyNamespace = $"mutable-filesystem:{filesystemName.Length}-{filesystemName}";
             var chunkEncryptor = new ChunkEncryptor(repository.MasterKey, repository.VersionedDictionaryAddressKey, new Compressor(CompressionAlgorithm.Brotli, CompressionLevel.Optimal));
@@ -22,7 +22,7 @@ namespace Wibblr.Grufs
 
         private ReadOnlySpan<byte> GetDirectoryLookupKey(string path) => Encoding.UTF8.GetBytes(path);
 
-        private (MutableDirectory?, long version) GetLatestMutableDirectory(DirectoryPath path, long hintVersion = 0)
+        private (VirtualDirectory?, long version) GetLatestVirtualDirectory(DirectoryPath path, long hintVersion = 0)
         {
             var directoryLookupKey = GetDirectoryLookupKey(path.CanonicalPath);
 
@@ -36,48 +36,48 @@ namespace Wibblr.Grufs
             var currentVersion = nextVersion - 1;
             if (_dictionaryStorage.TryGetValue(directoryLookupKey, currentVersion, out var buffer))
             {
-                return (new MutableDirectory(new BufferReader(buffer)), currentVersion);
+                return (new VirtualDirectory(new BufferReader(buffer)), currentVersion);
             }
 
             throw new Exception("Missing directory version");
         }
 
-        private (MutableDirectory, long version) WriteMutableDirectoryVersion(MutableDirectory directory, long version)
+        private (VirtualDirectory, long version) WriteVirtualDirectoryVersion(VirtualDirectory directory, long version)
         {
-            var serialized = new BufferBuilder(directory.GetSerializedLength()).AppendMutableDirectory(directory).ToBuffer();
+            var serialized = new BufferBuilder(directory.GetSerializedLength()).AppendVirtualDirectory(directory).ToBuffer();
             var lookupKey = GetDirectoryLookupKey(directory.Path.CanonicalPath);
             //[x] return value?
             _dictionaryStorage.TryPutValue(lookupKey, version, serialized.AsSpan());
             return (directory, version);
         }
 
-        private (MutableDirectory, long version) EnsureDirectoryContains(DirectoryPath directoryPath, Filename childDirectoryName, long parentVersion)
+        private (VirtualDirectory, long version) EnsureDirectoryContains(DirectoryPath directoryPath, Filename childDirectoryName, long parentVersion)
         {
-            var (mutableDirectory, version) = GetLatestMutableDirectory(directoryPath);
+            var (virtualDirectory, version) = GetLatestVirtualDirectory(directoryPath);
 
             // If directory exists but the latest version does not contain the child directory, then update directory to contain the new child 
-            if (mutableDirectory != null)
+            if (virtualDirectory != null)
             {
-                if (mutableDirectory.Directories.Contains(childDirectoryName))
+                if (virtualDirectory.Directories.Contains(childDirectoryName))
                 {
-                    return (mutableDirectory, version);
+                    return (virtualDirectory, version);
                 }
 
-                return WriteMutableDirectoryVersion(
-                    mutableDirectory with { Directories = mutableDirectory.Directories.Add(childDirectoryName) },
+                return WriteVirtualDirectoryVersion(
+                    virtualDirectory with { Directories = virtualDirectory.Directories.Add(childDirectoryName) },
                     version + 1);
             }
 
             // directory does not exist, create.
-            return WriteMutableDirectoryVersion(
-                new MutableDirectory(directoryPath, parentVersion, Timestamp.Now, false, new FileMetadata[0], new Filename[] { childDirectoryName }),
+            return WriteVirtualDirectoryVersion(
+                new VirtualDirectory(directoryPath, parentVersion, Timestamp.Now, false, new FileMetadata[0], new Filename[] { childDirectoryName }),
                 0);
         }
 
         // TODO: refactor this
-        public (MutableDirectory, long version) UploadDirectoryRecursive(string localDirectoryPath, DirectoryPath directoryPath, bool recursive = true)
+        public (VirtualDirectory, long version) UploadDirectoryRecursive(string localDirectoryPath, DirectoryPath directoryPath, bool recursive = true)
         {
-            (MutableDirectory, long version) UploadDirectoryRecursive(string localDirectoryPath, DirectoryPath directoryPath, long parentVersion, bool recursive)
+            (VirtualDirectory, long version) UploadDirectoryRecursive(string localDirectoryPath, DirectoryPath directoryPath, long parentVersion, bool recursive)
             {
                 // Upload all local files, recording the address/chunk type/other metadata of each
                 var filesBuilder = ImmutableArray.CreateBuilder<FileMetadata>();
@@ -118,12 +118,12 @@ namespace Wibblr.Grufs
                 }
 
                 // upload this directory
-                var (directory, version) = GetLatestMutableDirectory(directoryPath);
-                (MutableDirectory, long version) ret;
+                var (directory, version) = GetLatestVirtualDirectory(directoryPath);
+                (VirtualDirectory, long version) ret;
 
                 if (directory == null)
                 {
-                    ret = WriteMutableDirectoryVersion(new MutableDirectory(directoryPath, 0, new Timestamp(di.LastWriteTimeUtc), false, filesBuilder.ToImmutableArray(), new Filename[0]), 0);
+                    ret = WriteVirtualDirectoryVersion(new VirtualDirectory(directoryPath, 0, new Timestamp(di.LastWriteTimeUtc), false, filesBuilder.ToImmutableArray(), new Filename[0]), 0);
                     Console.WriteLine($"Write new virtual directory version: {directoryPath}, {version}");
                 }
                 else
@@ -140,7 +140,7 @@ namespace Wibblr.Grufs
 
                     if (!updated.Equals(directory))
                     {
-                        ret = WriteMutableDirectoryVersion(updated, version + 1);
+                        ret = WriteVirtualDirectoryVersion(updated, version + 1);
                     }
                     else
                     {
@@ -171,7 +171,7 @@ namespace Wibblr.Grufs
         }
 
         // Non recursive upload of a local directory to the repository
-        public (MutableDirectory, long version) UploadDirectoryNonRecursive(string localDirectoryPath, DirectoryPath directoryPath)
+        public (VirtualDirectory, long version) UploadDirectoryNonRecursive(string localDirectoryPath, DirectoryPath directoryPath)
         {
             long parentVersion = 0; // default value for root directory
 
@@ -203,18 +203,18 @@ namespace Wibblr.Grufs
             }
 
             // finally upload this directory
-            var (directory, version) = GetLatestMutableDirectory(directoryPath);
+            var (directory, version) = GetLatestVirtualDirectory(directoryPath);
 
             if (directory == null)
             {
-                return WriteMutableDirectoryVersion(new MutableDirectory(directoryPath, parentVersion, new Timestamp(di.LastWriteTimeUtc), false, filesBuilder.ToImmutableArray(), new Filename[0]), 0);
+                return WriteVirtualDirectoryVersion(new VirtualDirectory(directoryPath, parentVersion, new Timestamp(di.LastWriteTimeUtc), false, filesBuilder.ToImmutableArray(), new Filename[0]), 0);
             }
 
             var oldFiles = directory.Files.Except(filesBuilder);
             filesBuilder.AddRange(oldFiles);
 
             var updated = directory with { Files = filesBuilder.ToImmutableArray() };
-            return WriteMutableDirectoryVersion(updated, version + 1);
+            return WriteVirtualDirectoryVersion(updated, version + 1);
         }
 
         public void ListDirectory(DirectoryPath path)
@@ -224,7 +224,7 @@ namespace Wibblr.Grufs
 
             while (stack.Any())
             {
-                var (directory, version) = GetLatestMutableDirectory(stack.Pop());
+                var (directory, version) = GetLatestVirtualDirectory(stack.Pop());
 
                 if (directory == null)
                 {
@@ -246,7 +246,7 @@ namespace Wibblr.Grufs
         {
             var stream = new FileStream(Path.Join(localDirectoryPath, filename.OriginalName), FileMode.CreateNew);
 
-            var (directory, version) = GetLatestMutableDirectory(path);
+            var (directory, version) = GetLatestVirtualDirectory(path);
 
             var file = directory.Files.SingleOrDefault(x => x.Name == filename);
             var level = file.IndexLevel;

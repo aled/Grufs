@@ -2,12 +2,12 @@
 {
     public static class BufferExtensions
     {
-        public static MutableDirectory ReadMutableDirectory(this BufferReader reader)
+        public static VirtualDirectory ReadVirtualDirectory(this BufferReader reader)
         {
-            return new MutableDirectory(reader);
+            return new VirtualDirectory(reader);
         }
 
-        public static BufferBuilder AppendMutableDirectory(this BufferBuilder builder, MutableDirectory directory) 
+        public static BufferBuilder AppendVirtualDirectory(this BufferBuilder builder, VirtualDirectory directory) 
         { 
             directory.SerializeTo(builder);
             return builder;

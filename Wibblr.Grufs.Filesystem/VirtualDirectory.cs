@@ -10,7 +10,7 @@ namespace Wibblr.Grufs
     /// To find a subdirectory, find the directory with the appropriate name, and the latest version
     /// that has it's parent version set to this directory version.
     /// </summary>
-    public record MutableDirectory
+    public record VirtualDirectory
     {
         public required DirectoryPath Path { get; init; }  // set to 
         public required long ParentVersion { get; init; }
@@ -20,7 +20,7 @@ namespace Wibblr.Grufs
         public required ImmutableArray<Filename> Directories { get; init; }
 
         [SetsRequiredMembers]
-        public MutableDirectory(DirectoryPath path, long parentVersion, Timestamp lastModifiedTimestamp, bool isDeleted, IEnumerable<FileMetadata> files, IEnumerable<Filename> directories)
+        public VirtualDirectory(DirectoryPath path, long parentVersion, Timestamp lastModifiedTimestamp, bool isDeleted, IEnumerable<FileMetadata> files, IEnumerable<Filename> directories)
         {
             Path = path;
             ParentVersion = parentVersion;
@@ -31,7 +31,7 @@ namespace Wibblr.Grufs
         }
 
         [SetsRequiredMembers]
-        public MutableDirectory(BufferReader reader)
+        public VirtualDirectory(BufferReader reader)
         {
             Path = reader.ReadDirectoryPath();
             ParentVersion = reader.ReadLong();
@@ -94,7 +94,7 @@ namespace Wibblr.Grufs
             }
         }
 
-        public virtual bool Equals(MutableDirectory? other)
+        public virtual bool Equals(VirtualDirectory? other)
         {
             return other != null &&
                 Path == other.Path &&

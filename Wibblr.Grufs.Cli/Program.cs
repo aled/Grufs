@@ -219,7 +219,7 @@ namespace Wibblr.Grufs.Cli
 
                                 Console.WriteLine($"Uploading {localPath} to {remotePath}");
 
-                                new MutableFilesystem(repo, "[default]").UploadDirectoryNonRecursive(localPath, new DirectoryPath(remotePath));
+                                new VirtualFilesystem(repo, "[default]").UploadDirectoryNonRecursive(localPath, new DirectoryPath(remotePath));
                             }
                         }
                         break;
@@ -240,13 +240,13 @@ namespace Wibblr.Grufs.Cli
 
                                 Console.WriteLine($"Uploading {localPath} to {remotePath}");
 
-                                new MutableFilesystem(repo, "[default]").UploadDirectoryRecursive(localPath, new DirectoryPath(remotePath));
+                                new VirtualFilesystem(repo, "[default]").UploadDirectoryRecursive(localPath, new DirectoryPath(remotePath));
                             }
                         }
                         break;
 
                     case "3":
-                        new MutableFilesystem(repo, "[default]").ListDirectory(new DirectoryPath("/"));
+                        new VirtualFilesystem(repo, "[default]").ListDirectory(new DirectoryPath("/"));
                         break;
 
                     case "4":
@@ -259,7 +259,7 @@ namespace Wibblr.Grufs.Cli
                             Console.Write("Enter local directory for restore: ");
                             var localDirectory = Console.ReadLine() ?? throw new Exception();
 
-                            new MutableFilesystem(repo, "[default]").DownloadFile(remoteDir, remoteFile, localDirectory);
+                            new VirtualFilesystem(repo, "[default]").DownloadFile(remoteDir, remoteFile, localDirectory);
                         }
                         break;
 

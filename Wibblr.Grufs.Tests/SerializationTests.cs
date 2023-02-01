@@ -157,7 +157,7 @@ namespace Wibblr.Grufs.Tests
         }
 
         [Fact]
-        public void MutableDirectoryShouldRoundtrip()
+        public void VirtualDirectoryShouldRoundtrip()
         {
             var path = new DirectoryPath("a/b/c/d/e");
             var parentVersion = 123L;
@@ -183,13 +183,13 @@ namespace Wibblr.Grufs.Tests
                 new Filename("g")
             };
 
-            var directory = new MutableDirectory(path, parentVersion, timestamp, isDeleted, files, directories);
+            var directory = new VirtualDirectory(path, parentVersion, timestamp, isDeleted, files, directories);
             
             var builder = new BufferBuilder(directory.GetSerializedLength());
-            var buffer = builder.AppendMutableDirectory(directory).ToBuffer();
+            var buffer = builder.AppendVirtualDirectory(directory).ToBuffer();
             var reader = new BufferReader(buffer);
 
-            var directory2 = reader.ReadMutableDirectory();
+            var directory2 = reader.ReadVirtualDirectory();
 
             directory.Should().Be(directory2);
         }
