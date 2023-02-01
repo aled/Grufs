@@ -26,10 +26,10 @@ namespace Wibblr.Grufs.Cli
     ///      init, register, unregister, list, scrub
     ///
     ///      - grufs.exe repo init --name myrepo --protocol sftp --host hostname --port port --user user --storage-password password --identity mykey.rsa --basedir ~/grufs-storage/repo1 --encryption-password password
-    ///      - grufs.exe repo init --name myrepo ~/grufs-storage/repo1
+    ///      - grufs.exe repo init --name myrepo --basedir ~/grufs-storage/repo1   # The '~' character is expanded to the user's home directory, including on Windows.
     ///   
     ///      This will:
-    ///        - create the directory on the remote server
+    ///        - create the directory on the (possibly remote) server
     ///        - login to sftp if using public key authentication
     ///        - prompt for ssh password if required
     ///        - prompt for storage password if required
@@ -64,20 +64,27 @@ namespace Wibblr.Grufs.Cli
 
         static void Main(string[] args)
         {
-            if (args.Length == 0)
+            try
             {
-                Console.WriteLine("usage:  grufs.exe command subcommand [options]"); 
+                if (args.Length == 0)
+                {
+                    throw new UsageException();
+                }
+                if (args[0] == "interactive")
+                {
+                    Interactive();
+                }
+                else if (args[0] == "storage")
+                {
+                    Storage(args.Skip(1).ToArray());
+                }
+            }
+            catch (UsageException)
+            {
+                Console.WriteLine("usage:  grufs.exe command subcommand [options]");
                 Console.WriteLine("where command is repo, backup, restore, sync, interactive");
                 return;
 
-            }
-            if (args[0] == "interactive")
-            {
-                Interactive();
-            }
-            else if (args[0] == "storage")
-            {
-                Repository(args.Skip(1).ToArray());
             }
         }
 
@@ -126,54 +133,63 @@ namespace Wibblr.Grufs.Cli
         }
 
         static void Interactive()
-        { 
-            var json = File.ReadAllText(Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".grufs", "sftp-credentials.json"));
+        {
+            IChunkStorage? storage = null;
 
-            // Use this overload of Deserialize() to enable native AOT compilation
-            var sftpCredentials = JsonSerializer.Deserialize(json, SourceGenerationContext.Default.SftpCredentials) ?? throw new Exception("Error deserializing SFTP credentials");
+            Console.Write("Enter storage protocol (sftp or directory): ");
+            var protocol = Console.ReadLine();
 
-            if (string.IsNullOrEmpty(sftpCredentials.Password))
+            if (protocol == "sftp")
             {
-                Console.WriteLine("Enter SFTP password");
-                sftpCredentials.Password = Console.ReadLine();
+                var json = File.ReadAllText(Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".grufs", "sftp-credentials.json"));
+
+                // Use this overload of Deserialize() to enable native AOT compilation
+                var sftpCredentials = JsonSerializer.Deserialize(json, SourceGenerationContext.Default.SftpCredentials) ?? throw new Exception("Error deserializing SFTP credentials");
+
+                if (string.IsNullOrEmpty(sftpCredentials.Password))
+                {
+                    Console.Write("Enter SFTP password: ");
+                    sftpCredentials.Password = Console.ReadLine();
+                }
+
+                Console.Write("Enter storage base dir: ");
+                var baseDir = Console.ReadLine() ?? throw new Exception();
+
+                storage = new SftpStorage(
+                        sftpCredentials.Hostname ?? throw new Exception("Invalid SFTP hostname"),
+                        22,
+                        sftpCredentials.Username ?? throw new Exception("Invalid SFTP username"),
+                        sftpCredentials.Password ?? throw new Exception("Invalid SFTP password"),
+                        baseDir);
+
+                ((SftpStorage)storage).EnsureConnected();
+                Console.WriteLine("Connected");
             }
+            else if (protocol == "directory")
+            {
+                Console.Write("Enter storage base dir: ");
 
-            var storage = new SftpStorage(
-                    sftpCredentials.Hostname ?? throw new Exception("Invalid SFTP hostname"),
-                    22,
-                    sftpCredentials.Username ?? throw new Exception("Invalid SFTP username"),
-                    sftpCredentials.Password ?? throw new Exception("Invalid SFTP password"));
+                var baseDir = Console.ReadLine() ?? throw new Exception();
 
-            storage.EnsureConnected();
-            Console.WriteLine("Connected");
-
-            Console.WriteLine("Enter storage base dir");
-            storage.WithBaseDir(Console.ReadLine() ?? throw new Exception());
+                storage = new DirectoryStorage(baseDir);
+            }
 
             var repo = new Repository(storage);
 
-            Console.WriteLine("Enter encryption password: ");
+            Console.Write("Enter encryption password: ");
             var password = Console.ReadLine() ?? throw new Exception();
 
-            if (storage.Exists())
+            var result = repo.Open(password);
+            switch (result.Status)   
             {
-                var result = repo.Open(password);
-                switch (result.Status)   
-                {
-                    case OpenRepositoryStatus.Success:
-                        Console.WriteLine("Opened repository");
-                        break;
+                case OpenRepositoryStatus.Success:
+                    Console.WriteLine("Opened repository");
+                    break;
 
-                    default:
-                        repo.Initialize(password);
-                        Console.WriteLine("Initialized repository");
-                        break;
-                }
-            }
-            else
-            {
-                repo.Initialize(password);
-                Console.WriteLine("Initialized repository");
+                default:
+                    repo.Initialize(password);
+                    Console.WriteLine("Initialized repository");
+                    break;
             }
 
             while (true)
@@ -219,7 +235,7 @@ namespace Wibblr.Grufs.Cli
                             }
                             else
                             {
-                                Console.WriteLine($"Enter remote directory path");
+                                Console.WriteLine($"Enter virtual directory path");
                                 var remotePath = Console.ReadLine() ?? throw new Exception();
 
                                 Console.WriteLine($"Uploading {localPath} to {remotePath}");

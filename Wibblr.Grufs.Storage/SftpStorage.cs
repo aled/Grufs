@@ -1,6 +1,4 @@
 ﻿using System;
-using System.IO;
-using System.Net.Sockets;
 
 using Renci.SshNet;
 using Renci.SshNet.Common;
@@ -8,13 +6,14 @@ using Renci.SshNet.Sftp;
 
 namespace Wibblr.Grufs
 {
-    public class SftpStorage : IFileStorage, IDisposable
+    public class SftpStorage : AbstractFileStorage, IDisposable
     {
-        private string _host, _username, _password, _baseDir;
+        private string _host, _username, _password;
         private int _port;
         private SftpClient _client;
 
-        public SftpStorage(string host, int port, string username, string password)
+        public SftpStorage(string host, int port, string username, string password, string baseDir)
+            : base(baseDir, '/')
         {
             _host = host;
             _port = port;
@@ -22,19 +21,9 @@ namespace Wibblr.Grufs
             _password = password;
 
             _client = new SftpClient(_host, _port, _username, _password);
-            _baseDir = "";
         }
 
-        public IFileStorage WithBaseDir(string baseDir)
-        {
-            _baseDir = baseDir;
-            return this;
-        }
-
-        public bool IsConnected()
-        {
-            return _client.IsConnected;
-        }
+        private bool IsConnected() => _client.IsConnected;
 
         public SftpStorage EnsureConnected(int maxTries = 10)
         {
@@ -59,184 +48,156 @@ namespace Wibblr.Grufs
             return this;
         }
 
-        public bool TryDownload(string path, out byte[] bytes)
+        override public ReadFileResult ReadFile(string relativePath, out byte[] bytes)
         {
-            var fullRelativePath = Path.Combine(_baseDir, path).Replace("\\", "/"); ;
+            var path = new StoragePath(_baseDir, _directorySeparator).Concat(relativePath).ToString();
             EnsureConnected();
+
             try
             {
-                bytes = _client.ReadAllBytes(fullRelativePath);
-                return true;
+                bytes = _client.ReadAllBytes(path);
+                return ReadFileResult.Success;
             }
             catch (SftpPathNotFoundException)
             {
                 bytes = new byte[0];
-                return false;
+                return ReadFileResult.PathNotFound;
             }
-            catch (Exception)
+            catch (SshConnectionException)
             {
                 bytes = new byte[0];
-                throw;
-            }
-        }
-
-        // TODO: fix this
-        public void TryCreateDirectory(string path)
-        {
-            if (path.StartsWith("/"))
-            {
-                path = path.Substring(1);
-            }
-            var fullRelativePath = Path.Combine(_baseDir, path).Replace("\\", "/");
-            EnsureConnected();
-
-            var created = new HashSet<string>();
-
-            foreach (var directory in ((IFileStorage)this).GetParentDirectories(fullRelativePath))
-            {
-                Console.WriteLine($"Checking directory {directory}");
-                if (created.Contains(directory) || _client.Exists(directory))
-                    continue;
-
-                try
-                {
-                    _client.CreateDirectory(directory);
-                    created.Add(directory);
-                    Console.WriteLine($"Created directory {directory}");
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine($"Could not create directory {directory}");
-                }
-            }
-            try
-            {
-                _client.CreateDirectory(fullRelativePath);
-                created.Add(fullRelativePath);
-                Console.WriteLine($"Created directory {fullRelativePath}");
+                return ReadFileResult.ConnectionError;
             }
             catch (Exception e)
             {
-                Console.WriteLine($"Could not create directory {fullRelativePath}");
+                bytes = new byte[0];
+                return ReadFileResult.UnknownError;
             }
         }
 
-        public bool Upload(string path, byte[] content, OverwriteStrategy overwrite)
+        override public WriteFileResult WriteFile(string relativePath, byte[] content, OverwriteStrategy overwrite)
         {
-            // treat path as relative to the base path, even if it starts with a directory separator
-            if (path.StartsWith("/"))
-            {
-                path = path.Substring(1);
-            }
-            var fullRelativePath = (_baseDir + "/" + path).Replace("\\", "/");
+            var path = new StoragePath(_baseDir, _directorySeparator).Concat(relativePath).ToString();
             EnsureConnected();
 
-            if (_client.Exists(fullRelativePath))
+            if (_client.Exists(path))
             {
                 switch (overwrite)
                 {
                     case OverwriteStrategy.Allow:
-                        _client.Delete(fullRelativePath);
+                        // fall through
                         break;
 
                     case OverwriteStrategy.DenyWithError:
-                        return false;
+                        return WriteFileResult.AlreadyExistsError;
 
                     case OverwriteStrategy.DenyWithSuccess:
-                        return true;
-
-                    case OverwriteStrategy.VerifyChecksum:
-                        throw new NotImplementedException();
+                        return WriteFileResult.Success;
                 }
             }
-
-
-            // Assume that all directories are pre-created
-            //foreach (var directory in ((IFileStorage)this).GetParentDirectories(fullRelativePath))
-            //{
-            //    if (!_client.Exists(directory))
-            //    {
-            //        try
-            //        {
-            //            _client.CreateDirectory(directory);
-            //        }
-            //        catch (Exception e)
-            //        {
-            //            // maybe directory was created after the existence test
-            //            if (!_client.Exists(directory))
-            //            {
-            //                throw;
-            //            }
-            //        }
-            //    }
-            //}
-            bool willRetry = true;
-            while (willRetry)
+            
+            // try to write file
+            try
             {
-                try
+                using (var stream = _client.OpenWrite(path.ToString()))
                 {
-                    using (var stream = _client.OpenWrite(fullRelativePath))
-                    {
-                        stream.Write(content, 0, content.Length);
-                        //Console.WriteLine($"Wrote {fullRelativePath}");
-                        willRetry = false;
-                    }
-                }
-                catch (Exception e)
-                {
-                    // maybe directories were not pre-created
-                    willRetry = false;
-                    foreach (var directory in ((IFileStorage)this).GetParentDirectories(fullRelativePath))
-                    {
-                        if (!_client.Exists(directory))
-                        {
-                            try
-                            {
-                                _client.CreateDirectory(directory);
-                                willRetry = true;
-                            }
-                            catch (Exception)
-                            {
-                                // maybe directory was created after the existence test
-                                if (!_client.Exists(directory))
-                                {
-                                    throw;
-                                }
-                            }
-                        }
-                    }
+                    stream.Write(content, 0, content.Length);
+                    Console.WriteLine($"Wrote {path}");
+                    return WriteFileResult.Success;
                 }
             }
-            return true;
+            catch (Exception e)
+            {
+                if (e.Message == "No such file")
+                {
+                    return WriteFileResult.PathNotFound;
+                }
+
+                Console.WriteLine(e.Message);
+                return WriteFileResult.UnknownError;
+            }
         }
 
-        public bool Exists(string path = "")
+        override public CreateDirectoryResult CreateDirectory(string relativePath)
         {
-            // treat path as relative to the base path, even if it starts with a separator
-            if (path.StartsWith("/"))
-            {
-                path = path.Substring(1);
-            }
-            var fullRelativePath = Path.Combine(_baseDir, path).Replace("\\", "/");
-
-            EnsureConnected();
-
-            return _client.Exists(fullRelativePath);
-        }
-
-        public void DeleteDirectory(string path)
-        {
-            // treat path as relative to the base path, even if it starts with a separator
-            if (path.StartsWith("/"))
-            {
-                path = path.Substring(1);
-            }
-            var fullRelativePath = Path.Combine(_baseDir, path).Replace("\\", "/");
+            var path = new StoragePath(Path.Join(_baseDir, relativePath), _directorySeparator).ToString();
             EnsureConnected();
 
             try
             {
-                DeleteDirectory(_client.Get(fullRelativePath));
+                _client.CreateDirectory(path);
+                Console.WriteLine($"Created directory {relativePath}");
+                return CreateDirectoryResult.Success;
+            }
+            catch (SshConnectionException sce)
+            {
+                Console.WriteLine(sce.Message);
+                return CreateDirectoryResult.ConnectionError;
+            }
+            catch (SftpPermissionDeniedException spde)
+            {
+                Console.WriteLine(spde.Message);
+                return CreateDirectoryResult.PermissionError;
+            }
+            catch (SshException se)
+            {
+                Console.WriteLine(se.Message);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+                return CreateDirectoryResult.UnknownError;
+            }
+
+            try
+            {
+                var info = _client.Get(path);
+
+                if (info.IsDirectory)
+                {
+                    return CreateDirectoryResult.AlreadyExists;
+                }
+                else
+                {
+                    return CreateDirectoryResult.NonDirectoryAlreadyExists;
+                }
+            }
+            catch (SftpPathNotFoundException spnfe)
+            {
+                Console.WriteLine(spnfe.Message);
+                return CreateDirectoryResult.PathNotFound;
+            }
+            catch (SshConnectionException sce)
+            {
+                Console.WriteLine(sce.Message);
+                return CreateDirectoryResult.ConnectionError;
+            }
+        }
+
+
+        override public bool Exists(string relativePath)
+        {
+            var path = new StoragePath(Path.Join(_baseDir, relativePath), _directorySeparator).ToString();
+            EnsureConnected();
+
+            try
+            {
+                return _client.Exists(path);
+            }
+            catch (Exception e)
+            {
+                return false;
+            }
+        }
+
+        override public void DeleteDirectory(string relativePath)
+        {
+            var path = Path.Join(_baseDir, relativePath);
+            EnsureConnected();
+
+            try
+            {
+                DeleteDirectory(_client.Get(path));
             }
             catch(Exception ex)
             {
@@ -266,49 +227,34 @@ namespace Wibblr.Grufs
             }
         }
 
-        public IEnumerable<string> ListFiles(string path)
+        override public (List<string> files, List<string> directories) ListDirectoryEntries(string relativePath)
         {
-            int recursionCounter = 0;
-
-            // treat path as relative to the base path, even if it starts with a separator
-            if (path.StartsWith("/"))
-            {
-                path = path.Substring(1);
-            }
-            var fullRelativePath = Path.Combine(_baseDir, path).Replace("\\", "/");
-            var fullPath = _client.Get(fullRelativePath).FullName;
-
+            var path = new StoragePath(Path.Join(_baseDir, relativePath), _directorySeparator).ToString();
             EnsureConnected();
 
-            return List(fullPath, fullPath);
+            var files = new List<string>();
+            var directories = new List<string>();
 
-            IEnumerable<string> List(string fullPath, string originalFullPath)
+            foreach (var item in _client.ListDirectory(path.ToString()))
             {
-                recursionCounter++;
-
-                if (recursionCounter == 10)
-                    throw new Exception();
-
-                var items = _client.ListDirectory(fullPath)
-                    .OrderBy(x => x.Name)
-                    .Where(x => x.Name != "." && x.Name != "..")
-                    .ToList();
-
-                foreach (var item in items.Where(x => x.IsRegularFile))
+                if (item.Name == "." || item.Name == "..")
                 {
-                    yield return Path.GetRelativePath(originalFullPath, item.FullName);
+                    continue;
                 }
-
-                foreach (var item in items.Where(x => x.IsDirectory))
+                else if (item.IsRegularFile)
                 {
-                    foreach (var x in List(item.FullName, originalFullPath))
-                    {
-                        {
-                            yield return x.Replace("\\", "/");
-                        }
-                    }
+                    files.Add(item.Name);
+                }
+                else if (item.IsDirectory)
+                {
+                    directories.Add(item.Name);
                 }
             }
+
+            files.Sort();
+            directories.Sort();
+
+            return (files, directories);
         }
 
         public void Dispose()

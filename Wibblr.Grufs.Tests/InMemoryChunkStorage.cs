@@ -36,6 +36,7 @@ namespace Wibblr.Grufs.Tests
                 switch (overwrite)
                 {
                     case OverwriteStrategy.Allow:
+                        // fall through;
                         break;
 
                     case OverwriteStrategy.DenyWithError:
@@ -43,9 +44,6 @@ namespace Wibblr.Grufs.Tests
 
                     case OverwriteStrategy.DenyWithSuccess:
                         return true;
-
-                    case OverwriteStrategy.VerifyChecksum:
-                        throw new NotImplementedException();
                 }
             }
 

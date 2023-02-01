@@ -8,9 +8,13 @@
       "commandName": "Project",
       "commandLineArgs": "interactive"
     },
-    "storage init": {
+    "storage init sftp": {
       "commandName": "Project",
       "commandLineArgs": "storage init --name mystorage --protocol sftp"
+    },
+    "storage init directory": {
+      "commandName": "Project",
+      "commandLineArgs": "storage init --name mystorage "
     }
   }
 }
