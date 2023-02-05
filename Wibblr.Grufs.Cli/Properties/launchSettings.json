@@ -14,7 +14,7 @@
     },
     "storage init directory": {
       "commandName": "Project",
-      "commandLineArgs": "storage init --name mystorage "
+      "commandLineArgs": "repo --init --name testrepo1 --basedir g:\\temp\\grufs-testing\\testrepo1 -e correct-horse-battery-staple"
     }
   }
 }

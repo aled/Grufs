@@ -102,11 +102,11 @@ namespace Wibblr.Grufs
                                 filesBuilder.Add(new FileMetadata(new Filename(file.Name), address, level, new Timestamp(file.LastWriteTimeUtc)));
                             }
                         }
-                        catch (IOException ioe)
+                        catch (IOException)
                         {
                             Console.WriteLine($"IO Exception for {file.FullName}");
                         }
-                        catch (UnauthorizedAccessException e)
+                        catch (UnauthorizedAccessException)
                         {
                             Console.WriteLine($"Unauthorized access for {file.FullName}");
                         }
@@ -123,7 +123,7 @@ namespace Wibblr.Grufs
 
                 if (directory == null)
                 {
-                    ret = WriteVirtualDirectoryVersion(new VirtualDirectory(directoryPath, 0, new Timestamp(di.LastWriteTimeUtc), false, filesBuilder.ToImmutableArray(), new Filename[0]), 0);
+                    ret = WriteVirtualDirectoryVersion(new VirtualDirectory(directoryPath, 0, new Timestamp(di.LastWriteTimeUtc), false, filesBuilder.ToImmutableArray(), directoriesBuilder.ToImmutableArray()), 0);
                     Console.WriteLine($"Write new virtual directory version: {directoryPath}, {version}");
                 }
                 else
@@ -242,21 +242,39 @@ namespace Wibblr.Grufs
             }
         }
 
-        public void DownloadFile(DirectoryPath path, Filename filename, string localDirectoryPath)
+        public void Download(DirectoryPath path, Filename? filename, string localDirectoryPath)
         {
-            var stream = new FileStream(Path.Join(localDirectoryPath, filename.OriginalName), FileMode.CreateNew);
-
             var (directory, version) = GetLatestVirtualDirectory(path);
 
-            var file = directory.Files.SingleOrDefault(x => x.Name == filename);
-            var level = file.IndexLevel;
-            var address = file.Address;
-
-            var buffers = _streamStorage.Read(level, address);
-
-            foreach (var buffer in buffers)
+            if (directory == null)
             {
-                stream.Write(buffer.AsSpan());
+                throw new Exception($"Virtual Directory not found: '{path}'");
+            }
+
+            Directory.CreateDirectory(localDirectoryPath);
+
+            foreach (var file in directory.Files)
+            {
+                if (filename == null || file.Name == filename)
+                {
+                    var level = file.IndexLevel;
+                    var address = file.Address;
+
+                    var buffers = _streamStorage.Read(level, address);
+
+                    using (var stream = new FileStream(Path.Join(localDirectoryPath, file.Name.OriginalName), FileMode.CreateNew))
+                    {
+                        foreach (var buffer in buffers)
+                        {
+                            stream.Write(buffer.AsSpan());
+                        }
+                    }
+                }
+            }
+
+            foreach (var subdir in directory.Directories)
+            {
+                Download(new DirectoryPath(path + "/" + subdir), null, Path.Join(localDirectoryPath, subdir.OriginalName));
             }
         }
 

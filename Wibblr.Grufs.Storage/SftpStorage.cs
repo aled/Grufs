@@ -68,7 +68,7 @@ namespace Wibblr.Grufs
                 bytes = new byte[0];
                 return ReadFileResult.ConnectionError;
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 bytes = new byte[0];
                 return ReadFileResult.UnknownError;

@@ -12,6 +12,7 @@
     <PublishAot>true</PublishAot>
     <StripSymbols>true</StripSymbols>
     <AssemblyName>grufs</AssemblyName>
+    <PlatformTarget>AnyCPU</PlatformTarget>
   </PropertyGroup>
 
   <ItemGroup>
@@ -24,9 +25,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="backup\" />
-    <Folder Include="sync\" />
-    <Folder Include="restore\" />
+    <Folder Include="Backup\" />
+    <Folder Include="Restore\" />
   </ItemGroup>
   
 </Project>
