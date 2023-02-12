@@ -105,8 +105,8 @@ namespace Wibblr.Grufs.Tests
 
                 var testData = Encoding.ASCII.GetBytes("Hello World!");
 
-                storage.WriteFile("tests/00001/test00001", testData, OverwriteStrategy.Allow, createDirectories: true).Should().Be(true);
-                storage.ReadFile("tests/00001/test00001", out var downloaded).Should().Be(ReadFileResult.Success);
+                storage.WriteFile("tests/00001/test00001", testData, OverwriteStrategy.Allow, createDirectories: true).Should().Be(WriteFileStatus.Success);
+                storage.ReadFile("tests/00001/test00001", out var downloaded).Should().Be(ReadFileStatus.Success);
 
                 Convert.ToHexString(testData).Should().Be(Convert.ToHexString(downloaded));
             }
@@ -132,7 +132,7 @@ namespace Wibblr.Grufs.Tests
                 var chunkEncryptor = new ChunkEncryptor(keyEncryptionKey, hmacKey, compressor);
                 var chunkSourceFactory = new FixedSizeChunkSourceFactory(128);
                 var streamStorage = new StreamStorage(storage, chunkSourceFactory, chunkEncryptor);
-                var (address, level) = streamStorage.Write(stream);
+                var (address, level, stats) = streamStorage.Write(stream);
 
                 foreach (var decryptedBuffer in streamStorage.Read(level, address))
                 {
@@ -156,9 +156,9 @@ namespace Wibblr.Grufs.Tests
 
                 storage.CreateDirectory("a/b/c", createParents: true);
 
-                storage.WriteFile("/a/b/c/d.txt", new byte[] { 0 }, OverwriteStrategy.DenyWithError).Should().Be(WriteFileResult.Success);
-                storage.WriteFile("a/b/e.txt", new byte[] { 0 }, OverwriteStrategy.DenyWithError).Should().Be(WriteFileResult.Success); ;
-                storage.WriteFile("a/b/f.txt", new byte[] { 0 }, OverwriteStrategy.DenyWithError).Should().Be(WriteFileResult.Success); ;
+                storage.WriteFile("/a/b/c/d.txt", new byte[] { 0 }, OverwriteStrategy.Deny).Should().Be(WriteFileStatus.Success);
+                storage.WriteFile("a/b/e.txt", new byte[] { 0 }, OverwriteStrategy.Deny).Should().Be(WriteFileStatus.Success); ;
+                storage.WriteFile("a/b/f.txt", new byte[] { 0 }, OverwriteStrategy.Deny).Should().Be(WriteFileStatus.Success); ;
 
                 var list = storage.ListFiles("a/", recursive: true)
                     .Select(x => new StoragePath(x.Parts, '/'))
@@ -182,10 +182,10 @@ namespace Wibblr.Grufs.Tests
                 var address3 = new Address(Convert.FromHexString("3000000000000000000000000000000000000000000000000000000000000000"));
                 var content = new byte[] { 0 };
 
-                storage.TryPut(new EncryptedChunk(address0, content), OverwriteStrategy.DenyWithError);
-                storage.TryPut(new EncryptedChunk(address1, content), OverwriteStrategy.DenyWithError);
-                storage.TryPut(new EncryptedChunk(address2, content), OverwriteStrategy.DenyWithError);
-                storage.TryPut(new EncryptedChunk(address3, content), OverwriteStrategy.DenyWithError);
+                storage.Put(new EncryptedChunk(address0, content), OverwriteStrategy.Deny);
+                storage.Put(new EncryptedChunk(address1, content), OverwriteStrategy.Deny);
+                storage.Put(new EncryptedChunk(address2, content), OverwriteStrategy.Deny);
+                storage.Put(new EncryptedChunk(address3, content), OverwriteStrategy.Deny);
 
                 storage.ListAddresses().Should().BeEquivalentTo(new[] { address0, address1, address2, address3 });
             }

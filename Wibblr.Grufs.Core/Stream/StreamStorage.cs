@@ -7,6 +7,24 @@ using Wibblr.Grufs.Core;
 
 namespace Wibblr.Grufs
 {
+    public class StreamWriteStats
+    {
+        public long totalContentChunkCount;
+        public long totalIndexChunkCount;
+        public long dedupedContentChunkCount;
+        public long dedupedIndexChunkCount;
+        public long plaintextLength;
+        public long totalStoredContentLength;
+        public long totalStoredIndexLength;
+        public long dedupedStoredContentLength;
+        public long dedupedStoredIndexLength;
+
+        public override string ToString()
+        {
+            return $"length:{plaintextLength}, content chunks:{dedupedContentChunkCount}/{totalContentChunkCount}, index chunks:{dedupedIndexChunkCount}/{totalIndexChunkCount}, content bytes:{dedupedStoredContentLength}/{totalStoredContentLength}, index bytes:{dedupedStoredIndexLength}/{totalStoredIndexLength}";
+        }
+    }
+
     public class StreamStorage
     {
         private IChunkStorage _chunkStorage;
@@ -20,14 +38,16 @@ namespace Wibblr.Grufs
             _chunkEncryptor = chunkEncryptor;
         }
 
-        public (Address, byte) Write(Stream stream)
+        public (Address, byte, StreamWriteStats) Write(Stream stream)
         {
             var byteSource = new StreamByteSource(stream);
             var chunkSource = _chunkSourceFactory.Create(byteSource);
             var indexByteSources = new List<IndexByteSource>();
             var indexChunkSources = new List<IChunkSource>();
+            var stats = new StreamWriteStats();
 
-            return Write(chunkSource, 0);
+            var (address, level) = Write(chunkSource, level: 0);
+            return (address, level, stats);
 
             (Address, byte) Write(IChunkSource chunkSource, byte level)
             {
@@ -54,10 +74,46 @@ namespace Wibblr.Grufs
 
                     var bytes = buf.AsSpan(0, len);
                     var encryptedChunk = _chunkEncryptor.EncryptContentAddressedChunk(bytes);
-                    if (!_chunkStorage.TryPut(encryptedChunk, OverwriteStrategy.DenyWithSuccess))
+                    
+                    switch (_chunkStorage.Put(encryptedChunk, OverwriteStrategy.Deny))
                     {
-                        throw new Exception("Failed to store chunk in repository");
+                        case PutStatus.Success:
+                            if (level == 0)
+                            {
+                                stats.plaintextLength += bytes.Length;
+                                stats.dedupedContentChunkCount++;
+                                stats.dedupedStoredContentLength += encryptedChunk.Content.LongLength;
+                                stats.totalContentChunkCount++;
+                                stats.totalStoredContentLength =+ encryptedChunk.Content.LongLength;
+                            }
+                            else
+                            {
+                                stats.dedupedIndexChunkCount++;
+                                stats.dedupedStoredIndexLength += encryptedChunk.Content.LongLength;
+                                stats.totalIndexChunkCount++;
+                                stats.totalStoredIndexLength = +encryptedChunk.Content.LongLength;
+                            }
+                            break;
+
+                        case PutStatus.OverwriteDenied:
+                            if (level == 0)
+                            {
+                                stats.plaintextLength += len;
+                                stats.dedupedContentChunkCount++;
+                                stats.dedupedStoredContentLength += encryptedChunk.Content.LongLength;
+                            }
+                            else
+                            {
+                                stats.dedupedIndexChunkCount++;
+                                stats.dedupedStoredIndexLength += encryptedChunk.Content.LongLength;
+                            }
+                            break;
+
+                        default:
+                            throw new Exception("Failed to store chunk in repository");
                     }
+
+                    Console.WriteLine(stats);
                     //Console.WriteLine($"Wrote chunk, level {level}, offset {streamOffset}, length {bytes.Length}, compressed/encrypted length {encryptedChunk.Content.Length}, address {encryptedChunk.Address}");
                     //Console.WriteLine(level == 0 ? Encoding.ASCII.GetString(bytes) : $"   {Convert.ToHexString(bytes)}");
                     //Console.WriteLine("-----------------");

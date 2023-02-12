@@ -27,7 +27,7 @@ namespace Wibblr.Grufs.Tests
             return false;
         }
 
-        public bool TryPut(EncryptedChunk chunk, OverwriteStrategy overwrite)
+        public PutStatus Put(EncryptedChunk chunk, OverwriteStrategy overwrite)
         {
             TotalPutCalls++;
 
@@ -39,16 +39,13 @@ namespace Wibblr.Grufs.Tests
                         // fall through;
                         break;
 
-                    case OverwriteStrategy.DenyWithError:
-                        return false;
-
-                    case OverwriteStrategy.DenyWithSuccess:
-                        return true;
+                    case OverwriteStrategy.Deny:
+                        return PutStatus.OverwriteDenied;
                 }
             }
 
             _dict[chunk.Address] = chunk;
-            return true;
+            return PutStatus.Success;
         }
 
         public bool Exists(Address address)

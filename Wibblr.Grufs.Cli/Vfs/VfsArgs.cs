@@ -6,16 +6,17 @@ using System.Threading.Tasks;
 
 namespace Wibblr.Grufs.Cli.Sync
 {
-    public class SyncConfig
+    public class VfsArgs
     {
         public string? ConfigDir; 
         public string? RepoName;
         public bool Upload;
+        public bool List;
         public bool Download;
         public bool Delete;
         public bool Recursive;
         public string? LocalPath;
-        public string? VirtualPath;
+        public string? VfsPath;
         public bool FileOnly;
     }
 }

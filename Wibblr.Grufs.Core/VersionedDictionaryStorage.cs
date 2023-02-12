@@ -36,7 +36,7 @@ namespace Wibblr.Grufs
             var structuredLookupKey = GenerateStructuredLookupKey(lookupKey, sequenceNumber);
             var encryptedChunk = _chunkEncryptor.EncryptKeyAddressedChunk(structuredLookupKey, value);
 
-            return _chunkStorage.TryPut(encryptedChunk, OverwriteStrategy.DenyWithError);
+            return _chunkStorage.Put(encryptedChunk, OverwriteStrategy.Deny) == PutStatus.Success;
         }
 
         public bool TryGetValue(ReadOnlySpan<byte> lookupKey, long sequenceNumber, out Buffer value)

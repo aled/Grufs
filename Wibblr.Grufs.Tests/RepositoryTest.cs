@@ -11,15 +11,14 @@ namespace Wibblr.Grufs.Tests
     public class RepositoryTest
     {
         [Fact]
-        public void InitializeRepository()
+        public void RepositoryInitAndOpen()
         {
             var storage = new InMemoryChunkStorage();
-            var r1 = new Repository(storage);
-            r1.Initialize("hello");
+            var r1 = new Repository("myrepo", storage, "hello");
+            r1.Initialize();
 
-            var r2 = new Repository(storage);
-            r2.Open("hello");
-
+            var r2 = new Repository("myrepo", storage, "hello");
+            r2.Open();
             r1.MasterKey.ToString().Should().Be(r2.MasterKey.ToString());
         }
 

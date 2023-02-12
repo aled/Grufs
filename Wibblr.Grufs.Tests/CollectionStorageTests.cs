@@ -14,8 +14,8 @@ namespace Wibblr.Grufs.Tests
         {
             var chunkStorage = new InMemoryChunkStorage();
 
-            var repository = new Repository(chunkStorage);
-            repository.Initialize("asdf", compressor: new Compressor(CompressionAlgorithm.Brotli, CompressionLevel.Optimal));
+            var repository = new Repository("myrepo", chunkStorage, "asdf");
+            repository.Initialize(compressor: new Compressor(CompressionAlgorithm.Brotli, CompressionLevel.Optimal));
 
             var animalsStorage = repository.GetCollectionStorage("animals");;
 

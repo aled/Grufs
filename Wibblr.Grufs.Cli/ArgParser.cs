@@ -1,6 +1,4 @@
-﻿using Microsoft.VisualBasic;
-
-namespace Wibblr.Grufs.Cli
+﻿namespace Wibblr.Grufs.Cli
 {
     public class ArgParser
     {
@@ -10,28 +8,33 @@ namespace Wibblr.Grufs.Cli
 
         public ArgParser(ArgDefinition[] argDefinitions)
         {
+            _argDefinitions = argDefinitions;
+            Validate();
+        }
+
+        public void Validate()
+        {
             // Warn on duplicate definitions
-            var shortNameDuplicates = argDefinitions
-                .GroupBy(x => x.ShortName)
+            IEnumerable<string> shortNameDuplicates = _argDefinitions
+                .Select(x => x.ShortName)
+                .OfType<char>()
+                .GroupBy(x => x)
                 .Where(grp => grp.Count() > 1)
-                .Select(grp => grp.Key);
+                .Select(grp => grp.Key.ToString());
 
-            foreach (var d in shortNameDuplicates)
-            {
-                Console.WriteLine("Duplicate argument short name: 'd'");
-            }
-
-            var longNameDuplicates = argDefinitions
+            var longNameDuplicates = _argDefinitions
                 .GroupBy(x => x.LongName)
                 .Where(grp => grp.Count() > 1)
                 .Select(grp => grp.Key);
 
-            foreach (var d in longNameDuplicates)
-            {
-                Console.WriteLine("Duplicate argument long name: 'd'");
-            }
+            var duplicates = new HashSet<string>(shortNameDuplicates.Concat(longNameDuplicates))
+                .OrderBy(x => x)
+                .ToList();
 
-            _argDefinitions = argDefinitions;
+            if (duplicates.Any())
+            {
+                throw new ArgumentException($"Duplicate argument definition(s): '{string.Join("',' ", duplicates)}'");
+            }
         }
 
         private void ParseArg(string name, IEnumerator<string>? e)

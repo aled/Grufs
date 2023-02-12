@@ -97,8 +97,8 @@ namespace Wibblr.Grufs
                         {
                             using (var stream = new FileStream(file.FullName, FileMode.Open))
                             {
-                                var (address, level) = _streamStorage.Write(stream);
-                                Console.WriteLine($"Wrote file {file.FullName} to {directoryPath.NormalizedPath}/{file.Name}");
+                                var (address, level, stats) = _streamStorage.Write(stream);
+                                Console.WriteLine($"Wrote file {file.FullName} to {directoryPath.NormalizedPath}/{file.Name}, {stats}");
                                 filesBuilder.Add(new FileMetadata(new Filename(file.Name), address, level, new Timestamp(file.LastWriteTimeUtc)));
                             }
                         }
@@ -197,7 +197,7 @@ namespace Wibblr.Grufs
             {
                 using (var stream = new FileStream(file.FullName, FileMode.Open))
                 {
-                    var (address, level) = _streamStorage.Write(stream);
+                    var (address, level, stats) = _streamStorage.Write(stream);
                     filesBuilder.Add(new FileMetadata(new Filename(file.Name), address, level, new Timestamp(file.LastWriteTimeUtc)));
                 }
             }
@@ -230,10 +230,10 @@ namespace Wibblr.Grufs
                 {
                     continue;
                 }
-                Console.WriteLine(directory.Path.NormalizedPath + "(v" + version + ") " + directory.LastModifiedTimestamp);
+                Console.WriteLine(directory.LastModifiedTimestamp.ToString("yyyy-MM-dd HH:mm:ss") + " " +  version.ToString("0000") + " " + directory.Path.NormalizedPath);
                 foreach (var file in directory.Files)
                 {
-                    Console.WriteLine(directory.Path.NormalizedPath + "/" + file.Name.ToString() + " " + file.LastModifiedTimestamp + "(" + file.Address.ToString().Substring(0, 6) + ")");
+                    Console.WriteLine(directory.LastModifiedTimestamp.ToString("yyyy-MM-dd HH:mm:ss") + "      " + directory.Path.NormalizedPath + "/" + file.Name.ToString());
                 }
                 foreach (var subDir in directory.Directories)
                 {

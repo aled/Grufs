@@ -24,12 +24,12 @@ namespace Wibblr.Grufs
                 .ToSpan();
         }
 
-        public bool TryPutValue(ReadOnlySpan<byte> lookupKey, ReadOnlySpan<byte> value, OverwriteStrategy overwrite)
+        public PutStatus TryPutValue(ReadOnlySpan<byte> lookupKey, ReadOnlySpan<byte> value, OverwriteStrategy overwrite)
         {
             var structuredLookupKey = GenerateStructuredLookupKey(lookupKey);
             var encryptedChunk = _chunkEncryptor.EncryptKeyAddressedChunk(structuredLookupKey, value);
 
-            return _chunkStorage.TryPut(encryptedChunk, overwrite);
+            return _chunkStorage.Put(encryptedChunk, overwrite);
         }
 
         public bool TryGetValue(ReadOnlySpan<byte> lookupKey, out Buffer value)

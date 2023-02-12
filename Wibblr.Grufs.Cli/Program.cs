@@ -68,8 +68,8 @@
                     ["repo", .. var remainingArgs] => new RepoMain().Run(remainingArgs),
                     ["backup", .. var remainingArgs] => throw new NotImplementedException(),
                     ["restore", .. var remainingArgs] => throw new NotImplementedException(),
-                    ["sync", .. var remainingArgs] => new SyncMain().Run(remainingArgs),
-                    _ => throw new UsageException("No subcommand specified; must be one of 'repo', 'backup', 'restore', 'sync', 'menu'")
+                    ["vfs", .. var remainingArgs] => new VfsMain().Run(remainingArgs),
+                    _ => throw new UsageException("No subcommand specified; must be one of 'repo', 'backup', 'restore', 'vfs'")
                 };
             }
             catch (UsageException ue)

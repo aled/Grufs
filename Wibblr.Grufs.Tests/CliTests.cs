@@ -1,11 +1,32 @@
-﻿using System.Security.Cryptography;
+﻿using System.Diagnostics.Contracts;
+using System.Security.Cryptography;
 
 using FluentAssertions;
+
+using Wibblr.Grufs.Cli;
 
 namespace Wibblr.Grufs.Tests
 {
     public class CliTests
     {
+        [Fact]
+        public void ArgParserShouldDetectDuplicateDefinitions()
+        {
+            List<string> l = new List<string>();
+            Action<string> action = s => l.Append(s);
+
+            var definitions = new ArgDefinition[]
+            {
+                new ArgDefinition('a', "asdf", action),
+                new ArgDefinition('a', "qwer", action),
+                new ArgDefinition('b', "qwer", action),
+                new ArgDefinition('c', "zxcv", action),
+                new ArgDefinition('d', "zxcv", action),
+            };
+
+            new Action(() => new ArgParser(definitions)).Should().Throw<Exception>().WithMessage("Duplicate argument definition(s): 'a',' qwer',' zxcv'");
+        }
+
         [Fact]
         public void RepoInitShouldCreateRegistration()
         {
@@ -15,20 +36,23 @@ namespace Wibblr.Grufs.Tests
             var repoName = "TestRepo";
             var encryptionPassword = "correct-horse-battery-staple";
 
-            new Cli.Program().Run(new[] { "repo", "--init", "--config-dir", configDir, "--non-interactive", "--name", repoName, "--basedir", baseDir, "--encryption-password", encryptionPassword });
+            new Program().Run(new[] { "repo", "--init", "--config-dir", configDir, "--non-interactive", "--name", repoName, "--basedir", baseDir, "--encryption-password", encryptionPassword });
 
             Directory.Exists(baseDir).Should().BeTrue();
 
             // storage should be registered in config
             var repoRegistration = File.ReadAllText(Path.Join(configDir, "repos", repoName));
-            repoRegistration.Should().Contain($"repoName:{repoName}");
-            repoRegistration.Should().Contain($"baseDir:{baseDir}");
-            repoRegistration.Should().Contain($"encryptionPassword:{encryptionPassword}");
-            repoRegistration.Should().Contain($"repoName:{repoName}");
+            repoRegistration.Should().Contain($"repoName:\"{repoName}\"");
+            repoRegistration.Should().Contain($"baseDir:\"{baseDir.Replace("\\", "\\\\")}\"");
+            repoRegistration.Should().Contain($"encryptionPassword:\"{encryptionPassword}\"");
+            repoRegistration.Should().Contain($"repoName:\"{repoName}\"");
 
             Directory.Delete(baseDir, true);
             Directory.Delete(configDir, true);
         }
+
+        // TODO: enter passwords interactively if not set
+        // TODO: error if passwords not set and non-interactive is set
 
         [Fact]
         public void SyncDirectory()
@@ -58,11 +82,13 @@ namespace Wibblr.Grufs.Tests
             Directory.CreateDirectory(Path.Combine(contentDir, "b", "e"));
             File.WriteAllText(Path.Combine(contentDir, "b", "e", "f.txt"), "hello f");
 
-            new Cli.Program().Run(new[] { "sync", "-r", "--config-dir", configDir, "--repo", repoName, "--upload", "--local", contentDir, "--virtual", "some/subdir"  });
+            new Cli.Program().Run(new[] { "vfs", "-r", "--config-dir", configDir, "--repo-name", repoName, "--upload", "--local-path", contentDir, "--vfs-path", "some/subdir"  });
+
+            // TODO: list virtual files
 
             var downloadDir = Path.Join(tempPath, "download");
 
-            new Cli.Program().Run(new[] { "sync", "-r", "--config-dir", configDir, "--repo", repoName, "--download", "--local", downloadDir, "--virtual", "/" });
+            new Cli.Program().Run(new[] { "vfs", "-r", "--config-dir", configDir, "--repo-name", repoName, "--download", "--local-path", downloadDir, "--vfs-path", "/" });
 
             File.ReadAllText(Path.Combine(downloadDir, "some", "subdir", "a.txt")).Should().Be("hello a");
             File.ReadAllText(Path.Combine(downloadDir, "some", "subdir", "b", "c.txt")).Should().Be("hello c");

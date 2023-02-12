@@ -38,5 +38,10 @@ namespace Wibblr.Grufs
         {
             return Value.ToString("o");
         }
+
+        public string ToString(string format)
+        {
+            return Value.ToString(format);
+        }
     }
 }

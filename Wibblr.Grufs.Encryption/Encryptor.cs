@@ -4,9 +4,10 @@ using System.Security.Cryptography;
 namespace Wibblr.Grufs.Encryption
 {
     /// <summary>
-    /// Thin wrapper around all cryptographic operations. Encapsulates the algorithm used and all encryption parameters.
-    ///
-    /// When encrypting, append a checksum to the plaintext, and validate this checksum on decryption.
+    /// Thin wrapper around all cryptographic operations. 
+    ///   - Encapsulates the algorithm used and all encryption parameters.
+    ///   - Transparently adds a checksum to the plaintext before encryption, 
+    ///   - Transparently validates checksum on decryption
     /// </summary>
     public class Encryptor
     {

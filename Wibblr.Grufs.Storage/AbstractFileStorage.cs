@@ -1,32 +1,33 @@
-﻿using System.ComponentModel;
-
-namespace Wibblr.Grufs
+﻿namespace Wibblr.Grufs
 {
-    public enum CreateDirectoryResult
+    public enum CreateDirectoryStatus
     {
-        Success,
-        AlreadyExists,
-        NonDirectoryAlreadyExists,
-        PathNotFound,
-        ConnectionError,
-        PermissionError,
-        UnknownError
+        Unknown = 0,
+        Success = 1,
+        AlreadyExists = 2,
+        NonDirectoryAlreadyExists = 3,
+        PathNotFound = 4,
+        ConnectionError = 5,
+        PermissionError = 6,
+        UnknownError = 7,
     }
 
-    public enum ReadFileResult
+    public enum ReadFileStatus
     {
-        Success,
-        PathNotFound,
-        ConnectionError,
-        UnknownError
+        Unknown = 0,
+        Success = 1,
+        PathNotFound = 2,
+        ConnectionError = 3,
+        UnknownError = 4,
     }
 
-    public enum WriteFileResult
+    public enum WriteFileStatus
     {
-        Success,
-        AlreadyExistsError,
-        UnknownError,
-        PathNotFound
+        Unknown = 0,
+        Success = 1,
+        OverwriteDenied= 2,
+        PathNotFound = 4,
+        Error = 5,
     }
 
     public class StoragePath
@@ -95,17 +96,17 @@ namespace Wibblr.Grufs
     {
         public static char _directorySeparator;
 
-        public string _baseDir;
+        public string BaseDir { get; }
 
         abstract public (List<string> files, List<string> directories) ListDirectoryEntries(string relativePath);
 
-        abstract public ReadFileResult ReadFile(string relativePath, out byte[] bytes);
+        abstract public ReadFileStatus ReadFile(string relativePath, out byte[] bytes);
 
-        abstract public WriteFileResult WriteFile(string relativePath, byte[] content, OverwriteStrategy overwrite);
+        abstract public WriteFileStatus WriteFile(string relativePath, byte[] content, OverwriteStrategy overwrite);
 
         abstract public bool Exists(string relativePath);
 
-        abstract public CreateDirectoryResult CreateDirectory(string relativePath);
+        abstract public CreateDirectoryStatus CreateDirectory(string relativePath);
 
         abstract public void DeleteDirectory(string relativePath);
 
@@ -146,38 +147,36 @@ namespace Wibblr.Grufs
             }
 
             _directorySeparator = directorySeparator;
-            _baseDir = baseDir;
+            BaseDir = baseDir;
         }
 
-        public bool WriteFile(string relativePath, byte[] content, OverwriteStrategy overwrite, bool createDirectories)
+        public WriteFileStatus WriteFile(string relativePath, byte[] content, OverwriteStrategy overwrite, bool createDirectories)
         {
             var result = WriteFile(relativePath, content, overwrite);
 
             switch (result)
             {
-                case WriteFileResult.Success:
-                    return true;
+                case WriteFileStatus.Success:
+                case WriteFileStatus.OverwriteDenied:
+                case WriteFileStatus.Error:
+                    return result;
 
-                case WriteFileResult.AlreadyExistsError:
-                case WriteFileResult.UnknownError:
-                    return false;
-
-                case WriteFileResult.PathNotFound:
+                case WriteFileStatus.PathNotFound:
                     {
                         if (!createDirectories)
                         {
-                            return false;
+                            return WriteFileStatus.Error;
                         }
 
                         var storagePath = new StoragePath(relativePath, _directorySeparator);
                         if (storagePath.Depth < 2)
                         {
-                            return false;
+                            return WriteFileStatus.Error;
                         }
 
                         if (!CreateDirectory(storagePath.Parent.ToString(), createParents: true))
                         {
-                            return false;
+                            return WriteFileStatus.Error;
                         }
 
                         // This can recurse only once
@@ -195,14 +194,14 @@ namespace Wibblr.Grufs
             
             switch (result)
             {
-                case CreateDirectoryResult.Success:
-                case CreateDirectoryResult.AlreadyExists:
+                case CreateDirectoryStatus.Success:
+                case CreateDirectoryStatus.AlreadyExists:
                     return true;
 
-                case CreateDirectoryResult.NonDirectoryAlreadyExists:
+                case CreateDirectoryStatus.NonDirectoryAlreadyExists:
                     return false;
 
-                case CreateDirectoryResult.PathNotFound:
+                case CreateDirectoryStatus.PathNotFound:
                     if (!createParents)
                     {
                         return false;
@@ -281,7 +280,7 @@ namespace Wibblr.Grufs
             }
         }
 
-        bool IChunkStorage.TryPut(EncryptedChunk chunk, OverwriteStrategy overwrite)
+        PutStatus IChunkStorage.Put(EncryptedChunk chunk, OverwriteStrategy overwrite)
         {
             var path = GeneratePath(chunk.Address.ToString());
             var retry = false;
@@ -292,10 +291,13 @@ namespace Wibblr.Grufs
 
                 switch (result)
                 {
-                    case WriteFileResult.Success:
-                        return true;
+                    case WriteFileStatus.Success:
+                        return PutStatus.Success;
 
-                    case WriteFileResult.PathNotFound:
+                    case WriteFileStatus.OverwriteDenied:
+                        return PutStatus.OverwriteDenied;
+
+                    case WriteFileStatus.PathNotFound:
                         if (CreateDirectory(new StoragePath(path, _directorySeparator).Parent.ToString(), createParents: true))
                         {
                             retry = true;
@@ -304,11 +306,11 @@ namespace Wibblr.Grufs
                         break;
 
                     default:
-                        return false;
+                        return PutStatus.Error;
                 }
             } while (retry);
 
-            return false;
+            return PutStatus.Error;
         }
 
         bool IChunkStorage.TryGet(Address address, out EncryptedChunk chunk)
@@ -319,7 +321,7 @@ namespace Wibblr.Grufs
 
             switch (result)
             {
-                case ReadFileResult.Success:
+                case ReadFileStatus.Success:
                     chunk = new EncryptedChunk(address, bytes);
                     return true;
 

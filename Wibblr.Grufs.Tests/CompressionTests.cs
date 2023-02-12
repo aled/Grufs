@@ -33,7 +33,10 @@ namespace Wibblr.Grufs.Tests
             var stream = new MemoryStream(plaintextBytes);
 
             var repository = new InMemoryChunkStorage();
-            var (address, level) = streamStorage.Write(stream);
+            var (address, level, stats) = streamStorage.Write(stream);
+
+            stats.plaintextLength.Should().Be(plaintextBytes.LongLength);
+            
 
             var decryptedStream = new MemoryStream();
 

@@ -23,7 +23,7 @@ namespace Wibblr.Grufs.Tests
             var plaintextBytes = Encoding.UTF8.GetBytes(plaintext);
             var stream = new MemoryStream(plaintextBytes);
 
-            var (address, level) = streamStorage.Write(stream);
+            var (address, level, stats) = streamStorage.Write(stream);
 
             chunkStorage.Count().Should().Be(1);
 
@@ -54,7 +54,7 @@ namespace Wibblr.Grufs.Tests
             var plaintextBytes = Encoding.UTF8.GetBytes(plaintext);
             var stream = new MemoryStream(plaintextBytes);
 
-            var (address, level) = streamStorage.Write(stream);
+            var (address, level, stats) = streamStorage.Write(stream);
 
             chunkStorage.Count().Should().Be(1);
 
@@ -97,7 +97,7 @@ namespace Wibblr.Grufs.Tests
             var streamStorage = new StreamStorage(chunkStorage, chunkSourceFactory, chunkEncryptor);
 
             var stream = new MemoryStream(plaintextBytes);
-            var (address, level) = streamStorage.Write(stream);
+            var (address, level, stats) = streamStorage.Write(stream);
             chunkStorage.Count().Should().BeGreaterThan(1);
 
             var decryptedStream = new MemoryStream();
@@ -121,7 +121,7 @@ namespace Wibblr.Grufs.Tests
             }
             plaintextBytes = Encoding.UTF8.GetBytes(plaintext);
             stream = new MemoryStream(plaintextBytes);
-            (address, level) = streamStorage.Write(stream);
+            (address, level, stats) = streamStorage.Write(stream);
 
             decryptedStream = new MemoryStream();
 

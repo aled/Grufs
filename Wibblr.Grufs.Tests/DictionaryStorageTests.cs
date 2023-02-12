@@ -27,8 +27,10 @@ namespace Wibblr.Grufs.Tests
                 var chunkEncryptor = new ChunkEncryptor(keyEncryptionKey, addressKey, Compressor.None);
 
                 var dictionaryStorage = new UnversionedDictionaryStorage(storage, chunkEncryptor);
-                dictionaryStorage.TryPutValue(lookupKey, value, OverwriteStrategy.DenyWithError).Should().BeTrue();
-                dictionaryStorage.TryPutValue(lookupKey, value, OverwriteStrategy.DenyWithError).Should().BeFalse(); // Can't overwrite a key even if the value is the same
+                dictionaryStorage.TryPutValue(lookupKey, value, OverwriteStrategy.Deny).Should().Be(PutStatus.Success);
+                dictionaryStorage.TryPutValue(lookupKey, value, OverwriteStrategy.Deny).Should().Be(PutStatus.OverwriteDenied); // Can't overwrite a key even if the value is the same
+                dictionaryStorage.TryPutValue(lookupKey, value, OverwriteStrategy.Allow).Should().Be(PutStatus.Success); // Can't overwrite a key even if the value is the same
+
                 dictionaryStorage.TryGetValue(lookupKey, out var retrievedValue).Should().BeTrue();
 
                 strValue.Should().Be(Encoding.ASCII.GetString(retrievedValue.AsSpan()));

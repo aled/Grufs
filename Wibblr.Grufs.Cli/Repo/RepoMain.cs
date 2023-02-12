@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Text;
 
 using Wibblr.Grufs.Core;
 
@@ -7,7 +6,7 @@ namespace Wibblr.Grufs.Cli
 {
     public class RepoMain
     {
-        private RepoConfig _config = new RepoConfig();
+        private RepoArgs _repoArgs = new RepoArgs();
 
         public static void Main(string[] args)
         {
@@ -18,158 +17,181 @@ namespace Wibblr.Grufs.Cli
         {
             var argDefinitions = new ArgDefinition[]
             {
-                new ArgDefinition('i', "init", x => _config.Init = bool.Parse(x), isFlag: true),
-                new ArgDefinition('c', "config-dir", x => _config.ConfigDir = x),
-                new ArgDefinition('n', "name",  x => _config.RepoName = x),
-                new ArgDefinition('o', "non-interactive", x => _config.NonInteractive = bool.Parse(x), isFlag: true),
-                new ArgDefinition('p', "protocol", x => _config.Protocol = x),
-                new ArgDefinition('t', "port", x => _config.Port = int.Parse(x)),
-                new ArgDefinition('U', "username", x => _config.Username = x),
-                new ArgDefinition('P', "password", x => _config.Password = x),
-                new ArgDefinition('e', "encryption-password", x => _config.EncryptionPassword = x),
-                new ArgDefinition('b', "basedir", x => _config.BaseDir = x),
+                new ArgDefinition(null, "init", x => _repoArgs.Operation = RepoArgs.OperationEnum.Init, isFlag: true),
+                new ArgDefinition(null, "register", x => _repoArgs.Operation = RepoArgs.OperationEnum.Register, isFlag: true),
+                new ArgDefinition(null, "unregister", x => _repoArgs.Operation = RepoArgs.OperationEnum.Unregister, isFlag: true),
+                new ArgDefinition(null, "list", x => _repoArgs.Operation = RepoArgs.OperationEnum.List, isFlag: true),
+                new ArgDefinition(null, "scrub", x => _repoArgs.Operation = RepoArgs.OperationEnum.Scrub, isFlag: true),
+                new ArgDefinition('c', "config-dir", x => _repoArgs.ConfigDir = x),
+                new ArgDefinition('n', "name",  x => _repoArgs.RepoName = x),
+                new ArgDefinition('o', "non-interactive", x => _repoArgs.NonInteractive = bool.Parse(x), isFlag: true),
+                new ArgDefinition('p', "protocol", x => _repoArgs.Protocol = x),
+                new ArgDefinition('t', "port", x => _repoArgs.Port = int.Parse(x)),
+                new ArgDefinition('U', "username", x => _repoArgs.Username = x),
+                new ArgDefinition('P', "password", x => _repoArgs.Password = x),
+                new ArgDefinition('e', "encryption-password", x => _repoArgs.EncryptionPassword = x),
+                new ArgDefinition('b', "basedir", x => _repoArgs.BaseDir = x),
             };
 
             new ArgParser(argDefinitions).Parse(args);
 
-            if (_config.Init ?? false)
+            _repoArgs.ConfigDir ??= Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".grufs");
+            Console.WriteLine($"Using config directory: '{_repoArgs.ConfigDir}'");
+
+            var repoRegistrationDirectory = Path.Join(_repoArgs.ConfigDir, "repos");
+            if (!Directory.Exists(repoRegistrationDirectory))
             {
-                return Init();
+                Directory.CreateDirectory(repoRegistrationDirectory);
+                Console.WriteLine($"Created directory {repoRegistrationDirectory}");
             }
 
-            throw new UsageException("Operation not specified (must be init)");
+            if (_repoArgs.Operation == RepoArgs.OperationEnum.None)
+            {
+                throw new UsageException("Operation not specified (examples: --init --register, --unregister --list --scrub");
+            }
+
+            string repoRegistrationPath = Path.Join(repoRegistrationDirectory, _repoArgs.RepoName);
+
+            return _repoArgs.Operation switch
+            {
+                // TODO:
+                // Sanitize the repo name
+                RepoArgs.OperationEnum.Init => Init(repoRegistrationPath),
+                RepoArgs.OperationEnum.Register => Register(repoRegistrationPath),
+                RepoArgs.OperationEnum.Unregister => Unregister(repoRegistrationPath),
+                RepoArgs.OperationEnum.List => ListRepos(repoRegistrationDirectory),
+                RepoArgs.OperationEnum.Scrub => Scrub(repoRegistrationPath),
+                _ => throw new UsageException("Invalid operation")
+            };
         }
 
-        private int Init() 
+        private Repository CreateRepositoryFromRegistration(string repoRegistrationPath)
         {
-            if (_config.RepoName == null) 
+            if (File.Exists(repoRegistrationPath))
             {
-                throw new UsageException("Repository name not specified");
-            }
-            Console.WriteLine($"Repository name: '{_config.RepoName}'");
-
-            if (_config.ConfigDir == null)
-            {
-                _config.ConfigDir = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".grufs");
-            }
-            Console.WriteLine($"Config directory: '{_config.ConfigDir}'");
-
-            var reposRegistry = Path.Join(_config.ConfigDir, "repos");
-            if (!Directory.Exists(reposRegistry))
-            {
-                Directory.CreateDirectory(reposRegistry);
-                Console.WriteLine($"Created directory {reposRegistry}");
+                Console.WriteLine($"Repository '{_repoArgs.RepoName}' already registered");
+                throw new Exception();
             }
 
-            // TODO:
-            // Sanitize the repo name
-
-            var repoConfigPath = Path.Join(reposRegistry, _config.RepoName);
-            if (File.Exists(repoConfigPath))
+            if (_repoArgs.Protocol == null)
             {
-                Console.WriteLine($"Repository '{_config.RepoName}' already registered");
-                return -1;
+                _repoArgs.Protocol = "directory";
+                Console.WriteLine($"Using protocol: '{_repoArgs.Protocol}'");
             }
 
-            if (_config.Protocol == null)
+            if (_repoArgs.BaseDir == null)
             {
-                _config.Protocol = "directory";
-                Console.WriteLine($"Protocol: '{_config.Protocol}'");
+                throw new UsageException("Basedir not specified (example: -b c:\\temp\\grufs\\myrepo");
             }
 
-            if (_config.BaseDir == null)
+            if (_repoArgs.EncryptionPassword == null)
             {
-                throw new UsageException("Basedir not specified");
-            }
-
-            if (_config.EncryptionPassword == null)
-            {
-                throw new UsageException("Encryption password not specified");
+                throw new UsageException("Encryption password not specified (example: -e correct-horse-battery-staple");
 
                 // TODO: Prompt for password, unless non-interactive is set
             }
 
-            switch (_config.Protocol)
+            if (_repoArgs.RepoName == null)
             {
-                case "sftp":
-                    {
-                        if (_config.Username == null)
-                        {
-                            throw new UsageException("Username not specified");
-                        }
-                        if (_config.Password == null)
-                        {
-                            throw new UsageException("Password not specified");
-                        }
-                        if (_config.Host == null)
-                        {
-                            throw new UsageException("Host not specified");
-                        }
-                        if (_config.Port == null)
-                        {
-                            _config.Port = 22;
-                        }
+                throw new UsageException("Repository name not specified (example: -n myrepo)");
+            }
+            Console.WriteLine($"Using repository name: '{_repoArgs.RepoName}'");
 
-                        SftpStorage storage = new SftpStorage(_config.Host, _config.Port.Value, _config.Username, _config.Password, _config.BaseDir);
+            IChunkStorage storage = _repoArgs.Protocol switch
+            {
+                "sftp" => new SftpStorage(
+                            _repoArgs.Host ?? throw new UsageException("Host not specified"),
+                            _repoArgs.Port ?? 22,
+                            _repoArgs.Username ?? throw new UsageException("Username not specified"),
+                            _repoArgs.Password ?? throw new UsageException("Password not specified"),
+                            _repoArgs.BaseDir).EnsureConnected(),
 
-                        try
-                        {
-                            storage.EnsureConnected();
-                        }
-                        catch (Exception)
-                        {
-                            Console.WriteLine("Unable to connect to repository");
-                            return -1;
-                        }
+                "directory" => new DirectoryStorage(_repoArgs.BaseDir),
 
-                        var repo = new Repository(storage);
+                _ => throw new UsageException("Storage type must be 'sftp' or 'directory'")
+            };
 
-                        if (repo.Initialize(_config.EncryptionPassword))
-                        {
-                            // write to local config
-                            File.WriteAllText(
-                                repoConfigPath,
-                                $"repoName{_config.RepoName}\n" +
-                                $"protocol:{_config.Protocol}\n" +
-                                $"host:{_config.Host}\n" +
-                                $"port:{_config.Port}\n" +
-                                $"user:{_config.Username}\n" +
-                                $"password:0x{Convert.ToHexString(Encoding.Unicode.GetBytes(_config.Password))}\n" +
-                                $"baseDir:{_config.BaseDir}\n" +
-                                $"encryptionPassword:0x{_config.EncryptionPassword}\n");
+            return new Repository(_repoArgs.RepoName, storage, _repoArgs.EncryptionPassword);
+        }
 
-                            Console.WriteLine("Storage initialized");
-                            return 0;
-                        }
-                    }
-                    break;
+        private int Init(string repoRegistrationPath) 
+        {
+            var repo = CreateRepositoryFromRegistration(repoRegistrationPath);
+            var (status, message) = repo.Initialize();
+            
+            switch(status)
+            {
+                case InitRepositoryStatus.Success:
+                    var serialized = new RepositorySerializer().Serialize(repo);
+                    File.WriteAllText(repoRegistrationPath, serialized);
+                    return 0;
 
-                case "directory":
-                    {
-                        DirectoryStorage storage = new DirectoryStorage(_config.BaseDir);
-                        var repo = new Repository(storage);
-
-                        if (repo.Initialize(_config.EncryptionPassword))
-                        {
-                            // write to local config
-                            File.WriteAllText(
-                                repoConfigPath,
-                                $"repoName:{_config.RepoName}\n" +
-                                $"protocol:{_config.Protocol}\n" +
-                                $"baseDir:{_config.BaseDir}\n" +
-                                $"encryptionPassword:{_config.EncryptionPassword}\n");
-
-                            Console.WriteLine("Storage initialized");
-                            return 0;
-                        }
-                    }
-                    break;
+                case InitRepositoryStatus.AlreadyExists:
+                    Console.WriteLine(message);
+                    return 0;
 
                 default:
-                    throw new UsageException("Storage type must be 'sftp' or 'directory'");
+                    throw new Exception();
+            }
+        }
+
+        private int Register(string repoRegistrationPath)
+        {
+            var repo = CreateRepositoryFromRegistration(repoRegistrationPath);
+            var (status, message) = repo.Open();
+
+            switch (status)
+            {
+                case OpenRepositoryStatus.Success:
+                    var serialized = new RepositorySerializer().Serialize(repo);
+                    File.WriteAllText(repoRegistrationPath, serialized);
+                    return 0;
+
+                case OpenRepositoryStatus.MissingMetadata:
+                case OpenRepositoryStatus.BadPassword:
+                case OpenRepositoryStatus.InvalidMetadata:
+                case OpenRepositoryStatus.Unknown:
+                    Console.WriteLine(message);
+                    return -1;
+
+                default:
+                    throw new Exception();
+            }
+        }
+
+        private int Unregister(string repoRegistrationPath)
+        {
+            if (File.Exists(repoRegistrationPath))
+            {
+                Console.WriteLine($"Repository '{_repoArgs.RepoName}' is not registered");
+                return -1;
+            }
+
+            Console.Write($"After deregistering this repository, you will need to re-enter the password to access it again. Type '{_repoArgs.RepoName}' to continue: ");
+            if (Console.ReadLine() == _repoArgs.RepoName)
+            {
+                File.Delete(repoRegistrationPath);
+                return 0;
             }
 
             return -1;
+        }
+
+        private int ListRepos(string repoRegistrationDirectory)
+        {
+            Console.WriteLine("Registered repositories:");
+            foreach (var f in Directory.GetFiles(repoRegistrationDirectory))
+            {
+                var content = File.ReadAllText(f);
+                var repo = new RepositorySerializer().Deserialize(content);
+                Console.WriteLine(new FileInfo(f).Name);
+            }
+            return 0;
+        }
+
+        private int Scrub(string repoRegistrationPath)
+        {
+            throw new NotImplementedException();
         }
     }
 }

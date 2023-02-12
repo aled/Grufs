@@ -13,17 +13,17 @@ namespace Wibblr.Grufs
         {
         }
 
-        public override CreateDirectoryResult CreateDirectory(string relativePath)
+        public override CreateDirectoryStatus CreateDirectory(string relativePath)
         {
             try
             {
-                var path = Path.Join(_baseDir, relativePath);
+                var path = Path.Join(BaseDir, relativePath);
                 var result = Directory.CreateDirectory(path);
-                return CreateDirectoryResult.Success;
+                return CreateDirectoryStatus.Success;
             }
             catch (Exception)
             {
-                return CreateDirectoryResult.UnknownError;
+                return CreateDirectoryStatus.UnknownError;
             }
 
         }
@@ -32,7 +32,7 @@ namespace Wibblr.Grufs
         {
             try
             {
-                var path = Path.Join(_baseDir, relativePath);
+                var path = Path.Join(BaseDir, relativePath);
                 Directory.Delete(path, true);
             }
             catch (Exception e)
@@ -44,7 +44,7 @@ namespace Wibblr.Grufs
 
         public override bool Exists(string relativePath)
         {
-            var path = Path.Join(_baseDir, relativePath);
+            var path = Path.Join(BaseDir, relativePath);
             //[x]
             return File.Exists(path);
         }
@@ -53,7 +53,7 @@ namespace Wibblr.Grufs
         {
             try
             {
-                var path = Path.Join(_baseDir, relativePath);
+                var path = Path.Join(BaseDir, relativePath);
                 return (
                     Directory.GetFiles(path).Select(x => new FileInfo(x).Name).ToList(), 
                     Directory.GetDirectories(path).Select(x => new DirectoryInfo(x).Name).ToList());
@@ -66,63 +66,55 @@ namespace Wibblr.Grufs
             }
         }
 
-        override public ReadFileResult ReadFile(string relativePath, out byte[] bytes)
+        override public ReadFileStatus ReadFile(string relativePath, out byte[] bytes)
         {
             try
             {
-                var path = Path.Join(_baseDir, relativePath);
+                var path = Path.Join(BaseDir, relativePath);
                 bytes = File.ReadAllBytes(path);
-                return ReadFileResult.Success;
+                return ReadFileStatus.Success;
             }
             catch (Exception e)
             {
                 //TODO: error handling
                 Console.WriteLine(e.Message);
                 bytes = new byte[0];
-                return ReadFileResult.UnknownError;
+                return ReadFileStatus.UnknownError;
             }
         }
 
-        public override WriteFileResult WriteFile(string relativePath, byte[] content, OverwriteStrategy overwrite)
+        public override WriteFileStatus WriteFile(string relativePath, byte[] content, OverwriteStrategy overwrite)
         {
             try
             {
-                var path = Path.Join(_baseDir, relativePath);
+                var path = Path.Join(BaseDir, relativePath);
 
                 switch (overwrite)
                 {
                     case OverwriteStrategy.Allow:
                         File.WriteAllBytes(path, content);
-                        return WriteFileResult.Success;
+                        return WriteFileStatus.Success;
 
-                    case OverwriteStrategy.DenyWithSuccess:
+                    case OverwriteStrategy.Deny:
                         if (File.Exists(path))
                         {
-                            return WriteFileResult.Success;
-                        }
-                        break;
-
-
-                    case OverwriteStrategy.DenyWithError:
-                        if (File.Exists(path))
-                        {
-                            return WriteFileResult.AlreadyExistsError;
+                            return WriteFileStatus.OverwriteDenied;
                         }
                         break;
                 }
 
                 File.WriteAllBytes(path, content);
-                return WriteFileResult.Success;
+                return WriteFileStatus.Success;
             }
             catch (DirectoryNotFoundException)
             {
-                return WriteFileResult.PathNotFound;
+                return WriteFileStatus.PathNotFound;
             }
             catch (Exception e)
             {
                 //TODO: error handling
                 Console.WriteLine(e.Message);
-                return WriteFileResult.UnknownError;
+                return WriteFileStatus.Error;
             }
         }
     }

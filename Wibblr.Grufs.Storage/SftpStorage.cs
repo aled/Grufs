@@ -8,19 +8,22 @@ namespace Wibblr.Grufs
 {
     public class SftpStorage : AbstractFileStorage, IDisposable
     {
-        private string _host, _username, _password;
-        private int _port;
+        public string Host { get; init; }
+        public string Username { get; init; }
+        public string Password { get; init; }
+        public int Port { get; init; }
+
         private SftpClient _client;
 
         public SftpStorage(string host, int port, string username, string password, string baseDir)
             : base(baseDir, '/')
         {
-            _host = host;
-            _port = port;
-            _username = username;
-            _password = password;
+            Host = host;
+            Port = port;
+            Username = username;
+            Password = password;
 
-            _client = new SftpClient(_host, _port, _username, _password);
+            _client = new SftpClient(Host, Port, Username, Password);
         }
 
         private bool IsConnected() => _client.IsConnected;
@@ -38,7 +41,7 @@ namespace Wibblr.Grufs
                 catch (Exception)
                 {
                     Thread.Sleep(1000);
-                    Console.WriteLine($"Error connecting to host {_host}:{_port}; {--triesRemaining} try(s) remaining");
+                    Console.WriteLine($"Error connecting to host {Host}:{Port}; {--triesRemaining} try(s) remaining");
                     if (triesRemaining <= 0)
                     {
                         throw new Exception();
@@ -48,36 +51,36 @@ namespace Wibblr.Grufs
             return this;
         }
 
-        override public ReadFileResult ReadFile(string relativePath, out byte[] bytes)
+        override public ReadFileStatus ReadFile(string relativePath, out byte[] bytes)
         {
-            var path = new StoragePath(_baseDir, _directorySeparator).Concat(relativePath).ToString();
+            var path = new StoragePath(BaseDir, _directorySeparator).Concat(relativePath).ToString();
             EnsureConnected();
 
             try
             {
                 bytes = _client.ReadAllBytes(path);
-                return ReadFileResult.Success;
+                return ReadFileStatus.Success;
             }
             catch (SftpPathNotFoundException)
             {
                 bytes = new byte[0];
-                return ReadFileResult.PathNotFound;
+                return ReadFileStatus.PathNotFound;
             }
             catch (SshConnectionException)
             {
                 bytes = new byte[0];
-                return ReadFileResult.ConnectionError;
+                return ReadFileStatus.ConnectionError;
             }
             catch (Exception)
             {
                 bytes = new byte[0];
-                return ReadFileResult.UnknownError;
+                return ReadFileStatus.UnknownError;
             }
         }
 
-        override public WriteFileResult WriteFile(string relativePath, byte[] content, OverwriteStrategy overwrite)
+        override public WriteFileStatus WriteFile(string relativePath, byte[] content, OverwriteStrategy overwrite)
         {
-            var path = new StoragePath(_baseDir, _directorySeparator).Concat(relativePath).ToString();
+            var path = new StoragePath(BaseDir, _directorySeparator).Concat(relativePath).ToString();
             EnsureConnected();
 
             if (_client.Exists(path))
@@ -88,11 +91,8 @@ namespace Wibblr.Grufs
                         // fall through
                         break;
 
-                    case OverwriteStrategy.DenyWithError:
-                        return WriteFileResult.AlreadyExistsError;
-
-                    case OverwriteStrategy.DenyWithSuccess:
-                        return WriteFileResult.Success;
+                    case OverwriteStrategy.Deny:
+                        return WriteFileStatus.OverwriteDenied;
                 }
             }
             
@@ -103,41 +103,41 @@ namespace Wibblr.Grufs
                 {
                     stream.Write(content, 0, content.Length);
                     Console.WriteLine($"Wrote {path}");
-                    return WriteFileResult.Success;
+                    return WriteFileStatus.Success;
                 }
             }
             catch (Exception e)
             {
                 if (e.Message == "No such file")
                 {
-                    return WriteFileResult.PathNotFound;
+                    return WriteFileStatus.PathNotFound;
                 }
 
                 Console.WriteLine(e.Message);
-                return WriteFileResult.UnknownError;
+                return WriteFileStatus.Error;
             }
         }
 
-        override public CreateDirectoryResult CreateDirectory(string relativePath)
+        override public CreateDirectoryStatus CreateDirectory(string relativePath)
         {
-            var path = new StoragePath(Path.Join(_baseDir, relativePath), _directorySeparator).ToString();
+            var path = new StoragePath(Path.Join(BaseDir, relativePath), _directorySeparator).ToString();
             EnsureConnected();
 
             try
             {
                 _client.CreateDirectory(path);
                 Console.WriteLine($"Created directory {relativePath}");
-                return CreateDirectoryResult.Success;
+                return CreateDirectoryStatus.Success;
             }
             catch (SshConnectionException sce)
             {
                 Console.WriteLine(sce.Message);
-                return CreateDirectoryResult.ConnectionError;
+                return CreateDirectoryStatus.ConnectionError;
             }
             catch (SftpPermissionDeniedException spde)
             {
                 Console.WriteLine(spde.Message);
-                return CreateDirectoryResult.PermissionError;
+                return CreateDirectoryStatus.PermissionError;
             }
             catch (SshException se)
             {
@@ -146,7 +146,7 @@ namespace Wibblr.Grufs
             catch (Exception e)
             {
                 Console.WriteLine(e.Message);
-                return CreateDirectoryResult.UnknownError;
+                return CreateDirectoryStatus.UnknownError;
             }
 
             try
@@ -155,36 +155,36 @@ namespace Wibblr.Grufs
 
                 if (info.IsDirectory)
                 {
-                    return CreateDirectoryResult.AlreadyExists;
+                    return CreateDirectoryStatus.AlreadyExists;
                 }
                 else
                 {
-                    return CreateDirectoryResult.NonDirectoryAlreadyExists;
+                    return CreateDirectoryStatus.NonDirectoryAlreadyExists;
                 }
             }
             catch (SftpPathNotFoundException spnfe)
             {
                 Console.WriteLine(spnfe.Message);
-                return CreateDirectoryResult.PathNotFound;
+                return CreateDirectoryStatus.PathNotFound;
             }
             catch (SshConnectionException sce)
             {
                 Console.WriteLine(sce.Message);
-                return CreateDirectoryResult.ConnectionError;
+                return CreateDirectoryStatus.ConnectionError;
             }
         }
 
 
         override public bool Exists(string relativePath)
         {
-            var path = new StoragePath(Path.Join(_baseDir, relativePath), _directorySeparator).ToString();
+            var path = new StoragePath(Path.Join(BaseDir, relativePath), _directorySeparator).ToString();
             EnsureConnected();
 
             try
             {
                 return _client.Exists(path);
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 return false;
             }
@@ -192,7 +192,7 @@ namespace Wibblr.Grufs
 
         override public void DeleteDirectory(string relativePath)
         {
-            var path = Path.Join(_baseDir, relativePath);
+            var path = Path.Join(BaseDir, relativePath);
             EnsureConnected();
 
             try
@@ -229,7 +229,7 @@ namespace Wibblr.Grufs
 
         override public (List<string> files, List<string> directories) ListDirectoryEntries(string relativePath)
         {
-            var path = new StoragePath(Path.Join(_baseDir, relativePath), _directorySeparator).ToString();
+            var path = new StoragePath(Path.Join(BaseDir, relativePath), _directorySeparator).ToString();
             EnsureConnected();
 
             var files = new List<string>();
