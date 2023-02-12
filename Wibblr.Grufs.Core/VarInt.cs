@@ -1,6 +1,6 @@
 ﻿using System.Numerics;
 
-namespace Wibblr.Grufs
+namespace Wibblr.Grufs.Core
 {
     /// <summary>
     /// Uses a variable length encoding that is efficient for small unsigned values.

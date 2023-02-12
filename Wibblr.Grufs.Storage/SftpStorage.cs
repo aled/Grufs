@@ -4,7 +4,7 @@ using Renci.SshNet;
 using Renci.SshNet.Common;
 using Renci.SshNet.Sftp;
 
-namespace Wibblr.Grufs
+namespace Wibblr.Grufs.Storage
 {
     public class SftpStorage : AbstractFileStorage, IDisposable
     {

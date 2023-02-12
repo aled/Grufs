@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using Wibblr.Grufs.Core;
+using Wibblr.Grufs.Storage;
 
 namespace Wibblr.Grufs.Cli
 {

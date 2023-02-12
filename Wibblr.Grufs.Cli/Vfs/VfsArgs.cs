@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Wibblr.Grufs.Cli.Sync
+namespace Wibblr.Grufs.Cli
 {
     public class VfsArgs
     {

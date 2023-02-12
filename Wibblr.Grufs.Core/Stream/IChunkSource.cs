@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Wibblr.Grufs
+namespace Wibblr.Grufs.Core
 {
     public interface IChunkSource
     {

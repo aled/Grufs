@@ -1,6 +1,8 @@
 ﻿using System;
 
-namespace Wibblr.Grufs
+using Wibblr.Grufs.Storage;
+
+namespace Wibblr.Grufs.Core
 {
     /// <summary>
     /// Versioning is done by including the version number int the lookup key. Ensure that it is not possible to end up with duplicate keys.
@@ -39,14 +41,14 @@ namespace Wibblr.Grufs
             return _chunkStorage.Put(encryptedChunk, OverwriteStrategy.Deny) == PutStatus.Success;
         }
 
-        public bool TryGetValue(ReadOnlySpan<byte> lookupKey, long sequenceNumber, out Buffer value)
+        public bool TryGetValue(ReadOnlySpan<byte> lookupKey, long sequenceNumber, out ArrayBuffer value)
         {
             var structuredLookupKey = GenerateStructuredLookupKey(lookupKey, sequenceNumber);
             var address =_chunkEncryptor.GetLookupKeyAddress(structuredLookupKey);
 
             if (!_chunkStorage.TryGet(address, out var chunk))
             {
-                value = Buffer.Empty;
+                value = ArrayBuffer.Empty;
                 return false;
             }
 
@@ -54,10 +56,10 @@ namespace Wibblr.Grufs
             return true;
         }
 
-        public IEnumerable<(long, Buffer)> Values(byte[] lookupKey)
+        public IEnumerable<(long, ArrayBuffer)> Values(byte[] lookupKey)
         {
             long i = 0;
-            while (TryGetValue(lookupKey, i, out Buffer value))
+            while (TryGetValue(lookupKey, i, out ArrayBuffer value))
             {
                 yield return (i, value);
                 i++;

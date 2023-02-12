@@ -1,4 +1,4 @@
-﻿namespace Wibblr.Grufs
+﻿namespace Wibblr.Grufs.Storage
 {
     public enum OverwriteStrategy
     {

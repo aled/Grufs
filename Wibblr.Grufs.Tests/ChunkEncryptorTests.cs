@@ -3,6 +3,7 @@ using System.Text;
 
 using FluentAssertions;
 
+using Wibblr.Grufs.Core;
 using Wibblr.Grufs.Encryption;
 
 namespace Wibblr.Grufs.Tests

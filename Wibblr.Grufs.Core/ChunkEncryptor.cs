@@ -1,8 +1,9 @@
 ﻿using System;
 
 using Wibblr.Grufs.Encryption;
+using Wibblr.Grufs.Storage;
 
-namespace Wibblr.Grufs
+namespace Wibblr.Grufs.Core
 {
     /// <summary>
     /// 
@@ -76,7 +77,7 @@ namespace Wibblr.Grufs
             return builder.GetUnderlyingArray();
         }
 
-        public Buffer DecryptContentAddressedChunk(EncryptedChunk chunk)
+        public ArrayBuffer DecryptContentAddressedChunk(EncryptedChunk chunk)
         {
             // Both inner (encrypted) and outer (unencrypted) checksums are validated as part of decryption. 
             var plaintextBuffer = DecryptBytes(chunk.Content);
@@ -93,9 +94,9 @@ namespace Wibblr.Grufs
             return plaintextBuffer;
         }
 
-        public Buffer DecryptBytes(byte[] chunkContent)
+        public ArrayBuffer DecryptBytes(byte[] chunkContent)
         {
-            var encryptedBuffer = new Buffer(chunkContent, chunkContent.Length);
+            var encryptedBuffer = new ArrayBuffer(chunkContent, chunkContent.Length);
             var reader = new BufferReader(encryptedBuffer);
 
             var iv = reader.ReadInitializationVector();
@@ -118,11 +119,11 @@ namespace Wibblr.Grufs
             switch (compressionAlgorithm)
             {
                 case CompressionAlgorithm.None:
-                   return new Buffer(buf, length);
+                   return new ArrayBuffer(buf, length);
 
                 default:
                     var decompressed = new Compressor(compressionAlgorithm).Decompress(buf, length);
-                    return new Buffer(decompressed, decompressed.Length);
+                    return new ArrayBuffer(decompressed, decompressed.Length);
             };
         }
     }

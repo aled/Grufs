@@ -4,7 +4,7 @@ using System.Text;
 
 using Wibblr.Grufs.Core;
 
-namespace Wibblr.Grufs
+namespace Wibblr.Grufs.Filesystem
 {
     public class VirtualFilesystem
     {
@@ -98,7 +98,7 @@ namespace Wibblr.Grufs
                             using (var stream = new FileStream(file.FullName, FileMode.Open))
                             {
                                 var (address, level, stats) = _streamStorage.Write(stream);
-                                Console.WriteLine($"Wrote file {file.FullName} to {directoryPath.NormalizedPath}/{file.Name}, {stats}");
+                                Console.WriteLine($"{file.FullName}, {stats}");
                                 filesBuilder.Add(new FileMetadata(new Filename(file.Name), address, level, new Timestamp(file.LastWriteTimeUtc)));
                             }
                         }

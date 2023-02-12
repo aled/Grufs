@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Diagnostics.CodeAnalysis;
 
-namespace Wibblr.Grufs
+using Wibblr.Grufs.Core;
+
+namespace Wibblr.Grufs.Filesystem
 {
     /// <summary>
     /// Filenames within the repository are not subject to any restrictions on permitted characters, except that the

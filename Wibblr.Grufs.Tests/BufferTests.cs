@@ -1,9 +1,8 @@
-﻿using System;
-using System.Reflection;
-
-using FluentAssertions;
+﻿using FluentAssertions;
 
 using Wibblr.Grufs.Core;
+
+using Buffer = Wibblr.Grufs.Core.ArrayBuffer;
 
 namespace Wibblr.Grufs.Tests
 {

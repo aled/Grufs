@@ -1,6 +1,7 @@
 ﻿using System;
 
 using Wibblr.Grufs.Core;
+using Wibblr.Grufs.Storage;
 
 namespace Wibblr.Grufs.Cli
 {

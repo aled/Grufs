@@ -5,6 +5,7 @@ using FluentAssertions;
 using Xunit;
 
 using Wibblr.Grufs.Core;
+using Wibblr.Grufs.Filesystem;
 
 namespace Wibblr.Grufs.Tests
 {

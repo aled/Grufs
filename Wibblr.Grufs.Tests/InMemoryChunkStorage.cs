@@ -1,5 +1,7 @@
 ﻿using System;
 
+using Wibblr.Grufs.Storage;
+
 namespace Wibblr.Grufs.Tests
 {
     internal class InMemoryChunkStorage : IChunkStorage

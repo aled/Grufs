@@ -2,6 +2,7 @@
 using System.Runtime.CompilerServices;
 
 using Wibblr.Grufs.Core;
+using Wibblr.Grufs.Storage;
 
 [assembly: InternalsVisibleTo("Wibblr.Grufs.Tests")]
 
@@ -9,11 +10,11 @@ namespace Wibblr.Grufs
 {
     public class StreamWriteStats
     {
-        public long totalContentChunkCount;
-        public long totalIndexChunkCount;
+        public long TotalContentChunkCount;
+        public long TotalIndexChunkCount;
         public long dedupedContentChunkCount;
         public long dedupedIndexChunkCount;
-        public long plaintextLength;
+        public long PlaintextLength;
         public long totalStoredContentLength;
         public long totalStoredIndexLength;
         public long dedupedStoredContentLength;
@@ -21,7 +22,7 @@ namespace Wibblr.Grufs
 
         public override string ToString()
         {
-            return $"length:{plaintextLength}, content chunks:{dedupedContentChunkCount}/{totalContentChunkCount}, index chunks:{dedupedIndexChunkCount}/{totalIndexChunkCount}, content bytes:{dedupedStoredContentLength}/{totalStoredContentLength}, index bytes:{dedupedStoredIndexLength}/{totalStoredIndexLength}";
+            return $"length:{PlaintextLength}, content chunks:{dedupedContentChunkCount}/{TotalContentChunkCount}, index chunks:{dedupedIndexChunkCount}/{TotalIndexChunkCount}, content bytes:{dedupedStoredContentLength}/{totalStoredContentLength}, index bytes:{dedupedStoredIndexLength}/{totalStoredIndexLength}";
         }
     }
 
@@ -80,17 +81,17 @@ namespace Wibblr.Grufs
                         case PutStatus.Success:
                             if (level == 0)
                             {
-                                stats.plaintextLength += bytes.Length;
+                                stats.PlaintextLength += bytes.Length;
                                 stats.dedupedContentChunkCount++;
                                 stats.dedupedStoredContentLength += encryptedChunk.Content.LongLength;
-                                stats.totalContentChunkCount++;
+                                stats.TotalContentChunkCount++;
                                 stats.totalStoredContentLength =+ encryptedChunk.Content.LongLength;
                             }
                             else
                             {
                                 stats.dedupedIndexChunkCount++;
                                 stats.dedupedStoredIndexLength += encryptedChunk.Content.LongLength;
-                                stats.totalIndexChunkCount++;
+                                stats.TotalIndexChunkCount++;
                                 stats.totalStoredIndexLength = +encryptedChunk.Content.LongLength;
                             }
                             break;
@@ -98,14 +99,14 @@ namespace Wibblr.Grufs
                         case PutStatus.OverwriteDenied:
                             if (level == 0)
                             {
-                                stats.plaintextLength += len;
-                                stats.dedupedContentChunkCount++;
-                                stats.dedupedStoredContentLength += encryptedChunk.Content.LongLength;
+                                stats.PlaintextLength += len;
+                                stats.TotalContentChunkCount++;
+                                stats.totalStoredContentLength += encryptedChunk.Content.LongLength;
                             }
                             else
                             {
-                                stats.dedupedIndexChunkCount++;
-                                stats.dedupedStoredIndexLength += encryptedChunk.Content.LongLength;
+                                stats.TotalIndexChunkCount++;
+                                stats.totalStoredIndexLength += encryptedChunk.Content.LongLength;
                             }
                             break;
 
@@ -113,7 +114,9 @@ namespace Wibblr.Grufs
                             throw new Exception("Failed to store chunk in repository");
                     }
 
-                    Console.WriteLine(stats);
+                    Console.CursorVisible = false;
+                    Console.Write(stats);
+                    Console.CursorLeft = 0;
                     //Console.WriteLine($"Wrote chunk, level {level}, offset {streamOffset}, length {bytes.Length}, compressed/encrypted length {encryptedChunk.Content.Length}, address {encryptedChunk.Address}");
                     //Console.WriteLine(level == 0 ? Encoding.ASCII.GetString(bytes) : $"   {Convert.ToHexString(bytes)}");
                     //Console.WriteLine("-----------------");
@@ -167,12 +170,12 @@ namespace Wibblr.Grufs
         /// <param name="address"></param>
         /// <returns></returns>
         /// <exception cref="Exception"></exception>
-        public IEnumerable<Buffer> Read(int level, Address address)
+        public IEnumerable<ArrayBuffer> Read(int level, Address address)
         {
             return Read(level, address, new BufferBuilder[level]);
         }
 
-        private IEnumerable<Buffer> Read(int level, Address address, BufferBuilder[] indexBuilders)
+        private IEnumerable<ArrayBuffer> Read(int level, Address address, BufferBuilder[] indexBuilders)
         {
             if (!_chunkStorage.TryGet(address, out var chunk))
             {

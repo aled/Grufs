@@ -1,15 +1,15 @@
 ﻿using System;
 using System.Diagnostics;
 
-namespace Wibblr.Grufs
+namespace Wibblr.Grufs.Core
 {
     [DebuggerDisplay("{ToString()}")]
-    public class Buffer
+    public class ArrayBuffer
     {
         internal byte[] Bytes { get; set; }
         internal int Length { get; set; } = 0;
 
-        public Buffer(byte[] buf, int length)
+        public ArrayBuffer(byte[] buf, int length)
         {
             if (length > buf.Length)
             {
@@ -20,7 +20,7 @@ namespace Wibblr.Grufs
             Length = length;
         }
 
-        public static Buffer Empty = new Buffer(new byte[0], 0);
+        public static ArrayBuffer Empty = new ArrayBuffer(new byte[0], 0);
 
         public ReadOnlySpan<byte> AsSpan() => Bytes.AsSpan(0, Length);
 

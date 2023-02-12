@@ -5,6 +5,7 @@ using System.Security.Cryptography;
 using System.Text;
 
 using Wibblr.Grufs.Encryption;
+using Wibblr.Grufs.Storage;
 
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Wibblr.Grufs.Tests")]
 
@@ -193,7 +194,7 @@ namespace Wibblr.Grufs.Core
             {
                 var (decryptedBuffer, decryptedCount) = encryptor.Decrypt(metadata.EncryptedMasterKeys, metadata.MasterKeysInitializationVector, masterKeysKey);
 
-                var masterKeys = new BufferReader(new Buffer(decryptedBuffer, decryptedCount));
+                var masterKeys = new BufferReader(new ArrayBuffer(decryptedBuffer, decryptedCount));
 
                 var serializationVersion = masterKeys.ReadByte();
                 if (serializationVersion != 0)

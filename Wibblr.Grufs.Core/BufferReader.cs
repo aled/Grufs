@@ -2,15 +2,15 @@
 using System.Buffers.Binary;
 using Wibblr.Grufs.Encryption;
 
-namespace Wibblr.Grufs
+namespace Wibblr.Grufs.Core
 {
     [DebuggerDisplay("{_buffer.ToString()}")]
     public class BufferReader
     {
         public int _offset = 0;
-        private readonly Buffer _buffer;
+        private readonly ArrayBuffer _buffer;
 
-        public BufferReader(Buffer buffer)
+        public BufferReader(ArrayBuffer buffer)
         {
             _buffer = buffer;
         }

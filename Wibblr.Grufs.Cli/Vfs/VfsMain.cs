@@ -5,8 +5,8 @@ using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 
-using Wibblr.Grufs.Cli.Sync;
 using Wibblr.Grufs.Core;
+using Wibblr.Grufs.Filesystem;
 
 namespace Wibblr.Grufs.Cli
 {

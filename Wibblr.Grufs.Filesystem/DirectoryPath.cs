@@ -2,7 +2,9 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 
-namespace Wibblr.Grufs
+using Wibblr.Grufs.Core;
+
+namespace Wibblr.Grufs.Filesystem
 {
     public record struct DirectoryPath
     {

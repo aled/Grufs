@@ -1,6 +1,8 @@
 ﻿using System;
 
-namespace Wibblr.Grufs
+using Wibblr.Grufs.Storage;
+
+namespace Wibblr.Grufs.Core
 {
     public class UnversionedDictionaryStorage
     {
@@ -32,14 +34,14 @@ namespace Wibblr.Grufs
             return _chunkStorage.Put(encryptedChunk, overwrite);
         }
 
-        public bool TryGetValue(ReadOnlySpan<byte> lookupKey, out Buffer value)
+        public bool TryGetValue(ReadOnlySpan<byte> lookupKey, out ArrayBuffer value)
         {
             var structuredLookupKey = GenerateStructuredLookupKey(lookupKey);
             var address = _chunkEncryptor.GetLookupKeyAddress(structuredLookupKey);
 
             if (!_chunkStorage.TryGet(address, out var chunk))
             {
-                value = Buffer.Empty;
+                value = ArrayBuffer.Empty;
                 return false;
             }
 

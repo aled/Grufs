@@ -1,7 +1,10 @@
 ﻿using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 
-namespace Wibblr.Grufs
+using Wibblr.Grufs.Core;
+using Wibblr.Grufs.Storage;
+
+namespace Wibblr.Grufs.Filesystem
 {
     [DebuggerDisplay("{ToString()}")]
     public record struct FileMetadata 

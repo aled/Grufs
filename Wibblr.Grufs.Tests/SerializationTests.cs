@@ -3,6 +3,9 @@
 using Wibblr.Grufs;
 
 using FluentAssertions;
+using Wibblr.Grufs.Filesystem;
+using Wibblr.Grufs.Core;
+using Wibblr.Grufs.Storage;
 
 namespace Wibblr.Grufs.Tests
 {

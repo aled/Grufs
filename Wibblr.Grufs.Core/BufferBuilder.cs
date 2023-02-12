@@ -4,7 +4,7 @@ using System.Buffers.Binary;
 
 using Wibblr.Grufs.Encryption;
 
-namespace Wibblr.Grufs
+namespace Wibblr.Grufs.Core
 {
     [DebuggerDisplay("{_buffer.ToString()}")]
     public class BufferBuilder
@@ -154,9 +154,9 @@ namespace Wibblr.Grufs
 
         public int RemainingLength() => _buf.Length - _offset;
 
-        public Buffer ToBuffer()
+        public ArrayBuffer ToBuffer()
         {
-            return new Buffer(_buf, _offset);
+            return new ArrayBuffer(_buf, _offset);
         }
 
         internal byte[] GetUnderlyingArray() => _buf;

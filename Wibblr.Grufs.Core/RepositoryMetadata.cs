@@ -2,7 +2,7 @@
 
 using Wibblr.Grufs.Encryption;
 
-namespace Wibblr.Grufs
+namespace Wibblr.Grufs.Core
 {
     internal class RepositoryMetadata
     {
@@ -20,7 +20,7 @@ namespace Wibblr.Grufs
             EncryptedMasterKeys = encryptedMasterKeys.ToArray();
         }
 
-        public RepositoryMetadata(Buffer buffer)
+        public RepositoryMetadata(ArrayBuffer buffer)
         {
             try
             {

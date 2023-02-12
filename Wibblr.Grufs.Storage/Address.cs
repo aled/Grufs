@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Runtime.Intrinsics;
 
-namespace Wibblr.Grufs
+namespace Wibblr.Grufs.Storage
 {
     [DebuggerDisplay("{ToString()}")]
     public record struct Address

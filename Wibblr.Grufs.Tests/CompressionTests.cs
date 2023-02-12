@@ -2,6 +2,7 @@
 
 using FluentAssertions;
 
+using Wibblr.Grufs.Core;
 using Wibblr.Grufs.Encryption;
 
 namespace Wibblr.Grufs.Tests
@@ -35,7 +36,7 @@ namespace Wibblr.Grufs.Tests
             var repository = new InMemoryChunkStorage();
             var (address, level, stats) = streamStorage.Write(stream);
 
-            stats.plaintextLength.Should().Be(plaintextBytes.LongLength);
+            stats.PlaintextLength.Should().Be(plaintextBytes.LongLength);
             
 
             var decryptedStream = new MemoryStream();

@@ -1,4 +1,6 @@
-﻿namespace Wibblr.Grufs
+﻿using Wibblr.Grufs.Core;
+
+namespace Wibblr.Grufs.Filesystem
 {
     public static class BufferExtensions
     {

@@ -2,7 +2,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 
-namespace Wibblr.Grufs
+namespace Wibblr.Grufs.Core
 {
     /// <summary>
     /// Takes an byte source, and yields chunks of data that are split based on the properties of the rolling checksum at the split point.
