@@ -89,7 +89,8 @@ namespace Wibblr.Grufs.Cli
         {
             if (_args.Recursive)
             {
-                new VirtualFilesystem(repo, "[default]").UploadDirectoryRecursive(_args.LocalPath, new DirectoryPath(_args.VfsPath));
+                var (_, _, stats) = new VirtualFilesystem(repo, "[default]").UploadDirectoryRecursive(_args.LocalPath, new DirectoryPath(_args.VfsPath));
+                Console.WriteLine(stats);
             }
             else
             {

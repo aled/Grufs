@@ -42,11 +42,12 @@ namespace Wibblr.Grufs.Filesystem
             throw new Exception("Missing directory version");
         }
 
+        // TODO: return stats
         private (VirtualDirectory, long version) WriteVirtualDirectoryVersion(VirtualDirectory directory, long version)
         {
             var serialized = new BufferBuilder(directory.GetSerializedLength()).AppendVirtualDirectory(directory).ToBuffer();
             var lookupKey = GetDirectoryLookupKey(directory.Path.CanonicalPath);
-            //[x] return value?
+            //TODO return status as enum
             _dictionaryStorage.TryPutValue(lookupKey, version, serialized.AsSpan());
             return (directory, version);
         }
@@ -75,10 +76,12 @@ namespace Wibblr.Grufs.Filesystem
         }
 
         // TODO: refactor this
-        public (VirtualDirectory, long version) UploadDirectoryRecursive(string localDirectoryPath, DirectoryPath directoryPath, bool recursive = true)
+        public (VirtualDirectory, long version, StreamWriteStats stats) UploadDirectoryRecursive(string localDirectoryPath, DirectoryPath directoryPath, bool recursive = true)
         {
-            (VirtualDirectory, long version) UploadDirectoryRecursive(string localDirectoryPath, DirectoryPath directoryPath, long parentVersion, bool recursive)
+            (VirtualDirectory, long version, StreamWriteStats stats) UploadDirectoryRecursive(string localDirectoryPath, DirectoryPath directoryPath, long parentVersion, bool recursive)
             {
+                var cumulativeStats = new StreamWriteStats();
+
                 // Upload all local files, recording the address/chunk type/other metadata of each
                 var filesBuilder = ImmutableArray.CreateBuilder<FileMetadata>();
                 var directoriesBuilder = ImmutableArray.CreateBuilder<Filename>();
@@ -97,8 +100,9 @@ namespace Wibblr.Grufs.Filesystem
                         {
                             using (var stream = new FileStream(file.FullName, FileMode.Open))
                             {
-                                var (address, level, stats) = _streamStorage.Write(stream);
-                                Console.WriteLine($"{file.FullName}, {stats}");
+                                var (address, level, fileStats) = _streamStorage.Write(stream);
+                                cumulativeStats.Add(fileStats);
+                                Console.WriteLine($"{file.FullName}, {fileStats}");
                                 filesBuilder.Add(new FileMetadata(new Filename(file.Name), address, level, new Timestamp(file.LastWriteTimeUtc)));
                             }
                         }
@@ -119,7 +123,7 @@ namespace Wibblr.Grufs.Filesystem
 
                 // upload this directory
                 var (directory, version) = GetLatestVirtualDirectory(directoryPath);
-                (VirtualDirectory, long version) ret;
+                (VirtualDirectory directory, long version) ret;
 
                 if (directory == null)
                 {
@@ -128,15 +132,20 @@ namespace Wibblr.Grufs.Filesystem
                 }
                 else
                 {
-                    var preExistingFiles = directory.Files.Except(filesBuilder);
-                    filesBuilder.AddRange(preExistingFiles);
+                    // TODO: surface this option from the UI
+                    var deleteOption = true;
+                    if (!deleteOption)
+                    {
+                        var preExistingFiles = directory.Files.Except(filesBuilder);
+                        filesBuilder.AddRange(preExistingFiles);
 
-                    var preExistingDirectories = directory.Directories.Except(directoriesBuilder);
-                    directoriesBuilder.AddRange(preExistingDirectories);
+                        var preExistingDirectories = directory.Directories.Except(directoriesBuilder);
+                        directoriesBuilder.AddRange(preExistingDirectories);
+                    }
 
                     var updated = recursive
-                        ? directory with { Files = filesBuilder.ToImmutableArray(), Directories = directoriesBuilder.ToImmutableArray() }
-                        : directory with { Files = filesBuilder.ToImmutableArray() };
+                        ? directory with { Files = filesBuilder.OrderBy(x => x.Name.CanonicalName).ToImmutableArray(), Directories = directoriesBuilder.OrderBy(x => x.CanonicalName).ToImmutableArray() }
+                        : directory with { Files = filesBuilder.OrderBy(x => x.Name.CanonicalName).ToImmutableArray() };
 
                     if (!updated.Equals(directory))
                     {
@@ -151,10 +160,11 @@ namespace Wibblr.Grufs.Filesystem
 
                 foreach (var d in directoriesBuilder)
                 {
-                    UploadDirectoryRecursive(new DirectoryPath(di.FullName) + "/" + d, new DirectoryPath(directoryPath + "/" + d), version + 1, recursive);
+                    var (_, _, stats) = UploadDirectoryRecursive(new DirectoryPath(di.FullName) + "/" + d, new DirectoryPath(directoryPath + "/" + d), version + 1, recursive);
+                    cumulativeStats.Add(stats);
                 }
 
-                return ret;
+                return (ret.directory, ret.version, cumulativeStats);
             }
 
             long parentVersion = 0; // default value for root directory

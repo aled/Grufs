@@ -1,30 +1,13 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
 
-using Wibblr.Grufs.Core;
 using Wibblr.Grufs.Storage;
 
 [assembly: InternalsVisibleTo("Wibblr.Grufs.Tests")]
 
-namespace Wibblr.Grufs
+namespace Wibblr.Grufs.Core
 {
-    public class StreamWriteStats
-    {
-        public long TotalContentChunkCount;
-        public long TotalIndexChunkCount;
-        public long dedupedContentChunkCount;
-        public long dedupedIndexChunkCount;
-        public long PlaintextLength;
-        public long totalStoredContentLength;
-        public long totalStoredIndexLength;
-        public long dedupedStoredContentLength;
-        public long dedupedStoredIndexLength;
-
-        public override string ToString()
-        {
-            return $"length:{PlaintextLength}, content chunks:{dedupedContentChunkCount}/{TotalContentChunkCount}, index chunks:{dedupedIndexChunkCount}/{TotalIndexChunkCount}, content bytes:{dedupedStoredContentLength}/{totalStoredContentLength}, index bytes:{dedupedStoredIndexLength}/{totalStoredIndexLength}";
-        }
-    }
+    public record StreamWriteResult(Address address, byte indexLevel, StreamWriteStats stats);
 
     public class StreamStorage
     {
@@ -39,7 +22,7 @@ namespace Wibblr.Grufs
             _chunkEncryptor = chunkEncryptor;
         }
 
-        public (Address, byte, StreamWriteStats) Write(Stream stream)
+        public StreamWriteResult Write(Stream stream)
         {
             var byteSource = new StreamByteSource(stream);
             var chunkSource = _chunkSourceFactory.Create(byteSource);
@@ -48,7 +31,7 @@ namespace Wibblr.Grufs
             var stats = new StreamWriteStats();
 
             var (address, level) = Write(chunkSource, level: 0);
-            return (address, level, stats);
+            return new StreamWriteResult(address, level, stats);
 
             (Address, byte) Write(IChunkSource chunkSource, byte level)
             {
@@ -82,17 +65,17 @@ namespace Wibblr.Grufs
                             if (level == 0)
                             {
                                 stats.PlaintextLength += bytes.Length;
-                                stats.dedupedContentChunkCount++;
-                                stats.dedupedStoredContentLength += encryptedChunk.Content.LongLength;
-                                stats.TotalContentChunkCount++;
-                                stats.totalStoredContentLength =+ encryptedChunk.Content.LongLength;
+                                stats.TransferredContentChunks++;
+                                stats.TransferredContentBytes += encryptedChunk.Content.LongLength;
+                                stats.TotalContentChunks++;
+                                stats.TotalContentBytes += encryptedChunk.Content.LongLength;
                             }
                             else
                             {
-                                stats.dedupedIndexChunkCount++;
-                                stats.dedupedStoredIndexLength += encryptedChunk.Content.LongLength;
-                                stats.TotalIndexChunkCount++;
-                                stats.totalStoredIndexLength = +encryptedChunk.Content.LongLength;
+                                stats.TransferredIndexChunks++;
+                                stats.TransferredIndexBytes += encryptedChunk.Content.LongLength;
+                                stats.TotalIndexChunks++;
+                                stats.TotalIndexBytes += encryptedChunk.Content.LongLength;
                             }
                             break;
 
@@ -100,13 +83,13 @@ namespace Wibblr.Grufs
                             if (level == 0)
                             {
                                 stats.PlaintextLength += len;
-                                stats.TotalContentChunkCount++;
-                                stats.totalStoredContentLength += encryptedChunk.Content.LongLength;
+                                stats.TotalContentChunks++;
+                                stats.TotalContentBytes += encryptedChunk.Content.LongLength;
                             }
                             else
                             {
-                                stats.TotalIndexChunkCount++;
-                                stats.totalStoredIndexLength += encryptedChunk.Content.LongLength;
+                                stats.TotalIndexChunks++;
+                                stats.TotalIndexBytes += encryptedChunk.Content.LongLength;
                             }
                             break;
 
