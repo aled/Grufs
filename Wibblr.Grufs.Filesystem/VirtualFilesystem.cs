@@ -52,7 +52,7 @@ namespace Wibblr.Grufs.Filesystem
             return (directory, version);
         }
 
-        private (VirtualDirectory, long version) EnsureDirectoryContains(DirectoryPath directoryPath, Filename childDirectoryName, long parentVersion)
+        private (VirtualDirectory, long version) EnsureDirectoryContains(DirectoryPath directoryPath, Filename childDirectoryName, long parentVersion, Timestamp snapshotTimestamp)
         {
             var (virtualDirectory, version) = GetLatestVirtualDirectory(directoryPath);
 
@@ -65,19 +65,21 @@ namespace Wibblr.Grufs.Filesystem
                 }
 
                 return WriteVirtualDirectoryVersion(
-                    virtualDirectory with { Directories = virtualDirectory.Directories.Add(childDirectoryName) },
+                    virtualDirectory with { Directories = virtualDirectory.Directories.Add(childDirectoryName), SnapshotTimestamp = snapshotTimestamp },
                     version + 1);
             }
 
             // directory does not exist, create.
             return WriteVirtualDirectoryVersion(
-                new VirtualDirectory(directoryPath, parentVersion, Timestamp.Now, false, new FileMetadata[0], new Filename[] { childDirectoryName }),
+                new VirtualDirectory(directoryPath, parentVersion, snapshotTimestamp, false, new FileMetadata[0], new Filename[] { childDirectoryName }),
                 0);
         }
 
         // TODO: refactor this
         public (VirtualDirectory, long version, StreamWriteStats stats) UploadDirectoryRecursive(string localDirectoryPath, DirectoryPath directoryPath, bool recursive = true)
         {
+            var snapshotTimestamp = new Timestamp(DateTime.UtcNow);
+
             (VirtualDirectory, long version, StreamWriteStats stats) UploadDirectoryRecursive(string localDirectoryPath, DirectoryPath directoryPath, long parentVersion, bool recursive)
             {
                 var cumulativeStats = new StreamWriteStats();
@@ -103,7 +105,7 @@ namespace Wibblr.Grufs.Filesystem
                                 var (address, level, fileStats) = _streamStorage.Write(stream);
                                 cumulativeStats.Add(fileStats);
                                 Console.WriteLine($"{file.FullName}, {fileStats}");
-                                filesBuilder.Add(new FileMetadata(new Filename(file.Name), address, level, new Timestamp(file.LastWriteTimeUtc)));
+                                filesBuilder.Add(new FileMetadata(new Filename(file.Name), address, level, snapshotTimestamp, new Timestamp(file.LastWriteTimeUtc), file.Length));
                             }
                         }
                         catch (IOException)
@@ -127,7 +129,7 @@ namespace Wibblr.Grufs.Filesystem
 
                 if (directory == null)
                 {
-                    ret = WriteVirtualDirectoryVersion(new VirtualDirectory(directoryPath, 0, new Timestamp(di.LastWriteTimeUtc), false, filesBuilder.ToImmutableArray(), directoriesBuilder.ToImmutableArray()), 0);
+                    ret = WriteVirtualDirectoryVersion(new VirtualDirectory(directoryPath, 0, snapshotTimestamp, false, filesBuilder.ToImmutableArray(), directoriesBuilder.ToImmutableArray()), 0);
                     Console.WriteLine($"Write new virtual directory version: {directoryPath}, {version}");
                 }
                 else
@@ -174,7 +176,7 @@ namespace Wibblr.Grufs.Filesystem
             foreach (var (dirPath, childDirName) in directoryPath.PathHierarchy())
             {
                 // ensure that dir exists, and contains childDir
-                (_, parentVersion) = EnsureDirectoryContains(dirPath, childDirName, parentVersion);
+                (_, parentVersion) = EnsureDirectoryContains(dirPath, childDirName, parentVersion, snapshotTimestamp);
             }
 
             return UploadDirectoryRecursive(localDirectoryPath, directoryPath, parentVersion, recursive);
@@ -183,6 +185,8 @@ namespace Wibblr.Grufs.Filesystem
         // Non recursive upload of a local directory to the repository
         public (VirtualDirectory, long version) UploadDirectoryNonRecursive(string localDirectoryPath, DirectoryPath directoryPath)
         {
+            var snapshotTimestamp = new Timestamp(DateTime.UtcNow);
+
             long parentVersion = 0; // default value for root directory
 
             // Starting at the root and going down to the parent of this directory, ensure each directory exists and contains the child directory
@@ -190,7 +194,7 @@ namespace Wibblr.Grufs.Filesystem
             foreach (var (dirPath, childDirName) in directoryPath.PathHierarchy())
             {
                 // ensure that dir exists, and contains childDir
-                (_, parentVersion) = EnsureDirectoryContains(dirPath, childDirName, parentVersion);
+                (_, parentVersion) = EnsureDirectoryContains(dirPath, childDirName, parentVersion, snapshotTimestamp);
             }
 
             // Upload all local files, recording the address/chunk type/other metadata of each
@@ -208,7 +212,7 @@ namespace Wibblr.Grufs.Filesystem
                 using (var stream = new FileStream(file.FullName, FileMode.Open))
                 {
                     var (address, level, stats) = _streamStorage.Write(stream);
-                    filesBuilder.Add(new FileMetadata(new Filename(file.Name), address, level, new Timestamp(file.LastWriteTimeUtc)));
+                    filesBuilder.Add(new FileMetadata(new Filename(file.Name), address, level, snapshotTimestamp, new Timestamp(file.LastWriteTimeUtc), file.Length));
                 }
             }
 
@@ -217,7 +221,7 @@ namespace Wibblr.Grufs.Filesystem
 
             if (directory == null)
             {
-                return WriteVirtualDirectoryVersion(new VirtualDirectory(directoryPath, parentVersion, new Timestamp(di.LastWriteTimeUtc), false, filesBuilder.ToImmutableArray(), new Filename[0]), 0);
+                return WriteVirtualDirectoryVersion(new VirtualDirectory(directoryPath, parentVersion, snapshotTimestamp, false, filesBuilder.ToImmutableArray(), new Filename[0]), 0);
             }
 
             var oldFiles = directory.Files.Except(filesBuilder);
@@ -240,10 +244,10 @@ namespace Wibblr.Grufs.Filesystem
                 {
                     continue;
                 }
-                Console.WriteLine(directory.LastModifiedTimestamp.ToString("yyyy-MM-dd HH:mm:ss") + " " +  version.ToString("0000") + " " + directory.Path.NormalizedPath);
+                Console.WriteLine(directory.SnapshotTimestamp.ToString("yyyy-MM-dd HH:mm:ss") + " " +  version.ToString("0000") + " " + directory.Path.NormalizedPath);
                 foreach (var file in directory.Files)
                 {
-                    Console.WriteLine(directory.LastModifiedTimestamp.ToString("yyyy-MM-dd HH:mm:ss") + "      " + directory.Path.NormalizedPath + "/" + file.Name.ToString());
+                    Console.WriteLine(directory.SnapshotTimestamp.ToString("yyyy-MM-dd HH:mm:ss") + "      " + directory.Path.NormalizedPath + "/" + file.Name.ToString());
                 }
                 foreach (var subDir in directory.Directories)
                 {
@@ -271,13 +275,20 @@ namespace Wibblr.Grufs.Filesystem
                     var address = file.Address;
 
                     var buffers = _streamStorage.Read(level, address);
-
-                    using (var stream = new FileStream(Path.Join(localDirectoryPath, file.Name.OriginalName), FileMode.CreateNew))
+                    var localPath = Path.Join(localDirectoryPath, file.Name.OriginalName);
+                    using (var stream = new FileStream(localPath, FileMode.Truncate))
                     {
+                        var bytesWritten = 0;
+
                         foreach (var buffer in buffers)
                         {
                             stream.Write(buffer.AsSpan());
+                            bytesWritten += buffer.AsSpan().Length;
+                            Console.CursorVisible = false;
+                            Console.Write(localPath + " " + bytesWritten + "/" + file.Size);
+                            Console.CursorLeft = 0;
                         }
+                        Console.WriteLine();
                     }
                 }
             }
@@ -286,7 +297,7 @@ namespace Wibblr.Grufs.Filesystem
             {
                 foreach (var subdir in directory.Directories)
                 {
-                    Download(new DirectoryPath(path + "/" + subdir), null, Path.Join(localDirectoryPath, subdir.OriginalName));
+                    Download(new DirectoryPath(path + "/" + subdir), null, Path.Join(localDirectoryPath, subdir.OriginalName), true);
                 }
             }
         }

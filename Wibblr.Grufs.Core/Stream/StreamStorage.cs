@@ -166,7 +166,7 @@ namespace Wibblr.Grufs.Core
             }
 
             var buffer = _chunkEncryptor.DecryptContentAddressedChunk(chunk);
-            Console.WriteLine($"Read chunk; level = {level} address = {address}");
+            //Console.WriteLine($"Read chunk; level = {level} address = {address}");
 
             if (level == 0)
             {

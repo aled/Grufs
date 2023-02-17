@@ -146,9 +146,11 @@ namespace Wibblr.Grufs.Tests
         {
             var name = new Filename("asdf");
             var address = new Address(new byte[32]);
-            var timestamp = new Timestamp("2001-01-01T10:00:00.1234567");
-
-            var file = new FileMetadata(name, address, 0, timestamp);
+            var snapshotTimestamp = new Timestamp("2002-01-01T10:00:00.1234567");
+            var lastModified = new Timestamp("2001-01-01T10:00:00.1234567");
+            var size = 123456L;
+            
+            var file = new FileMetadata(name, address, 0, snapshotTimestamp, lastModified, size);
 
             var builder = new BufferBuilder(file.GetSerializedLength());
             var buffer = builder.AppendFileMetadata(file).ToBuffer();
@@ -164,21 +166,26 @@ namespace Wibblr.Grufs.Tests
         {
             var path = new DirectoryPath("a/b/c/d/e");
             var parentVersion = 123L;
-            var timestamp = new Timestamp("2001-01-01T10:00:00.1234567");
+            var snapshotTimestamp = new Timestamp("2002-01-01T10:00:00.1234567");
             var isDeleted = false;
+            var size = 1234L;
             var files = new[]
             {
                 new FileMetadata(
                     new Filename("asdf"),
                     new Address(new byte[32]),
                     0,
-                    new Timestamp("2001-01-01T10:00:00.1234567")),
+                    snapshotTimestamp,
+                    new Timestamp("2001-01-01T10:00:00.1234567"),
+                    size),
 
                 new FileMetadata(
                     new Filename("qwer"),
                     new Address(new byte[32]),
                     0,
-                    new Timestamp("2001-01-01T10:00:00.1234567"))
+                    snapshotTimestamp,
+                    new Timestamp("2001-01-01T10:00:00.1234567"),
+                    size)
             };
             var directories = new[]
             {
@@ -186,7 +193,7 @@ namespace Wibblr.Grufs.Tests
                 new Filename("g")
             };
 
-            var directory = new VirtualDirectory(path, parentVersion, timestamp, isDeleted, files, directories);
+            var directory = new VirtualDirectory(path, parentVersion, snapshotTimestamp, isDeleted, files, directories);
             
             var builder = new BufferBuilder(directory.GetSerializedLength());
             var buffer = builder.AppendVirtualDirectory(directory).ToBuffer();
