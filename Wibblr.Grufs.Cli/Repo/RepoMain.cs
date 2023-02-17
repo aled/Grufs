@@ -162,7 +162,7 @@ namespace Wibblr.Grufs.Cli
 
         private int Unregister(string repoRegistrationPath)
         {
-            if (File.Exists(repoRegistrationPath))
+            if (!File.Exists(repoRegistrationPath))
             {
                 Console.WriteLine($"Repository '{_repoArgs.RepoName}' is not registered");
                 return -1;
