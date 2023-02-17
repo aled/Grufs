@@ -21,8 +21,8 @@ e.g.
 - client 1 backs up directory "c:\my music" using backup name "client1-music"
 - client 2 backs up directory "c:\mp3s" using backup name "client2-mp3s"
 
-## Sync mode
-In sync mode, metadata for each directory is stored separately. Directory metadata contains a list of files and directories, plus 
+## Vfs mode
+In vfs mode, metadata for each directory is stored separately. Directory metadata contains a list of files and directories, plus 
 the version number of the parent directory.
 
 For files, the metadata contains the filename and it's address. For directories, the metadata contains only the directory name.

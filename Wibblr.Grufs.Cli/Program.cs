@@ -9,13 +9,13 @@
      ///   - Backup   Can be used to securely store backups of a local filesystem. These backups are immutable.
      ///              Works similarly to restic/tarsnap/borg, but usable on Windows.
      ///   
-     ///   - Sync     Individual files or directories can be synced (uploaded and downloaded) to a virtual filesystem on the remote storage. Multiple clients can use the same 
+     ///   - Vfs      Individual files or directories can be synced (uploaded and downloaded) to a virtual filesystem on the remote storage. Multiple clients can use the same 
      ///              virtual filesystem. Importantly, files are deduplicated regardless of whether they are backed up or synced.
      ///              It is possible to retrieve all previous versions of a synced file or directory.
      ///
      /// Usage:
      ///   - grufs.exe command subcommand [options]
-     ///       where command is repo, backup, restore, sync
+     ///       where command is repo, backup, restore, vfs
      ///
      ///  - repo subcommands:
      ///      init, register, unregister, list, scrub
@@ -48,8 +48,8 @@
      ///    -- grufs.exe backup mybackup
      ///    -- grufs.exe restore mybackup --include **/*.mp3 --destination c:\my-restore-dir 
      ///
-     ///  - sync subcommands
-     ///    -- grufs.exe sync [--list-versions] [--upload] [--download] [--no-recursive] [--no-delete] [--trust-storage] c:\mydirectory my-storage:my-virtual-filesystem:some/other/directory
+     ///  - vfs subcommands
+     ///    -- grufs.exe vfs [--list-versions] [--upload] [--download] [--no-recursive] [--no-delete] [--trust-storage] c:\mydirectory my-storage:my-virtual-filesystem:some/other/directory
      ///
      /// </summary>
     public class Program
