@@ -87,6 +87,15 @@ namespace Wibblr.Grufs.Cli
 
         public int Upload(Repository repo)
         {
+            if (_args.LocalPath == null)
+            {
+                throw new UsageException("Local path not specified (--local-path c:\\temp)");
+            }
+            if (_args.VfsPath == null)
+            {
+                throw new UsageException("Vfs path not specified (--local-path /path/to/dir)");
+            }
+
             if (_args.Recursive)
             {
                 var (_, _, stats) = new VirtualFilesystem(repo, "[default]").UploadDirectoryRecursive(_args.LocalPath, new DirectoryPath(_args.VfsPath));
@@ -107,6 +116,15 @@ namespace Wibblr.Grufs.Cli
 
         public int Download(Repository repo)
         {
+            if (_args.LocalPath == null)
+            {
+                throw new UsageException("Local path not specified (--local-path c:\\temp)");
+            }
+            if (_args.VfsPath == null)
+            {
+                throw new UsageException("Vfs path not specified (--local-path /path/to/dir)");
+            }
+
             // TODO: don't require upfront arg to specify file or directory - discover at runtime
             if (_args.FileOnly)
             {
@@ -114,11 +132,13 @@ namespace Wibblr.Grufs.Cli
                 var virtualFile = _args.VfsPath.Substring(separatorIndex);
                 var virtualDirectory = _args.VfsPath.Substring(0, separatorIndex);
 
-                new VirtualFilesystem(repo, "[default]").Download(new DirectoryPath(virtualDirectory), new Filename(virtualFile), _args.LocalPath);
+                new VirtualFilesystem(repo, "[default]").Download(new DirectoryPath(virtualDirectory), new Filename(virtualFile), _args.LocalPath, false);
             }
             else
             {
-                new VirtualFilesystem(repo, "[default]").Download(new DirectoryPath(_args.VfsPath), null, _args.LocalPath);
+                var recursive = _args.Recursive;
+
+                new VirtualFilesystem(repo, "[default]").Download(new DirectoryPath(_args.VfsPath), null, _args.LocalPath, recursive);
             }
             return 0;
         }

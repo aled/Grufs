@@ -252,7 +252,7 @@ namespace Wibblr.Grufs.Filesystem
             }
         }
 
-        public void Download(DirectoryPath path, Filename? filename, string localDirectoryPath)
+        public void Download(DirectoryPath path, Filename? filename, string localDirectoryPath, bool recursive)
         {
             var (directory, version) = GetLatestVirtualDirectory(path);
 
@@ -282,9 +282,12 @@ namespace Wibblr.Grufs.Filesystem
                 }
             }
 
-            foreach (var subdir in directory.Directories)
+            if (recursive)
             {
-                Download(new DirectoryPath(path + "/" + subdir), null, Path.Join(localDirectoryPath, subdir.OriginalName));
+                foreach (var subdir in directory.Directories)
+                {
+                    Download(new DirectoryPath(path + "/" + subdir), null, Path.Join(localDirectoryPath, subdir.OriginalName));
+                }
             }
         }
 
