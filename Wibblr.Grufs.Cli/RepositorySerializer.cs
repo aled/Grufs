@@ -1,12 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection.Metadata.Ecma335;
-using System.Text;
-using System.Threading.Tasks;
 
 using Wibblr.Grufs.Core;
 using Wibblr.Grufs.Storage;
+using Wibblr.Grufs.Storage.Sqlite;
 
 namespace Wibblr.Grufs.Cli
 {
@@ -33,7 +29,12 @@ namespace Wibblr.Grufs.Cli
             Add(RepoName, repo.Name);
             Add(EncryptionPassword, repo.EncryptionPassword);
 
-            if (repo.ChunkStorage is SftpStorage sftpStorage)
+            if (repo.ChunkStorage is SqliteStorage sqliteStorage)
+            {
+                Add(Protocol, "sqlite");
+                Add(BaseDir, sqliteStorage.BaseDir);
+            }
+            else if (repo.ChunkStorage is SftpStorage sftpStorage)
             {
                 Add(Protocol, "sftp");
                 Add(Host, sftpStorage.Host);
@@ -59,11 +60,12 @@ namespace Wibblr.Grufs.Cli
         {
             var items = new SkvSerializer().Deserialize(skv);
 
-            string GetString(string key) => items.Single(x => x.Key == key).Value as string ?? throw new Exception();
+            string GetString(string key) => items.Single(x => x.Key == key).Value as string ?? throw new Exception($"Unable to find string {key}");
             int GetInt(string key) => items.Single(x => x.Key == key).Value as int? ?? throw new Exception();
 
             IChunkStorage storage = GetString(Protocol) switch
             {
+                "sqlite" => new SqliteStorage(Path.Join(GetString(BaseDir), GetString(RepoName) + ".sqlite")),
                 "sftp" => new SftpStorage(GetString(Host), GetInt(Port), GetString(Username), GetString(Password), GetString(BaseDir)),
                 "directory" => new DirectoryStorage(GetString(BaseDir)),
                 _ => throw new Exception()

@@ -15,6 +15,10 @@
     "storage init directory": {
       "commandName": "Project",
       "commandLineArgs": "repo --init --name testrepo1 --basedir g:\\temp\\grufs-testing\\testrepo1 -e correct-horse-battery-staple"
+    },
+    "repo init sqlite": {
+      "commandName": "Project",
+      "commandLineArgs": "repo --init -n repo1 -p sqlite --basedir c:\\temp\\grufs -e correct-horse-battery-staple"
     }
   }
 }

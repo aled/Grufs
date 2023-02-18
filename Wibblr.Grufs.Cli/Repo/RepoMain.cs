@@ -2,6 +2,7 @@
 
 using Wibblr.Grufs.Core;
 using Wibblr.Grufs.Storage;
+using Wibblr.Grufs.Storage.Sqlite;
 
 namespace Wibblr.Grufs.Cli
 {
@@ -100,6 +101,9 @@ namespace Wibblr.Grufs.Cli
 
             IChunkStorage storage = _repoArgs.Protocol switch
             {
+                "sqlite" => new SqliteStorage(
+                            Path.Join(_repoArgs.BaseDir, _repoArgs.RepoName + ".sqlite")),
+
                 "sftp" => new SftpStorage(
                             _repoArgs.Host ?? throw new UsageException("Host not specified"),
                             _repoArgs.Port ?? 22,
