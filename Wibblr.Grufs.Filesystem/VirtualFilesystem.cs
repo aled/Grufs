@@ -276,7 +276,7 @@ namespace Wibblr.Grufs.Filesystem
 
                     var buffers = _streamStorage.Read(level, address);
                     var localPath = Path.Join(localDirectoryPath, file.Name.OriginalName);
-                    using (var stream = new FileStream(localPath, FileMode.Truncate))
+                    using (var stream = new FileStream(localPath, FileMode.Create))
                     {
                         var bytesWritten = 0;
 
