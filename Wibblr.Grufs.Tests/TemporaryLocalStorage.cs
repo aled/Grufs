@@ -4,15 +4,16 @@ using Wibblr.Grufs.Storage;
 
 namespace Wibblr.Grufs.Tests
 {
-    public class TemporaryDirectoryStorage : ITemporaryFileStorage, IDisposable
+    public class TemporaryLocalStorage : IChunkStorageFactory, IFileStorageFactory, IDisposable
     {
         internal AbstractFileStorage _storage;
 
         internal string BaseDir { get; set; }
 
+        public IChunkStorage GetChunkStorage() => _storage;
         public AbstractFileStorage GetFileStorage() => _storage;
 
-        public TemporaryDirectoryStorage() 
+        public TemporaryLocalStorage()
         {
             BaseDir = Path.Join(Path.GetTempPath(), "grufs", $"test-{DateTime.UtcNow.ToString("yyyyMMdd-HHmmss")}-{Convert.ToHexString(RandomNumberGenerator.GetBytes(8))}");
             Console.WriteLine($"Using local temporary directory {BaseDir}");

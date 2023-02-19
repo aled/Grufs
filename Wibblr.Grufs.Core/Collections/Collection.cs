@@ -8,13 +8,13 @@ namespace Wibblr.Grufs.Core
     /// 
     /// Works by storing changes to the collection in versioned dictionary storage. 
     /// </summary>
-    public class CollectionStorage
+    public class Collection
     {
-        private readonly VersionedDictionaryStorage _storage;
+        private readonly VersionedDictionary _storage;
         private readonly byte[] _name;
         private readonly Dictionary<string, byte[]?> _changes;
 
-        public CollectionStorage(VersionedDictionaryStorage storage, string name)
+        public Collection(VersionedDictionary storage, string name)
         {
             _storage = storage;
             _name = Encoding.UTF8.GetBytes(name);

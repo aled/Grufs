@@ -37,7 +37,9 @@ namespace Wibblr.Grufs.Storage.Sqlite
 
         public void Dispose()
         {
+            _connection.Close();
             _connection.Dispose();
+            SqliteConnection.ClearAllPools(); // this is needed otherwise the database file will fail to delete
         }
 
         public bool Exists(Address address)

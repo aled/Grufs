@@ -7,7 +7,7 @@ namespace Wibblr.Grufs.Core
     /// <summary>
     /// Versioning is done by including the version number int the lookup key. Ensure that it is not possible to end up with duplicate keys.
     /// </summary>
-    public class VersionedDictionaryStorage
+    public class VersionedDictionary
     {
         private readonly byte[] _keyNamespace;
         private readonly IChunkStorage _chunkStorage;
@@ -15,7 +15,7 @@ namespace Wibblr.Grufs.Core
 
         private static readonly byte serializationVersion = 0;
 
-        public VersionedDictionaryStorage(string keyNamespace, IChunkStorage chunkStorage, ChunkEncryptor chunkEncryptor)
+        public VersionedDictionary(string keyNamespace, IChunkStorage chunkStorage, ChunkEncryptor chunkEncryptor)
         {
             _keyNamespace = new BufferBuilder(4 + (2 * keyNamespace.Length)).AppendString(keyNamespace).GetUnderlyingArray();
             _chunkStorage = chunkStorage;

@@ -4,14 +4,14 @@ using Wibblr.Grufs.Storage;
 
 namespace Wibblr.Grufs.Core
 {
-    public class UnversionedDictionaryStorage
+    public class UnversionedDictionary
     {
         private readonly IChunkStorage _chunkStorage;
         private readonly ChunkEncryptor _chunkEncryptor;
       
         private static readonly byte serializationVersion = 0;
      
-        public UnversionedDictionaryStorage(IChunkStorage chunkStorage, ChunkEncryptor chunkEncryptor)
+        public UnversionedDictionary(IChunkStorage chunkStorage, ChunkEncryptor chunkEncryptor)
         {
             _chunkStorage = chunkStorage;
             _chunkEncryptor = chunkEncryptor;

@@ -2,22 +2,46 @@
 
 using Wibblr.Grufs.Core;
 using Wibblr.Grufs.Encryption;
+using Wibblr.Grufs.Storage;
+using Wibblr.Grufs.Tests.Core;
 
 namespace Wibblr.Grufs.Tests
 {
-    public class SequenceNumberTestsFixture
+    public class SequenceNumberTests_InMemory : SequenceNumberTests<TemporaryInMemoryStorage>
     {
-        private InMemoryChunkStorage _storage;
-        private VersionedDictionaryStorage _dictionaryStorage;
+        public SequenceNumberTests_InMemory(SequenceNumberTestsFixture<TemporaryInMemoryStorage> fixture) : base(fixture) { }
+    };
+
+    public class SequenceNumberTests_Sqlite : SequenceNumberTests<TemporarySqliteStorage>
+    {
+        public SequenceNumberTests_Sqlite(SequenceNumberTestsFixture<TemporarySqliteStorage> fixture) : base(fixture) { }
+    };
+
+    public class SequenceNumberTests_Local : SequenceNumberTests<TemporaryLocalStorage>
+    {
+        public SequenceNumberTests_Local(SequenceNumberTestsFixture<TemporaryLocalStorage> fixture) : base(fixture) { }
+    };
+
+    public class SequenceNumberTests_Sftp : SequenceNumberTests<TemporarySftpStorage>
+    {
+        public SequenceNumberTests_Sftp(SequenceNumberTestsFixture<TemporarySftpStorage> fixture) : base(fixture) { }
+    };
+
+    public class SequenceNumberTestsFixture<T> : IDisposable where T : IChunkStorageFactory, new()
+    {
+        private T temporaryStorage;
+        private IChunkStorage _storage;
+        private VersionedDictionary _dictionary;
         private KeyEncryptionKey _keyEncryptionKey = new KeyEncryptionKey(Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000000000"));
         private HmacKey _addressKey = new HmacKey(Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000000000"));
-        private string _keyNamespace = nameof(SequenceNumberTests);
+        private string _keyNamespace = nameof(SequenceNumberTests<T>);
 
         public SequenceNumberTestsFixture()
         {
-            _storage = new InMemoryChunkStorage();
+            temporaryStorage = new();
+            _storage = temporaryStorage.GetChunkStorage();
             var chunkEncryptor = new ChunkEncryptor(_keyEncryptionKey, _addressKey, Compressor.None);
-            _dictionaryStorage = new VersionedDictionaryStorage(_keyNamespace, _storage, chunkEncryptor);
+            _dictionary = new VersionedDictionary(_keyNamespace, _storage, chunkEncryptor);
 
             // Add a bunch of values into the dictionary storage. For each of these IDs, insert that many versions of the value
             foreach (var lookupKeyId in new[] { 0, 1, 2, 10, 100, 1000 })
@@ -26,31 +50,37 @@ namespace Wibblr.Grufs.Tests
                 {
                     var lookupKey = Encoding.ASCII.GetBytes($"lookupkey-{lookupKeyId}");
                     var value = Encoding.ASCII.GetBytes($"value-{lookupKeyId}-sequence-{sequence}");
-                    _dictionaryStorage.TryPutValue(lookupKey, sequence, value).Should().BeTrue();
+                    _dictionary.TryPutValue(lookupKey, sequence, value).Should().BeTrue();
                 }
             }
         }
+
         public long GetNextSequenceNumber(long lookupKeyId, long sequenceNumberHint)
         {
             var lookupKey = Encoding.ASCII.GetBytes($"lookupkey-{lookupKeyId}");
-            var sequenceNumber = _dictionaryStorage.GetNextSequenceNumber(lookupKey, sequenceNumberHint);
+            var sequenceNumber = _dictionary.GetNextSequenceNumber(lookupKey, sequenceNumberHint);
             return sequenceNumber;
         }
 
         public (long sequenceNumber, int lookupCount) GetNextSequenceNumberAndLookupCount(long lookupKeyId, long sequenceNumberHint)
         {
             var lookupKey = Encoding.ASCII.GetBytes($"lookupkey-{lookupKeyId}");
-            var sequenceNumber = _dictionaryStorage.GetNextSequenceNumber(lookupKey, sequenceNumberHint, out var lookupCount);
+            var sequenceNumber = _dictionary.GetNextSequenceNumber(lookupKey, sequenceNumberHint, out var lookupCount);
             return (sequenceNumber, lookupCount);
+        }
+
+        public void Dispose()
+        {
+            temporaryStorage.Dispose();
         }
     }
 
-    public class SequenceNumberTests : IClassFixture<SequenceNumberTestsFixture>
+    public abstract class SequenceNumberTests<T> : IClassFixture<SequenceNumberTestsFixture<T>> where T : IChunkStorageFactory, new()
     {
-        private SequenceNumberTestsFixture _fixture;
-        private Compressor _compressor = new Compressor(CompressionAlgorithm.None);
+        protected SequenceNumberTestsFixture<T> _fixture;
+        protected Compressor _compressor = new Compressor(CompressionAlgorithm.None);
 
-        public SequenceNumberTests(SequenceNumberTestsFixture fixture) 
+        public SequenceNumberTests(SequenceNumberTestsFixture<T> fixture) 
         {
             _fixture = fixture;
         }
@@ -145,7 +175,7 @@ namespace Wibblr.Grufs.Tests
             
             var keyNamespace = "asdf";
             var storage = new InMemoryChunkStorage();
-            var dictionaryStorage = new VersionedDictionaryStorage(keyNamespace, storage, chunkEncryptor);
+            var dictionaryStorage = new VersionedDictionary(keyNamespace, storage, chunkEncryptor);
             var lookupKeyBytes = Encoding.ASCII.GetBytes("lookupkey");
 
             // Should be exactly one 'exists' call on the storage layer if this key does not exist

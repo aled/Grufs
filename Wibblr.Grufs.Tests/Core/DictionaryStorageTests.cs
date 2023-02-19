@@ -5,19 +5,21 @@ using Wibblr.Grufs.Core;
 using Wibblr.Grufs.Encryption;
 using Wibblr.Grufs.Storage;
 
-namespace Wibblr.Grufs.Tests
+namespace Wibblr.Grufs.Tests.Core
 {
-    public class DictionaryStorageTests
+    public class DictionaryStorageTests_InMemory : DictionaryStorageTests<TemporaryInMemoryStorage> { };
+    public class DictionaryStorageTests_Sqlite : DictionaryStorageTests<TemporarySqliteStorage> { };
+    public class DictionaryStorageTests_Local : DictionaryStorageTests<TemporaryLocalStorage> { };
+    public class DictionaryStorageTests_Sftp : DictionaryStorageTests<TemporarySftpStorage> { };
+
+    public abstract class DictionaryStorageTests<T> where T: IChunkStorageFactory, new()
     {
         [Fact]
         public void TestUnversionedDictionaryStorage()
         {
-            //var testDirectory = $"grufs/test-{DateTime.UtcNow.ToString("yyyyMMdd-HHmmss")}-{Convert.ToHexString(RandomNumberGenerator.GetBytes(8))}";
-            //var storage = new SftpStorageTests().GetSftpStorage(testDirectory);
-
-            var storage = new InMemoryChunkStorage();
-            try
-            {
+            using (T temporaryStorage = new())
+            { 
+                var storage = temporaryStorage.GetChunkStorage();
                 var lookupKey = Encoding.ASCII.GetBytes("lookupkey");
                 var strValue = "The quick brown fox";
                 var value = Encoding.ASCII.GetBytes(strValue);
@@ -26,7 +28,7 @@ namespace Wibblr.Grufs.Tests
                 var addressKey = new HmacKey(Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000000000"));
                 var chunkEncryptor = new ChunkEncryptor(keyEncryptionKey, addressKey, Compressor.None);
 
-                var dictionaryStorage = new UnversionedDictionaryStorage(storage, chunkEncryptor);
+                var dictionaryStorage = new UnversionedDictionary(storage, chunkEncryptor);
                 dictionaryStorage.TryPutValue(lookupKey, value, OverwriteStrategy.Deny).Should().Be(PutStatus.Success);
                 dictionaryStorage.TryPutValue(lookupKey, value, OverwriteStrategy.Deny).Should().Be(PutStatus.OverwriteDenied); // Can't overwrite a key even if the value is the same
                 dictionaryStorage.TryPutValue(lookupKey, value, OverwriteStrategy.Allow).Should().Be(PutStatus.Success); // Can't overwrite a key even if the value is the same
@@ -41,37 +43,30 @@ namespace Wibblr.Grufs.Tests
                 // lookup with incorrect hmac key - item not found
                 var addressKey2 = new HmacKey(Convert.FromHexString("1000000000000000000000000000000000000000000000000000000000000000"));
                 var chunkEncryptor2 = new ChunkEncryptor(keyEncryptionKey, addressKey2, Compressor.None);
-                new UnversionedDictionaryStorage(storage, chunkEncryptor2).TryGetValue(lookupKey, out _).Should().BeFalse();
+                new UnversionedDictionary(storage, chunkEncryptor2).TryGetValue(lookupKey, out _).Should().BeFalse();
 
                 // lookup with incorrect key encryption key. Will fail to unwrap the wrapped key stored in the ciphertext.
                 var keyEncryptionKey2 = new KeyEncryptionKey(Convert.FromHexString("1000000000000000000000000000000000000000000000000000000000000000"));
                 var chunkEncryptor3 = new ChunkEncryptor(keyEncryptionKey2, addressKey, Compressor.None);
-                new Action(() => new UnversionedDictionaryStorage(storage, chunkEncryptor3).TryGetValue(lookupKey, out _)).Should().ThrowExactly<CryptographicException>();
-            }
-            finally
-            {
-                //storage.DeleteDirectory(testDirectory);
+                new Action(() => new UnversionedDictionary(storage, chunkEncryptor3).TryGetValue(lookupKey, out _)).Should().ThrowExactly<CryptographicException>();
             }
         }
 
         [Fact]
         public void TestVersionedDictionaryStorage()
         {
-            //var testDirectory = $"grufs/test-{DateTime.UtcNow.ToString("yyyyMMdd-HHmmss")}-{Convert.ToHexString(RandomNumberGenerator.GetBytes(8))}";
-            //var storage = new SftpStorageTests().GetSftpStorage(testDirectory);
-
-            var storage = new InMemoryChunkStorage();
-            Func<int, byte[]> GetValue = i => Encoding.ASCII.GetBytes($"The quick brown fox-{i}");
-
-            try
+            using (T temporaryStorage = new())
             {
+                var storage = temporaryStorage.GetChunkStorage();
+                Func<int, byte[]> GetValue = i => Encoding.ASCII.GetBytes($"The quick brown fox-{i}");
+           
                 var keyEncryptionKey = new KeyEncryptionKey(Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000000000"));
                 var addressKey = new HmacKey(Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000000000"));
                 var chunkEncryptor = new ChunkEncryptor(keyEncryptionKey, addressKey, Compressor.None);
 
                 var keyNamespace = "asdf";
 
-                var dictionaryStorage = new VersionedDictionaryStorage(keyNamespace, storage, chunkEncryptor);
+                var dictionaryStorage = new VersionedDictionary(keyNamespace, storage, chunkEncryptor);
                 var lookupKeyBytes = Encoding.ASCII.GetBytes("lookupkey");
 
                 dictionaryStorage.TryPutValue(lookupKeyBytes, 0, GetValue(0)).Should().BeTrue();
@@ -89,42 +84,41 @@ namespace Wibblr.Grufs.Tests
                 retrievedValue1.AsSpan().ToArray().Should().BeEquivalentTo(GetValue(1));
                 retrievedValue2.AsSpan().ToArray().Should().BeEquivalentTo(GetValue(2));
             }
-            finally
-            {
-                //storage.DeleteDirectory(testDirectory);
-            }
         }
 
         [Fact]
         public void ValuesShouldEnumerate()
         {
-            var storage = new InMemoryChunkStorage();
-            Func<int, byte[]> GetValue = i => Encoding.ASCII.GetBytes($"The quick brown fox-{i}");
+            using (T temporaryStorage = new())
+            {
+                var storage = temporaryStorage.GetChunkStorage();
+                Func<int, byte[]> GetValue = i => Encoding.ASCII.GetBytes($"The quick brown fox-{i}");
 
-            var keyEncryptionKey = new KeyEncryptionKey(Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000000000"));
-            var addressKey = new HmacKey(Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000000000"));
-            var chunkEncryptor = new ChunkEncryptor(keyEncryptionKey, addressKey, Compressor.None);
+                var keyEncryptionKey = new KeyEncryptionKey(Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000000000"));
+                var addressKey = new HmacKey(Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000000000"));
+                var chunkEncryptor = new ChunkEncryptor(keyEncryptionKey, addressKey, Compressor.None);
 
-            var keyNamespace = "collection:";
+                var keyNamespace = "collection:";
 
-            var dictionaryStorage = new VersionedDictionaryStorage(keyNamespace, storage, chunkEncryptor);
+                var dictionaryStorage = new VersionedDictionary(keyNamespace, storage, chunkEncryptor);
 
-            dictionaryStorage.Values(Encoding.UTF8.GetBytes("animals")).ToArray().Should().BeEmpty();
+                dictionaryStorage.Values(Encoding.UTF8.GetBytes("animals")).ToArray().Should().BeEmpty();
 
-            dictionaryStorage.TryPutValue(Encoding.UTF8.GetBytes("animals"), 0, Encoding.UTF8.GetBytes("cat")).Should().Be(true);
+                dictionaryStorage.TryPutValue(Encoding.UTF8.GetBytes("animals"), 0, Encoding.UTF8.GetBytes("cat")).Should().Be(true);
 
-            var values = dictionaryStorage.Values(Encoding.UTF8.GetBytes("animals")).ToArray();
-            values[0].Item1.Should().Be(0L);
-            values[0].Item2.AsSpan().ToArray().Should().BeEquivalentTo(Encoding.UTF8.GetBytes("cat"));
+                var values = dictionaryStorage.Values(Encoding.UTF8.GetBytes("animals")).ToArray();
+                values[0].Item1.Should().Be(0L);
+                values[0].Item2.AsSpan().ToArray().Should().BeEquivalentTo(Encoding.UTF8.GetBytes("cat"));
 
-            dictionaryStorage.TryPutValue(Encoding.UTF8.GetBytes("animals"), 0, Encoding.UTF8.GetBytes("dog")).Should().Be(false);
-            dictionaryStorage.TryPutValue(Encoding.UTF8.GetBytes("animals"), 1, Encoding.UTF8.GetBytes("dog")).Should().Be(true);
+                dictionaryStorage.TryPutValue(Encoding.UTF8.GetBytes("animals"), 0, Encoding.UTF8.GetBytes("dog")).Should().Be(false);
+                dictionaryStorage.TryPutValue(Encoding.UTF8.GetBytes("animals"), 1, Encoding.UTF8.GetBytes("dog")).Should().Be(true);
 
-            values = dictionaryStorage.Values(Encoding.UTF8.GetBytes("animals")).ToArray();
-            values[0].Item1.Should().Be(0L);
-            values[0].Item2.AsSpan().ToArray().Should().BeEquivalentTo(Encoding.UTF8.GetBytes("cat"));
-            values[1].Item1.Should().Be(1L);
-            values[1].Item2.AsSpan().ToArray().Should().BeEquivalentTo(Encoding.UTF8.GetBytes("dog"));
+                values = dictionaryStorage.Values(Encoding.UTF8.GetBytes("animals")).ToArray();
+                values[0].Item1.Should().Be(0L);
+                values[0].Item2.AsSpan().ToArray().Should().BeEquivalentTo(Encoding.UTF8.GetBytes("cat"));
+                values[1].Item1.Should().Be(1L);
+                values[1].Item2.AsSpan().ToArray().Should().BeEquivalentTo(Encoding.UTF8.GetBytes("dog"));
+            }
         }
     }
 }

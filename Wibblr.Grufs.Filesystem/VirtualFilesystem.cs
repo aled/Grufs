@@ -9,14 +9,14 @@ namespace Wibblr.Grufs.Filesystem
     public class VirtualFilesystem
     {
         private readonly string _keyNamespace;
-        private readonly VersionedDictionaryStorage _dictionaryStorage;
+        private readonly VersionedDictionary _dictionaryStorage;
         private readonly StreamStorage _streamStorage;
 
         public VirtualFilesystem(Repository repository, string filesystemName)
         {
             _keyNamespace = $"mutable-filesystem:{filesystemName.Length}-{filesystemName}";
             var chunkEncryptor = new ChunkEncryptor(repository.MasterKey, repository.VersionedDictionaryAddressKey, new Compressor(CompressionAlgorithm.Brotli, CompressionLevel.Optimal));
-            _dictionaryStorage = new VersionedDictionaryStorage(_keyNamespace, repository.ChunkStorage, chunkEncryptor);
+            _dictionaryStorage = new VersionedDictionary(_keyNamespace, repository.ChunkStorage, chunkEncryptor);
             _streamStorage = repository.StreamStorage;
         }
 

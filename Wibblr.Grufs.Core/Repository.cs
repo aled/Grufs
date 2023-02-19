@@ -146,7 +146,7 @@ namespace Wibblr.Grufs.Core
             var metadataAddressKey = new HmacKey(new Rfc2898DeriveBytes(normalizedMetadataPassword, wellKnownSalt1.ToSpan().ToArray(), iterations, HashAlgorithmName.SHA256).GetBytes(KeyEncryptionKey.Length));
             var metadataChunkEncryptor = new ChunkEncryptor(metadataKeyEncryptionKey, metadataAddressKey, Compressor.None);
 
-            var putResult = new UnversionedDictionaryStorage(ChunkStorage, metadataChunkEncryptor).TryPutValue(_metadataLookupKey.AsSpan(), repositoryMetadata.Serialize(), OverwriteStrategy.Deny);
+            var putResult = new UnversionedDictionary(ChunkStorage, metadataChunkEncryptor).TryPutValue(_metadataLookupKey.AsSpan(), repositoryMetadata.Serialize(), OverwriteStrategy.Deny);
             if (putResult == PutStatus.OverwriteDenied)
             {
                 return new InitRepositoryResult(InitRepositoryStatus.AlreadyExists, "Repository already exists");
@@ -176,7 +176,7 @@ namespace Wibblr.Grufs.Core
             var metadataKeyEncryptionKey = new KeyEncryptionKey(new Rfc2898DeriveBytes(normalizedMetadataPassword, wellKnownSalt0.ToSpan().ToArray(), iterations, HashAlgorithmName.SHA256).GetBytes(KeyEncryptionKey.Length));
             var metadataChunkEncryptor = new ChunkEncryptor(metadataKeyEncryptionKey, metadataAddressKey, Compressor.None);
 
-            if (!new UnversionedDictionaryStorage(ChunkStorage, metadataChunkEncryptor).TryGetValue(_metadataLookupKey.AsSpan(), out var serialized))
+            if (!new UnversionedDictionary(ChunkStorage, metadataChunkEncryptor).TryGetValue(_metadataLookupKey.AsSpan(), out var serialized))
             {
                 return new OpenRepositoryResult(OpenRepositoryStatus.MissingMetadata, $"Unable to find metadata '{_defaultMetadataPassword}' in storage");
             }
@@ -223,9 +223,9 @@ namespace Wibblr.Grufs.Core
             return new OpenRepositoryResult(OpenRepositoryStatus.Success, "OK");
         }
 
-        public CollectionStorage GetCollectionStorage(string collectionName)
+        public Collection GetCollectionStorage(string collectionName)
         {
-            return new CollectionStorage(new VersionedDictionaryStorage("collection:", ChunkStorage, new ChunkEncryptor(MasterKey, VersionedDictionaryAddressKey, Compressor.None)), collectionName);
+            return new Collection(new VersionedDictionary("collection:", ChunkStorage, new ChunkEncryptor(MasterKey, VersionedDictionaryAddressKey, Compressor.None)), collectionName);
         }
 
         /// <summary>
@@ -236,7 +236,7 @@ namespace Wibblr.Grufs.Core
         {
             // Each version of the value in the dictionary is a changeset that needs to be applied to get the total list.
             var chunkEncryptor = new ChunkEncryptor(MasterKey, VersionedDictionaryAddressKey, Compressor.None);
-            var dict = new VersionedDictionaryStorage(_repositoryKeyNamespace, ChunkStorage, chunkEncryptor);
+            var dict = new VersionedDictionary(_repositoryKeyNamespace, ChunkStorage, chunkEncryptor);
             var lookupKey = Encoding.UTF8.GetBytes("backupSets:");
 
             var sequenceNumber = 0L;

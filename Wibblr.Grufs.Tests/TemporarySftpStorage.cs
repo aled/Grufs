@@ -5,10 +5,12 @@ using Wibblr.Grufs.Storage;
 
 namespace Wibblr.Grufs.Tests
 {
-    public class TemporarySftpStorage : ITemporaryFileStorage, IDisposable
+    public class TemporarySftpStorage : IChunkStorageFactory, IFileStorageFactory, IDisposable
     {
         internal AbstractFileStorage _storage;
         internal string BaseDir { get; set; }
+
+        public IChunkStorage GetChunkStorage() => _storage;
 
         public AbstractFileStorage GetFileStorage() => _storage;
 

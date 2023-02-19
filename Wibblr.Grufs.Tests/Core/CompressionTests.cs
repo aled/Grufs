@@ -5,7 +5,15 @@ using Wibblr.Grufs.Encryption;
 
 namespace Wibblr.Grufs.Tests
 {
-    public class CompressionTests
+    public class CompressionTests_InMemory : CompressionTests<TemporaryInMemoryStorage> { };
+
+    public class CompressionTests_Sqlite : CompressionTests<TemporarySqliteStorage> { };
+
+    public class CompressionTests_Local : CompressionTests<TemporaryLocalStorage> { };
+
+    public class CompressionTests_Sftp : CompressionTests<TemporarySftpStorage> { };
+
+    public abstract class CompressionTests<T> where T : IChunkStorageFactory, new()
     {
         [Theory]
         [InlineData(CompressionAlgorithm.None)]
@@ -35,7 +43,6 @@ namespace Wibblr.Grufs.Tests
             var (address, level, stats) = streamStorage.Write(stream);
 
             stats.PlaintextLength.Should().Be(plaintextBytes.LongLength);
-            
 
             var decryptedStream = new MemoryStream();
 

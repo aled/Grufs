@@ -1,10 +1,8 @@
-﻿using System;
-
-using Wibblr.Grufs.Storage;
+﻿using Wibblr.Grufs.Storage;
 
 namespace Wibblr.Grufs.Tests
 {
-    internal class InMemoryChunkStorage : IChunkStorage
+    public class InMemoryChunkStorage : IChunkStorage
     {
         private Dictionary<Address, EncryptedChunk> _dict = new Dictionary<Address, EncryptedChunk>();
 
