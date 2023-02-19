@@ -25,12 +25,12 @@ namespace Wibblr.Grufs.Storage.Sqlite
             BaseDir = directory.FullName;
             _connection = new SqliteConnection($"Data Source={path}");
 
-            // create database and tables if required
+            // create database and table if required
             _connection.Open();
 
             using (var cmd = _connection.CreateCommand())
             {
-                cmd.CommandText = "PRAGMA page_size = 131072; CREATE TABLE IF NOT EXISTS Chunk (Address BLOB NOT NULL PRIMARY KEY, Content BLOB NOT NULL) WITHOUT ROWID";
+                cmd.CommandText = "PRAGMA page_size = 512; CREATE TABLE IF NOT EXISTS Chunk (Address BLOB NOT NULL PRIMARY KEY, Content BLOB NOT NULL) WITHOUT ROWID;";
                 cmd.ExecuteNonQuery();
             }
         }
