@@ -5,7 +5,7 @@ using Wibblr.Grufs.Storage;
 
 namespace Wibblr.Grufs.Tests
 {
-    internal class TemporarySftpStorage : ITemporaryFileStorage, IDisposable
+    public class TemporarySftpStorage : ITemporaryFileStorage, IDisposable
     {
         internal AbstractFileStorage _storage;
         internal string BaseDir { get; set; }
@@ -35,7 +35,7 @@ namespace Wibblr.Grufs.Tests
 
         public void Dispose()
         {
-            Console.WriteLine($"Deleting temporary directory {BaseDir}");
+            Console.WriteLine($"Deleting temporary directory '{BaseDir}'");
 
             _storage.DeleteDirectory("");
         }

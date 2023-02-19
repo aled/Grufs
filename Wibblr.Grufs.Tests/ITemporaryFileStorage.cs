@@ -2,7 +2,7 @@
 
 namespace Wibblr.Grufs.Tests
 {
-    internal interface ITemporaryFileStorage : IDisposable
+    public interface ITemporaryFileStorage : IDisposable
     {
         AbstractFileStorage GetFileStorage();
     }

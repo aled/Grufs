@@ -4,7 +4,7 @@ using Wibblr.Grufs.Storage;
 
 namespace Wibblr.Grufs.Tests
 {
-    internal class TemporaryDirectoryStorage : ITemporaryFileStorage, IDisposable
+    public class TemporaryDirectoryStorage : ITemporaryFileStorage, IDisposable
     {
         internal AbstractFileStorage _storage;
 

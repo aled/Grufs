@@ -1,7 +1,4 @@
-﻿using System;
-using System.Text;
-
-using FluentAssertions;
+﻿using System.Text;
 
 using Wibblr.Grufs.Core;
 using Wibblr.Grufs.Encryption;
@@ -9,14 +6,12 @@ using Wibblr.Grufs.Storage;
 
 namespace Wibblr.Grufs.Tests
 {
-    public class FileStorageTests
+    public abstract class FileStorageTests<T> where T: ITemporaryFileStorage, new()
     {
-        [Theory]
-        [InlineData(TemporaryFileStorageFactoryType.Directory)]
-        [InlineData(TemporaryFileStorageFactoryType.Sftp)]
-        public void Upload(TemporaryFileStorageFactoryType type)
+        [Fact]
+        public void Upload()
         {
-            using (ITemporaryFileStorage temporaryStorage = new TemporaryFileStorageFactory().GetTemporaryFileStorage(type))
+            using (T temporaryStorage = new())
             {
                 var storage = temporaryStorage.GetFileStorage();
 
@@ -29,10 +24,8 @@ namespace Wibblr.Grufs.Tests
             }
         }
 
-        [Theory]
-        [InlineData(TemporaryFileStorageFactoryType.Directory)]
-        [InlineData(TemporaryFileStorageFactoryType.Sftp)]
-        public void UploadChunk(TemporaryFileStorageFactoryType type)
+        [Fact]
+        public void UploadChunk()
         {
             var keyEncryptionKey = new KeyEncryptionKey("0000000000000000000000000000000000000000000000000000000000000000".ToBytes());
             var hmacKey = new HmacKey("0000000000000000000000000000000000000000000000000000000000000000".ToBytes());
@@ -43,7 +36,7 @@ namespace Wibblr.Grufs.Tests
             var stream = new MemoryStream(plaintextBytes);
             var decryptedStream = new MemoryStream();
 
-            using (ITemporaryFileStorage temporaryStorage = new TemporaryFileStorageFactory().GetTemporaryFileStorage(type))
+            using (T temporaryStorage = new())
             {
                 var storage = temporaryStorage.GetFileStorage();
                 var chunkEncryptor = new ChunkEncryptor(keyEncryptionKey, hmacKey, compressor);
@@ -62,12 +55,10 @@ namespace Wibblr.Grufs.Tests
             decryptedText.Should().Be(plaintext);
         }
 
-        [Theory]
-        [InlineData(TemporaryFileStorageFactoryType.Directory)]
-        [InlineData(TemporaryFileStorageFactoryType.Sftp)]
-        public void ListFiles(TemporaryFileStorageFactoryType type)
+        [Fact]
+        public void ListFiles()
         {
-            using (ITemporaryFileStorage temporaryStorage = new TemporaryFileStorageFactory().GetTemporaryFileStorage(type))
+            using (T temporaryStorage = new())
             {
                 var storage = temporaryStorage.GetFileStorage();
 
@@ -84,12 +75,10 @@ namespace Wibblr.Grufs.Tests
             }
         }
 
-        [Theory]
-        [InlineData(TemporaryFileStorageFactoryType.Directory)]
-        [InlineData(TemporaryFileStorageFactoryType.Sftp)]
-        public void ListAddresses(TemporaryFileStorageFactoryType type)
+        [Fact]
+        public void ListAddresses()
         {
-            using (ITemporaryFileStorage temporaryStorage = new TemporaryFileStorageFactory().GetTemporaryFileStorage(type))
+            using (T temporaryStorage = new())
             {
                 var storage = (IChunkStorage)temporaryStorage.GetFileStorage();
 
@@ -108,4 +97,7 @@ namespace Wibblr.Grufs.Tests
             }
         }
     }
+
+    public class DirectoryFileStorageTests : FileStorageTests<TemporaryDirectoryStorage> { }
+    public class SftpFileStorageTests : FileStorageTests<TemporarySftpStorage> { }
 }
