@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace Wibblr.Grufs.Tests
+﻿namespace Wibblr.Grufs.Tests
 {
     // Filesystem converts stream of updates into hierarchical filesystem
 

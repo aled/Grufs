@@ -1,6 +1,4 @@
-﻿using FluentAssertions;
-
-using Wibblr.Grufs.Encryption;
+﻿using Wibblr.Grufs.Encryption;
 using Wibblr.Grufs.Storage;
 
 namespace Wibblr.Grufs.Tests

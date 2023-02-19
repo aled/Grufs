@@ -1,8 +1,4 @@
-﻿using FluentAssertions;
-
-using Wibblr.Grufs.Core;
-
-using Buffer = Wibblr.Grufs.Core.ArrayBuffer;
+﻿using Wibblr.Grufs.Core;
 
 namespace Wibblr.Grufs.Tests
 {
@@ -116,13 +112,13 @@ namespace Wibblr.Grufs.Tests
         [Fact]
         public void ConstructorShouldThrowIfLengthIsGreaterThanCapacity()
         {
-            new Action(() => new Buffer(new byte[0], 1)).Should().ThrowExactly<ArgumentException>();
+            new Action(() => new ArrayBuffer(new byte[0], 1)).Should().ThrowExactly<ArgumentException>();
         }
 
         [Fact]
         public void ShouldThrowOnInvalidSpanLength()
         {
-            var b = new Buffer(new byte[10], 5);
+            var b = new ArrayBuffer(new byte[10], 5);
 
             b.AsSpan().Length.Should().Be(5);
             new Action(() => b.AsSpan(0, 6)).Should().ThrowExactly<IndexOutOfRangeException>();
@@ -141,7 +137,7 @@ namespace Wibblr.Grufs.Tests
         [Fact]
         public void ReaderShouldThrowOnUnderflow()
         {
-            var b = new Buffer(new byte[10], 1);
+            var b = new ArrayBuffer(new byte[10], 1);
             var r = new BufferReader(b);
 
             r.ReadByte().Should().Be(0);

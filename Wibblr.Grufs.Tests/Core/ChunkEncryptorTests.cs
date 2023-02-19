@@ -1,7 +1,4 @@
-﻿using System;
-using System.Text;
-
-using FluentAssertions;
+﻿using System.Text;
 
 using Wibblr.Grufs.Core;
 using Wibblr.Grufs.Encryption;

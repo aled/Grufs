@@ -7,7 +7,7 @@ using Wibblr.Grufs.Core;
 using Wibblr.Grufs.Encryption;
 using Wibblr.Grufs.Storage.Sqlite;
 
-namespace Wibblr.Grufs.Tests
+namespace Wibblr.Grufs.Tests.Core
 {
     public class StreamStorageTests
     {
