@@ -43,7 +43,7 @@ namespace Wibblr.Grufs.Cli
                 Add(Password, sftpStorage.Password);
                 Add(BaseDir, sftpStorage.BaseDir);
             }
-            else if (repo.ChunkStorage is DirectoryStorage directoryStorage)
+            else if (repo.ChunkStorage is LocalStorage directoryStorage)
             {
                 Add(Protocol, "directory");
                 Add(BaseDir, directoryStorage.BaseDir);
@@ -67,7 +67,7 @@ namespace Wibblr.Grufs.Cli
             {
                 "sqlite" => new SqliteStorage(Path.Join(GetString(BaseDir), GetString(RepoName) + ".sqlite")),
                 "sftp" => new SftpStorage(GetString(Host), GetInt(Port), GetString(Username), GetString(Password), GetString(BaseDir)),
-                "directory" => new DirectoryStorage(GetString(BaseDir)),
+                "directory" => new LocalStorage(GetString(BaseDir)),
                 _ => throw new Exception()
             };
 

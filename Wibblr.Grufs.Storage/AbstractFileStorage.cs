@@ -110,6 +110,11 @@
 
         abstract public void DeleteDirectory(string relativePath);
 
+        public long Count()
+        {
+            return ListFiles("/").Count();
+        }
+
         public IEnumerable<StoragePath> ListFiles(string relativePath, bool recursive = true)
         {
             var originalPath = new StoragePath(relativePath, _directorySeparator);

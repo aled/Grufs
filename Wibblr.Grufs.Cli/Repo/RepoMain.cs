@@ -111,7 +111,7 @@ namespace Wibblr.Grufs.Cli
                             _repoArgs.Password ?? throw new UsageException("Password not specified"),
                             _repoArgs.BaseDir).EnsureConnected(),
 
-                "directory" => new DirectoryStorage(_repoArgs.BaseDir),
+                "directory" => new LocalStorage(_repoArgs.BaseDir),
 
                 _ => throw new UsageException("Storage type must be 'sftp' or 'directory'")
             };

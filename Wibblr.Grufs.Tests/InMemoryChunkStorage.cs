@@ -54,7 +54,7 @@ namespace Wibblr.Grufs.Tests
             return _dict.ContainsKey(address);
         }
 
-        public int Count()
+        public long Count()
         {
             return _dict.Count();
         }

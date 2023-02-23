@@ -18,7 +18,7 @@ namespace Wibblr.Grufs.Tests
             BaseDir = Path.Join(Path.GetTempPath(), "grufs", $"test-{DateTime.UtcNow.ToString("yyyyMMdd-HHmmss")}-{Convert.ToHexString(RandomNumberGenerator.GetBytes(8))}");
             Console.WriteLine($"Using local temporary directory {BaseDir}");
 
-            _storage = new DirectoryStorage(BaseDir);
+            _storage = new LocalStorage(BaseDir);
             _storage.CreateDirectory("", createParents: true);
         }
 

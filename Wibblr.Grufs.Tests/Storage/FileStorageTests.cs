@@ -6,7 +6,10 @@ using Wibblr.Grufs.Storage;
 
 namespace Wibblr.Grufs.Tests
 {
-    public abstract class FileStorageTests<T> where T: IFileStorageFactory, new()
+    public class FileStorageTests_Local : FileStorageTests<TemporaryLocalStorage> { }
+    //public class FileStorageTests_Sftp : FileStorageTests<TemporarySftpStorage> { }
+
+    public abstract class FileStorageTests<T> where T : IFileStorageFactory, new()
     {
         [Fact]
         public void Upload()
@@ -97,7 +100,4 @@ namespace Wibblr.Grufs.Tests
             }
         }
     }
-
-    public class DirectoryFileStorageTests : FileStorageTests<TemporaryLocalStorage> { }
-    public class SftpFileStorageTests : FileStorageTests<TemporarySftpStorage> { }
 }

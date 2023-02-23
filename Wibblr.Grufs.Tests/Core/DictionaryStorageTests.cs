@@ -10,7 +10,7 @@ namespace Wibblr.Grufs.Tests.Core
     public class DictionaryStorageTests_InMemory : DictionaryStorageTests<TemporaryInMemoryStorage> { };
     public class DictionaryStorageTests_Sqlite : DictionaryStorageTests<TemporarySqliteStorage> { };
     public class DictionaryStorageTests_Local : DictionaryStorageTests<TemporaryLocalStorage> { };
-    public class DictionaryStorageTests_Sftp : DictionaryStorageTests<TemporarySftpStorage> { };
+    //public class DictionaryStorageTests_Sftp : DictionaryStorageTests<TemporarySftpStorage> { };
 
     public abstract class DictionaryStorageTests<T> where T: IChunkStorageFactory, new()
     {

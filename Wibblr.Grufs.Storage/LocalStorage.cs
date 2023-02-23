@@ -1,14 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Wibblr.Grufs.Storage
 {
-    public class DirectoryStorage : AbstractFileStorage
+    public class LocalStorage : AbstractFileStorage
     {
-        public DirectoryStorage(string baseDir)
+        public LocalStorage(string baseDir)
             : base(baseDir, Path.DirectorySeparatorChar)
         {
         }
@@ -25,7 +21,6 @@ namespace Wibblr.Grufs.Storage
             {
                 return CreateDirectoryStatus.UnknownError;
             }
-
         }
 
         public override void DeleteDirectory(string relativePath)
@@ -54,9 +49,9 @@ namespace Wibblr.Grufs.Storage
             try
             {
                 var path = Path.Join(BaseDir, relativePath);
-                return (
-                    Directory.GetFiles(path).Select(x => new FileInfo(x).Name).ToList(), 
-                    Directory.GetDirectories(path).Select(x => new DirectoryInfo(x).Name).ToList());
+                var files = Directory.GetFiles(path).Select(x => new FileInfo(x).Name).ToList();
+                var directories = Directory.GetDirectories(path).Select(x => new DirectoryInfo(x).Name).ToList();
+                return (files, directories);
             }
             catch (Exception e)
             {

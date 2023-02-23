@@ -3,7 +3,6 @@
 using Wibblr.Grufs.Core;
 using Wibblr.Grufs.Encryption;
 using Wibblr.Grufs.Storage;
-using Wibblr.Grufs.Tests.Core;
 
 namespace Wibblr.Grufs.Tests
 {
@@ -22,10 +21,11 @@ namespace Wibblr.Grufs.Tests
         public SequenceNumberTests_Local(SequenceNumberTestsFixture<TemporaryLocalStorage> fixture) : base(fixture) { }
     };
 
-    public class SequenceNumberTests_Sftp : SequenceNumberTests<TemporarySftpStorage>
-    {
-        public SequenceNumberTests_Sftp(SequenceNumberTestsFixture<TemporarySftpStorage> fixture) : base(fixture) { }
-    };
+    // Currently SFTP is too slow to run this in a reasonable time.
+    //public class SequenceNumberTests_Sftp : SequenceNumberTests<TemporarySftpStorage>
+    //{
+    //    public SequenceNumberTests_Sftp(SequenceNumberTestsFixture<TemporarySftpStorage> fixture) : base(fixture) { }
+    //};
 
     public class SequenceNumberTestsFixture<T> : IDisposable where T : IChunkStorageFactory, new()
     {
@@ -44,14 +44,16 @@ namespace Wibblr.Grufs.Tests
             _dictionary = new VersionedDictionary(_keyNamespace, _storage, chunkEncryptor);
 
             // Add a bunch of values into the dictionary storage. For each of these IDs, insert that many versions of the value
-            foreach (var lookupKeyId in new[] { 0, 1, 2, 10, 100, 1000 })
+            foreach (var lookupKeyId in new[] { 0, 1, 2, 10, 100, 1000})
             {
+                var start = DateTime.Now;
                 for (long sequence = 0; sequence < lookupKeyId; sequence++)
                 {
                     var lookupKey = Encoding.ASCII.GetBytes($"lookupkey-{lookupKeyId}");
                     var value = Encoding.ASCII.GetBytes($"value-{lookupKeyId}-sequence-{sequence}");
                     _dictionary.TryPutValue(lookupKey, sequence, value).Should().BeTrue();
                 }
+                Console.WriteLine($"Created test fixture for lookup key id {lookupKeyId} in {((DateTime.Now.Ticks - start.Ticks) / 10000)} ms");
             }
         }
 

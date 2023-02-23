@@ -14,7 +14,7 @@ namespace Wibblr.Grufs.Filesystem
 
         public VirtualFilesystem(Repository repository, string filesystemName)
         {
-            _keyNamespace = $"mutable-filesystem:{filesystemName.Length}-{filesystemName}";
+            _keyNamespace = $"virtual-filesystem:{filesystemName.Length}-{filesystemName}";
             var chunkEncryptor = new ChunkEncryptor(repository.MasterKey, repository.VersionedDictionaryAddressKey, new Compressor(CompressionAlgorithm.Brotli, CompressionLevel.Optimal));
             _dictionaryStorage = new VersionedDictionary(_keyNamespace, repository.ChunkStorage, chunkEncryptor);
             _streamStorage = repository.StreamStorage;

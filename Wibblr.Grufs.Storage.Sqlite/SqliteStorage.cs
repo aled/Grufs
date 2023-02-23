@@ -35,11 +35,13 @@ namespace Wibblr.Grufs.Storage.Sqlite
             }
         }
 
-        public void Dispose()
+        public long Count()
         {
-            _connection.Close();
-            _connection.Dispose();
-            SqliteConnection.ClearAllPools(); // this is needed otherwise the database file will fail to delete
+            using (var cmd = _connection.CreateCommand())
+            {
+                cmd.CommandText = "SELECT Count(*) FROM Chunk;";
+                return Convert.ToInt64(cmd.ExecuteScalar());
+            }
         }
 
         public bool Exists(Address address)
@@ -106,6 +108,13 @@ namespace Wibblr.Grufs.Storage.Sqlite
             }
             chunk = default;
             return false;
+        }
+
+        public void Dispose()
+        {
+            _connection.Close();
+            _connection.Dispose();
+            SqliteConnection.ClearAllPools(); // this is needed otherwise the database file will fail to delete
         }
     }
 }

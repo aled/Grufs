@@ -55,7 +55,7 @@
         }
     }
 
-    public class FilesystemTests
+    public class VirtualFilesystemTests
     {
         [Fact]
         public void AddFileToRepository()
