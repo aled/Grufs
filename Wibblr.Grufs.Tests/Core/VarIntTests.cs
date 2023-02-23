@@ -28,11 +28,11 @@ namespace Wibblr.Grufs.Tests.Core
 
             length.Should().Be(serializedLength);
             var builder = new BufferBuilder(length);
-            var buffer = builder.AppendVarInt(vi).ToBuffer();
+            var buffer = builder.AppendInt(i).ToBuffer();
             var reader = new BufferReader(buffer);
-            var vi2 = reader.ReadVarInt();
+            var i2 = reader.ReadInt();
 
-            vi.Should().Be(vi2);
+            i.Should().Be(i2);
         }
 
         [Fact]
@@ -42,7 +42,7 @@ namespace Wibblr.Grufs.Tests.Core
             var buffer = builder.AppendByte(0xFF).ToBuffer();
             var reader = new BufferReader(buffer);
 
-            new Action(() => reader.ReadVarInt()).Should().Throw<Exception>();
+            new Action(() => reader.ReadInt()).Should().Throw<Exception>();
         }
     }
 }

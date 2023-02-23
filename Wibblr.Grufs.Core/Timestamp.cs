@@ -4,7 +4,7 @@ namespace Wibblr.Grufs.Core
 {
     public record struct Timestamp
     {
-        private DateTime Value { get; init;  }
+        private DateTime Value { get; init; }
 
         public Timestamp(DateTime datetime)
         {
@@ -26,11 +26,11 @@ namespace Wibblr.Grufs.Core
 
         public static implicit operator DateTime(Timestamp timestamp) => timestamp.Value;
 
-        public int GetSerializedLength() => 8;
+        public int GetSerializedLength() => new VarLong(Value.Ticks).GetSerializedLength();
 
         public void SerializeTo(BufferBuilder builder)
         {
-            builder.CheckBounds(8);
+            builder.CheckBounds(GetSerializedLength());
             builder.AppendLong(Value.Ticks);
         }
 

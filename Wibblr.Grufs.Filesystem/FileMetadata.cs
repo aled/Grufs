@@ -63,7 +63,7 @@ namespace Wibblr.Grufs.Filesystem
             1 + // chunk type
             SnapshotTimestamp.GetSerializedLength() +
             LastModifiedTimestamp.GetSerializedLength() +
-            8; // size
+            new VarLong(Size).GetSerializedLength();
 
         public void SerializeTo(BufferBuilder builder)
         {

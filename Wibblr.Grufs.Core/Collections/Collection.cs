@@ -23,7 +23,7 @@ namespace Wibblr.Grufs.Core
 
         public IEnumerable<byte[]> Values()
         {
-            Dictionary<string, byte[]> dict = new Dictionary<string, byte[]>();
+            var dict = new Dictionary<string, byte[]>();
 
             // Each buffer here represents a number of changesets
             foreach (var buffer in _storage.Values(_name).Select(x => x.Item2))
@@ -31,7 +31,7 @@ namespace Wibblr.Grufs.Core
                 var reader = new BufferReader(buffer);
 
                 var serializationVersion = reader.ReadByte(); // serialization version
-                var changeCount = reader.ReadVarInt().Value;
+                var changeCount = reader.ReadInt();
 
                 for (int i = 0; i < changeCount; i++)
                 {
@@ -41,9 +41,9 @@ namespace Wibblr.Grufs.Core
                     {
                         case 0:
                             {
-                                var keyLength = reader.ReadVarInt().Value;
+                                var keyLength = reader.ReadInt();
                                 var key = reader.ReadBytes(keyLength);
-                                var valueLength = reader.ReadVarInt().Value;
+                                var valueLength = reader.ReadInt();
                                 var value = reader.ReadBytes(valueLength);
 
                                 dict[Convert.ToHexString(key)] = value.ToArray();
@@ -52,7 +52,7 @@ namespace Wibblr.Grufs.Core
 
                         case 1:
                             {
-                                var keyLength = reader.ReadVarInt().Value;
+                                var keyLength = reader.ReadInt();
                                 var key = reader.ReadBytes(keyLength);
 
                                 dict.Remove(Convert.ToHexString(key));
@@ -103,6 +103,8 @@ namespace Wibblr.Grufs.Core
 
         public long WriteChanges(long previousVersion)
         {
+            // Optimistic concurrency - caller must specify the previous version
+            // to ensure the collection has not been updated concurrently.
             var nextVersion = _storage.GetNextSequenceNumber(_name, previousVersion);
 
             if (previousVersion > 0 && nextVersion != previousVersion + 1) 
@@ -123,25 +125,27 @@ namespace Wibblr.Grufs.Core
             var builder = new BufferBuilder(GetSerializedLength());
 
             builder.AppendByte(0);
-            builder.AppendVarInt(new VarInt(_changes.Count()));
+            builder.AppendInt(_changes.Count());
             foreach (var kv in _changes)
             {
                 if (kv.Value != null)
                 {
                     builder.AppendByte(0);
-                    builder.AppendVarInt(new VarInt(kv.Key.Length / 2));
+                    builder.AppendInt(kv.Key.Length / 2);
                     builder.AppendBytes(Convert.FromHexString(kv.Key));
-                    builder.AppendVarInt(new VarInt(kv.Value.Length));
+                    builder.AppendInt(kv.Value.Length);
                     builder.AppendBytes(kv.Value);
                 }
                 else
                 {
                     builder.AppendByte(1);
-                    builder.AppendVarInt(new VarInt(kv.Key.Length / 2));
+                    builder.AppendInt(kv.Key.Length / 2);
                     builder.AppendBytes(Convert.FromHexString(kv.Key));
                 }
             }
 
+            // This may fail if there is a concurrent update
+            // TODO: handle this case
             if (_storage.TryPutValue(_name, nextVersion, builder.ToSpan()))
             {
                 return nextVersion;

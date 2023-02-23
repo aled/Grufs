@@ -41,7 +41,7 @@ namespace Wibblr.Grufs.Core
 
         public string ReadString()
         {
-            int charCount = ReadVarInt();
+            int charCount = ReadInt();
             int byteCount = charCount * sizeof(char);
             var s = string.Create(charCount, charCount, (chars, state) =>
             {
@@ -60,17 +60,12 @@ namespace Wibblr.Grufs.Core
 
         public int ReadInt()
         {
-            return BinaryPrimitives.ReadInt32LittleEndian(ReadBytes(sizeof(int)));
+            return new VarInt(this).Value;
         }
 
         public long ReadLong()
         {
-            return BinaryPrimitives.ReadInt64LittleEndian(ReadBytes(sizeof(long)));
-        }
-
-        public VarInt ReadVarInt()
-        {
-            return new VarInt(this);
+            return new VarLong(this).Value;
         }
 
         public Timestamp ReadTimestamp()

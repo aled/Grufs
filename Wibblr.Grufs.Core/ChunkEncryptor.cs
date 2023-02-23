@@ -57,7 +57,6 @@ namespace Wibblr.Grufs.Core
         private byte[] EncryptBytes(InitializationVector iv, EncryptionKey key, ReadOnlySpan<byte> source)
         {
             var encryptor = new Encryptor();
-
             var wrappedKey = key.Wrap(_keyEncryptionKey);
             var compressedSource = _compressor.Compress(source, out var compressionAlgorithm);
             var ciphertextLength = encryptor.CiphertextLength(compressedSource.Length);
@@ -65,7 +64,14 @@ namespace Wibblr.Grufs.Core
             // content is:
             //   iv + wrapped-key + compression-type + encrypt(compressed-plaintext) + checksum-of-all-previous-bytes
             //   16 + 40          + 1                + ciphertext-length             + 32
-            var builder = new BufferBuilder(InitializationVector.Length + WrappedEncryptionKey.Length + 1 + ciphertextLength + Checksum.Length)
+            var bufferLength =
+                InitializationVector.Length +
+                WrappedEncryptionKey.Length +
+                1 + // compression algorithm
+                ciphertextLength +
+                Checksum.Length;
+
+            var builder = new BufferBuilder(bufferLength)
                 .AppendInitializationVector(iv)
                 .AppendWrappedKey(wrappedKey)
                 .AppendByte((byte)compressionAlgorithm)

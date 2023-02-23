@@ -178,7 +178,7 @@ namespace Wibblr.Grufs.Core
 
                 if (indexBuilders[level - 1] == null)
                 {
-                    indexBuilders[level - 1] = new BufferBuilder(Address.Length + 4);
+                    indexBuilders[level - 1] = new BufferBuilder(Address.Length + 0);
                 
                     var serializationVersion = reader.ReadByte(); // serialization version
 
@@ -205,7 +205,7 @@ namespace Wibblr.Grufs.Core
                     if (indexBuilder.RemainingLength() == 0)
                     {
                         var subAddress = new Address(indexBuilder.GetUnderlyingArray().AsSpan(0, Address.Length));
-                        var chunkLength = indexBuilder.GetUnderlyingArray().AsSpan(Address.Length, 4);
+                     //   var chunkLength = indexBuilder.GetUnderlyingArray().AsSpan(Address.Length, 4);
 
                         indexBuilder.Clear();
 

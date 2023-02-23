@@ -59,15 +59,16 @@ namespace Wibblr.Grufs.Core
 
         public int GetSerializedLength()
         {
-            // if 7 bit int, there are at least 25 leading zeros
-            // if 14 bit int, there are at least 18 leading zeros
+            // in a 7 bit int, there are at least 25 leading zeros
+            // in a 14 bit int, there are at least 18 leading zeros
             // etc
-            // so 32    -> 1
-            //    >= 25 -> 1
-            //    >= 18 -> 2
-            //    >= 11 -> 3
-            //    >= 4  -> 4
-            //    else  -> 5
+            // so
+            //       32 leading zeros -> 1 byte varint
+            //    >= 25 leading zeros -> 1 byte varint
+            //    >= 18 leading zeros -> 2 byte varint
+            //    >= 11 leading zeros -> 3 byte varint
+            //    >= 4  leading zeros -> 4 byte varint
+            //    else                -> 5 byte varint
             int leadingZeroCount = BitOperations.LeadingZeroCount(unchecked((uint)Value));
 
             return 5 - ((leadingZeroCount + 3) / 7) + (leadingZeroCount / 32);

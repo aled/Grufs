@@ -48,9 +48,9 @@ namespace Wibblr.Grufs.Core
                 throw new Exception();
             }
 
-            var bytes = new BufferBuilder(Address.Length + 4)
+            var bytes = new BufferBuilder(Address.Length + chunkLength.GetSerializedLength())
                 .AppendBytes(address)
-                .AppendInt(chunkLength)
+               // .AppendInt(chunkLength)
                 .ToSpan();
 
             for (int i = 0; i < bytes.Length; i++)

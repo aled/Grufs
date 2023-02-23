@@ -78,7 +78,7 @@ namespace Wibblr.Grufs.Core
 
         public BufferBuilder AppendString(string s)
         {
-            AppendVarInt(new VarInt(s.Length));
+            AppendInt(s.Length);
 
             // TODO: make this efficient
             foreach (var c in s)
@@ -98,23 +98,13 @@ namespace Wibblr.Grufs.Core
 
         public BufferBuilder AppendInt(int i)
         {
-            CheckBounds(sizeof(int));
-            BinaryPrimitives.WriteInt32LittleEndian(_buf.AsSpan(_offset, sizeof(int)), i);
-            _offset += sizeof(int);
-            return this;    
+            new VarInt(i).SerializeTo(this);
+            return this;
         }
 
         public BufferBuilder AppendLong(long i)
         {
-            CheckBounds(sizeof(long));
-            BinaryPrimitives.WriteInt64LittleEndian(_buf.AsSpan(_offset, sizeof(long)), i);
-            _offset += sizeof(long);
-            return this;
-        }
-
-        public BufferBuilder AppendVarInt(VarInt i)
-        {
-            i.SerializeTo(this);
+            new VarLong(i).SerializeTo(this);
             return this;
         }
 

@@ -47,7 +47,7 @@ public record VirtualDirectory
 
                     // Limit number of files in a directory to 10000 to protect against invalid or malicious inputs
                     // This is not a technical limitation so could be raised if needed.
-                    int fileCount = reader.ReadVarInt();
+                    int fileCount = reader.ReadInt();
                     if (fileCount > 10000)
                     {
                         throw new Exception("Too many files in directory - limit is 10000");
@@ -60,7 +60,7 @@ public record VirtualDirectory
                     }
                     Files = filesBuilder.OrderBy(x => x.Name.CanonicalName).ToImmutableArray();
 
-                    int directoryCount = reader.ReadVarInt();
+                    int directoryCount = reader.ReadInt();
                     if (directoryCount > 10000)
                     {
                         throw new Exception("Too many subdirectories in directory - limit is 10000");
@@ -97,12 +97,12 @@ public record VirtualDirectory
         builder.AppendLong(ParentVersion);
         builder.AppendTimestamp(SnapshotTimestamp);
         builder.AppendByte((byte)(IsDeleted ? 1 : 0));
-        builder.AppendVarInt(new VarInt(Files.Count()));
+        builder.AppendInt(Files.Count());
         foreach (var file in Files)
         {
             file.SerializeTo(builder);
         }
-        builder.AppendVarInt(new VarInt(Directories.Count()));
+        builder.AppendInt(Directories.Count());
         foreach (var directory in Directories)
         {
             directory.SerializeTo(builder);

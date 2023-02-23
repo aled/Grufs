@@ -17,14 +17,21 @@ namespace Wibblr.Grufs.Core
 
         public VersionedDictionary(string keyNamespace, IChunkStorage chunkStorage, ChunkEncryptor chunkEncryptor)
         {
-            _keyNamespace = new BufferBuilder(4 + (2 * keyNamespace.Length)).AppendString(keyNamespace).GetUnderlyingArray();
+            _keyNamespace = new BufferBuilder(keyNamespace.GetSerializedLength()).AppendString(keyNamespace).GetUnderlyingArray();
             _chunkStorage = chunkStorage;
             _chunkEncryptor = chunkEncryptor;
         }
 
         private ReadOnlySpan<byte> GenerateStructuredLookupKey(ReadOnlySpan<byte> lookupKey, long sequenceNumber)
         {
-            return new BufferBuilder(1 + _keyNamespace.Length + 4 + lookupKey.Length + 8)
+            var structuredLookupKeyLength =
+                1 + // serialization version
+                _keyNamespace.Length +
+                lookupKey.Length.GetSerializedLength() +
+                lookupKey.Length +
+                sequenceNumber.GetSerializedLength();
+
+            return new BufferBuilder(structuredLookupKeyLength)
                 .AppendByte(serializationVersion)
                 .AppendBytes(_keyNamespace)
                 .AppendInt(lookupKey.Length)
