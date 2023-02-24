@@ -120,10 +120,10 @@ namespace Wibblr.Grufs.Core
                 .AppendByte(serializationVersion)
                 .AppendByte((byte)_compressor.Algorithm)
                 .AppendByte((byte)_compressor.Level)
-                .AppendBytes(masterKey.ToSpan())
-                .AppendBytes(contentAddressKey.ToSpan())
-                .AppendBytes(versionedDictionaryAddressKey.ToSpan())
-                .AppendBytes(unversionedDictionaryAddressKey.ToSpan())
+                .AppendKeyEncryptionKey(masterKey)
+                .AppendHmacKey(contentAddressKey)
+                .AppendHmacKey(versionedDictionaryAddressKey)
+                .AppendHmacKey(unversionedDictionaryAddressKey)
                 .ToSpan();
 
             var normalizedPassword = Encoding.UTF8.GetBytes(EncryptionPassword.Normalize(NormalizationForm.FormC));
@@ -206,10 +206,10 @@ namespace Wibblr.Grufs.Core
                 var compressionLevel = (CompressionLevel)masterKeys.ReadByte();
                 _compressor = new Compressor(compressionAlgorithm, compressionLevel);
 
-                MasterKey = new KeyEncryptionKey(masterKeys.ReadBytes(KeyEncryptionKey.Length));
-                MasterContentAddressKey = new HmacKey(masterKeys.ReadBytes(HmacKey.Length));
-                VersionedDictionaryAddressKey = new HmacKey(masterKeys.ReadBytes(HmacKey.Length));
-                UnversionedDictionaryAddressKey = new HmacKey(masterKeys.ReadBytes(HmacKey.Length));
+                MasterKey = masterKeys.ReadKeyEncryptionKey();
+                MasterContentAddressKey = masterKeys.ReadHmacKey();
+                VersionedDictionaryAddressKey = masterKeys.ReadHmacKey();
+                UnversionedDictionaryAddressKey = masterKeys.ReadHmacKey();
 
                 var chunkEncryptor = new ChunkEncryptor(MasterKey, MasterContentAddressKey, Compressor);
                 var chunkSourceFactory = new ContentDefinedChunkSourceFactory(13);

@@ -108,7 +108,7 @@ namespace Wibblr.Grufs.Core
             var iv = reader.ReadInitializationVector();
             var wrappedKey = reader.ReadWrappedEncryptionKey();
             var compressionAlgorithm = (CompressionAlgorithm)reader.ReadByte();
-            var ciphertextBytes = reader.ReadBytes(reader.RemainingLength() - Checksum.Length);
+            var ciphertextBytes = reader.ReadKnownLengthSpan(reader.RemainingLength() - Checksum.Length);
             var checksum = reader.ReadChecksum();
 
             // Outer (unencrypted) chunk checksum is validated here, before attempting decryption

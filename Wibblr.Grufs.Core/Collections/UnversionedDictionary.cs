@@ -19,17 +19,13 @@ namespace Wibblr.Grufs.Core
 
         private ReadOnlySpan<byte> GenerateStructuredLookupKey(ReadOnlySpan<byte> lookupKey)
         {
-            var lookupKeyLength = new VarInt(lookupKey.Length);
-
             var bufferLength =
                 1 + // serialization version
-                lookupKeyLength.GetSerializedLength() + // lookup key length
-                lookupKey.Length; // lookup key
+                lookupKey.GetSerializedLength(); // lookup key
 
             return new BufferBuilder(bufferLength)
                 .AppendByte(serializationVersion)
-                .AppendInt(lookupKey.Length)
-                .AppendBytes(lookupKey)
+                .AppendSpan(lookupKey)
                 .ToSpan();
         }
 

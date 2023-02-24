@@ -43,7 +43,7 @@ namespace Wibblr.Grufs.Filesystem
                 case 0:
                     {
                         Name = new Filename(reader);
-                        Address = new Address(reader.ReadBytes(Address.Length));
+                        Address = reader.ReadAddress();
                         IndexLevel = reader.ReadByte();
                         SnapshotTimestamp = reader.ReadTimestamp();
                         LastModifiedTimestamp = reader.ReadTimestamp();
@@ -69,7 +69,7 @@ namespace Wibblr.Grufs.Filesystem
         {
             builder.AppendByte(0); // serialization version
             Name.SerializeTo(builder);
-            builder.AppendBytes(Address);
+            builder.AppendAddress(Address);
             builder.AppendByte(IndexLevel);
             builder.AppendTimestamp(SnapshotTimestamp);
             builder.AppendTimestamp(LastModifiedTimestamp);

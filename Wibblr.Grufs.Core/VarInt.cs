@@ -40,17 +40,17 @@ namespace Wibblr.Grufs.Core
             }
             else if (leadingOnes == 2)
             {
-                var b = reader.ReadBytes(2);
+                var b = reader.ReadKnownLengthSpan(2);
                 Value = ((b0 & 0b00011111) << 16) | (b[0] << 8) | b[1];
             }
             else if (leadingOnes == 3)
             {
-                var b = reader.ReadBytes(3);
+                var b = reader.ReadKnownLengthSpan(3);
                 Value = ((b0 & 0b00001111) << 24) | (b[0] << 16) | (b[1] << 8) | b[2];
             }
             else if (leadingOnes == 4)
             {
-                var b = reader.ReadBytes(4);
+                var b = reader.ReadKnownLengthSpan(4);
                 Value = (b[0] << 24) | (b[1] << 16) | (b[2] << 8) | b[3];
             }
             else if (leadingOnes > 4)

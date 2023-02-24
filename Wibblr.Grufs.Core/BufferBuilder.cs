@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Buffers.Binary;
 
 using Wibblr.Grufs.Encryption;
+using Wibblr.Grufs.Storage;
 
 namespace Wibblr.Grufs.Core
 {
@@ -25,7 +26,16 @@ namespace Wibblr.Grufs.Core
             }
         }
 
-        public BufferBuilder AppendBytes(ReadOnlySpan<byte> bytes)
+        public BufferBuilder AppendSpan(ReadOnlySpan<byte> bytes)
+        {
+            AppendInt(bytes.Length);
+
+            bytes.CopyTo(_buf.AsSpan(_offset, bytes.Length));
+            _offset += bytes.Length;
+            return this;
+        }
+
+        public BufferBuilder AppendKnownLengthSpan(ReadOnlySpan<byte> bytes)
         {
             bytes.CopyTo(_buf.AsSpan(_offset, bytes.Length));
             _offset += bytes.Length;
@@ -116,20 +126,43 @@ namespace Wibblr.Grufs.Core
 
         public BufferBuilder AppendInitializationVector(InitializationVector iv)
         {
-            AppendBytes(iv.ToSpan());
+            AppendKnownLengthSpan(iv.ToSpan());
             return this;
         }
 
         public BufferBuilder AppendWrappedKey(WrappedEncryptionKey wrappedKey)
         {
-            AppendBytes(wrappedKey.ToSpan());
+            AppendKnownLengthSpan(wrappedKey.ToSpan());
+            return this;
+        }
+
+        public BufferBuilder AppendKeyEncryptionKey(KeyEncryptionKey kek)
+        {
+            AppendKnownLengthSpan(kek.ToSpan());
+            return this;
+        }
+
+        public BufferBuilder AppendHmacKey(HmacKey hmacKey)
+        {
+            AppendKnownLengthSpan(hmacKey.ToSpan());
             return this;
         }
 
         public BufferBuilder AppendChecksum()
         {
             var checksum = Checksum.Build(ToSpan());
-            AppendBytes(checksum.ToSpan());
+            AppendKnownLengthSpan(checksum.ToSpan());
+            return this;
+        }
+
+        public BufferBuilder AppendAddress(Address address)
+        {
+            AppendKnownLengthSpan(address.ToSpan());
+            return this;
+        }
+        public BufferBuilder AppendSalt(Salt salt)
+        {
+            AppendKnownLengthSpan(salt.ToSpan());
             return this;
         }
 

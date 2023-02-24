@@ -46,7 +46,7 @@ namespace Wibblr.Grufs.Tests
                 .AppendByte(0x56)
                 .AppendInt(unchecked((int)0xCE12BD34))
                 .AppendLong(0x1234567890L)
-                .AppendBytes(new byte[] { 0x10, 0x20, 0x30, 0x40 })
+                .AppendKnownLengthSpan(new byte[] { 0x10, 0x20, 0x30, 0x40 })
                 .AppendByte(0x67)
                 .ToBuffer();
 
@@ -57,7 +57,7 @@ namespace Wibblr.Grufs.Tests
             reader.ReadByte().Should().Be(0x56);
             reader.ReadInt().Should().Be(unchecked((int)0xCE12BD34));
             reader.ReadLong().Should().Be(0x1234567890L);
-            reader.ReadBytes(4).ToArray().Should().BeEquivalentTo(new byte[] { 0x10, 0x20, 0x30, 0x40 });
+            reader.ReadKnownLengthSpan(4).ToArray().Should().BeEquivalentTo(new byte[] { 0x10, 0x20, 0x30, 0x40 });
             reader.ReadByte().Should().Be(0x67);
         }
     }

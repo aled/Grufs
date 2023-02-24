@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Buffers.Binary;
 using Wibblr.Grufs.Encryption;
+using Wibblr.Grufs.Storage;
 
 namespace Wibblr.Grufs.Core
 {
@@ -31,7 +32,13 @@ namespace Wibblr.Grufs.Core
             return _buffer.Bytes[_offset++];
         }
 
-        public ReadOnlySpan<byte> ReadBytes(int count)
+        public ReadOnlySpan<byte> ReadSpan()
+        {
+            int len = ReadInt();
+            return ReadKnownLengthSpan(len);
+        }
+
+        public ReadOnlySpan<byte> ReadKnownLengthSpan(int count)
         {
             CheckBounds(count);
             var s = _buffer.AsSpan(_offset, count);
@@ -55,7 +62,7 @@ namespace Wibblr.Grufs.Core
 
         public ushort ReadUShort()
         {
-            return BinaryPrimitives.ReadUInt16LittleEndian(ReadBytes(sizeof(ushort)));
+            return BinaryPrimitives.ReadUInt16LittleEndian(ReadKnownLengthSpan(sizeof(ushort)));
         }
 
         public int ReadInt()
@@ -75,17 +82,37 @@ namespace Wibblr.Grufs.Core
 
         public InitializationVector ReadInitializationVector()
         {
-            return new InitializationVector(ReadBytes(InitializationVector.Length));
+            return new InitializationVector(ReadKnownLengthSpan(InitializationVector.Length));
         }
 
         public WrappedEncryptionKey ReadWrappedEncryptionKey()
         {
-            return new WrappedEncryptionKey(ReadBytes(WrappedEncryptionKey.Length));
+            return new WrappedEncryptionKey(ReadKnownLengthSpan(WrappedEncryptionKey.Length));
         }
 
         public Checksum ReadChecksum()
         {
-            return new Checksum(ReadBytes(Checksum.Length));
+            return new Checksum(ReadKnownLengthSpan(Checksum.Length));
+        }
+
+        public Address ReadAddress()
+        {
+            return new Address(ReadKnownLengthSpan(Address.Length));
+        }
+
+        public KeyEncryptionKey ReadKeyEncryptionKey()
+        {
+            return new KeyEncryptionKey(ReadKnownLengthSpan(KeyEncryptionKey.Length));
+        }
+
+        public HmacKey ReadHmacKey()
+        {
+            return new HmacKey(ReadKnownLengthSpan(HmacKey.Length));
+        }
+
+        public Salt ReadSalt()
+        {
+            return new Salt(ReadKnownLengthSpan(Salt.Length));
         }
     }
 }

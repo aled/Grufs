@@ -26,11 +26,10 @@ namespace Wibblr.Grufs.Core
             {
                 var reader = new BufferReader(buffer);
                 SerializationVersion = reader.ReadByte();
-                MasterKeysInitializationVector = new InitializationVector(reader.ReadBytes(InitializationVector.Length));
-                Salt = new Salt(reader.ReadBytes(Salt.Length));
+                MasterKeysInitializationVector = reader.ReadInitializationVector();
+                Salt = reader.ReadSalt();
                 Iterations = reader.ReadInt();
-                var EncryptedMasterKeysLength = reader.ReadByte();
-                EncryptedMasterKeys = reader.ReadBytes(EncryptedMasterKeysLength).ToArray();
+                EncryptedMasterKeys = reader.ReadSpan().ToArray();
             }
             catch (Exception) 
             {
@@ -45,13 +44,19 @@ namespace Wibblr.Grufs.Core
                 throw new ArgumentException("Invalid encrypted master keys length");
             }
 
-            var buffer = new BufferBuilder(1 + InitializationVector.Length + Salt.Length + sizeof(int) + 1 + EncryptedMasterKeys.Length)
+            var bufferLength =
+                1 + // serializationVersion
+                InitializationVector.Length +
+                Salt.Length +
+                Iterations.GetSerializedLength() +
+                EncryptedMasterKeys.GetSerializedLength();
+
+            var buffer = new BufferBuilder(bufferLength)
                 .AppendByte(SerializationVersion)
-                .AppendBytes(MasterKeysInitializationVector.ToSpan())
-                .AppendBytes(Salt.ToSpan())
+                .AppendInitializationVector(MasterKeysInitializationVector)
+                .AppendSalt(Salt)
                 .AppendInt(Iterations)
-                .AppendByte((byte)EncryptedMasterKeys.Length)
-                .AppendBytes(EncryptedMasterKeys)
+                .AppendSpan(EncryptedMasterKeys)
                 .ToBuffer();
 
             return buffer.AsSpan();

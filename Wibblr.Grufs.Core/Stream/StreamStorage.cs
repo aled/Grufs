@@ -212,7 +212,7 @@ namespace Wibblr.Grufs.Core
                         if (span.Length == Address.Length + 1 + leadingOnes)
                         {
                             var indexBuilderReader = new BufferReader(indexBuilder.ToBuffer());
-                            var subAddress = new Address(indexBuilderReader.ReadBytes(Address.Length));
+                            var subAddress = indexBuilderReader.ReadAddress();
                             var chunkLength = indexBuilderReader.ReadInt();
 
                             indexBuilder.Clear();

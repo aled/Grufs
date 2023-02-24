@@ -31,8 +31,7 @@ namespace Wibblr.Grufs.Filesystem
 
         public int GetSerializedLength()
         {
-            return new VarInt(NormalizedPath.Length).GetSerializedLength() +
-                (sizeof(char) * NormalizedPath.Length);
+            return NormalizedPath.GetSerializedLength();
         }
 
         public void SerializeTo(BufferBuilder builder)

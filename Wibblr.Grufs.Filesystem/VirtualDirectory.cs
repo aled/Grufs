@@ -82,12 +82,12 @@ public record VirtualDirectory
     public int GetSerializedLength() =>
         1 + // SerializationVersion
         Path.GetSerializedLength() +
-        8 + // ParentVersion
+        ParentVersion.GetSerializedLength() +
         SnapshotTimestamp.GetSerializedLength() +
         1 + // IsDeleted
-        new VarInt(Files.Count()).GetSerializedLength() +
+        Files.Count().GetSerializedLength() +
         Files.Sum(x => x.GetSerializedLength()) +
-        new VarInt(Directories.Count()).GetSerializedLength() +
+        Directories.Count().GetSerializedLength() +
         Directories.Sum(x => x.GetSerializedLength());
 
     public void SerializeTo(BufferBuilder builder)

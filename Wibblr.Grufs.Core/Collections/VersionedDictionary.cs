@@ -13,7 +13,7 @@ namespace Wibblr.Grufs.Core
         private readonly IChunkStorage _chunkStorage;
         private readonly ChunkEncryptor _chunkEncryptor;
 
-        private static readonly byte serializationVersion = 0;
+        private static readonly byte _serializationVersion = 0;
 
         public VersionedDictionary(string keyNamespace, IChunkStorage chunkStorage, ChunkEncryptor chunkEncryptor)
         {
@@ -26,16 +26,14 @@ namespace Wibblr.Grufs.Core
         {
             var structuredLookupKeyLength =
                 1 + // serialization version
-                _keyNamespace.Length +
-                lookupKey.Length.GetSerializedLength() +
-                lookupKey.Length +
+                _keyNamespace.GetSerializedLength() +
+                lookupKey.GetSerializedLength() +
                 sequenceNumber.GetSerializedLength();
 
             return new BufferBuilder(structuredLookupKeyLength)
-                .AppendByte(serializationVersion)
-                .AppendBytes(_keyNamespace)
-                .AppendInt(lookupKey.Length)
-                .AppendBytes(lookupKey)
+                .AppendByte(_serializationVersion)
+                .AppendSpan(_keyNamespace)
+                .AppendSpan(lookupKey)
                 .AppendLong(sequenceNumber)
                 .ToSpan();
         }

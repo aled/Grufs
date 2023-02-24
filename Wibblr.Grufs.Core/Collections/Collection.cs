@@ -12,6 +12,12 @@ namespace Wibblr.Grufs.Core
     {
         private readonly VersionedDictionary _storage;
         private readonly byte[] _name;
+
+        // Store the changes in a dictionary, so that later changes to a key's value
+        // will overwrite the previous version.
+        //
+        // TODO: Store the keys as a byte array in the dictionary. Converting to hex
+        // string here as will need to write a custom byte array comparer
         private readonly Dictionary<string, byte[]?> _changes;
 
         public Collection(VersionedDictionary storage, string name)
@@ -30,7 +36,7 @@ namespace Wibblr.Grufs.Core
             {
                 var reader = new BufferReader(buffer);
 
-                var serializationVersion = reader.ReadByte(); // serialization version
+                var serializationVersion = reader.ReadByte();
                 var changeCount = reader.ReadInt();
 
                 for (int i = 0; i < changeCount; i++)
@@ -41,20 +47,15 @@ namespace Wibblr.Grufs.Core
                     {
                         case 0:
                             {
-                                var keyLength = reader.ReadInt();
-                                var key = reader.ReadBytes(keyLength);
-                                var valueLength = reader.ReadInt();
-                                var value = reader.ReadBytes(valueLength);
-
+                                var key = reader.ReadSpan();
+                                var value = reader.ReadSpan();
                                 dict[Convert.ToHexString(key)] = value.ToArray();
                             }
                             break;
 
                         case 1:
                             {
-                                var keyLength = reader.ReadInt();
-                                var key = reader.ReadBytes(keyLength);
-
+                                var key = reader.ReadSpan();
                                 dict.Remove(Convert.ToHexString(key));
                             }
                             break;
@@ -75,30 +76,36 @@ namespace Wibblr.Grufs.Core
             _changes[Convert.ToHexString(lookupKey)] = null;
         }
 
-        private int GetSerializedLength(string key, byte[]? value)
-        {
-            if (value == null)
-            {
-                // i.e. a delete
-                return 1 + new VarInt(key.Length / 2).GetSerializedLength() + key.Length;
-            }
-
-            // i.e. a create or update
-            return 1 + new VarInt(key.Length / 2).GetSerializedLength() + key.Length
-                     + new VarInt(value.Length).GetSerializedLength() + value.Length;
-        }
-
         private IEnumerable<int> GetSerializedLengths()
         {
             foreach (var kv in _changes)
             {
-                yield return GetSerializedLength(kv.Key, kv.Value);
+                var key = Encoding.UTF8.GetBytes(kv.Key.Normalize());
+                var value = kv.Value;
+
+                if (value == null)
+                {
+                    // i.e. a delete
+                    yield return
+                        1 + // update/delete flag
+                        key.GetSerializedLength();
+                }
+                else
+                {
+                    // i.e. a create or update
+                    yield return 
+                        1 + // update/delete flag
+                        key.GetSerializedLength() +
+                        value.GetSerializedLength();
+                }
             }
         }
 
         private int GetSerializedLength()
         {
-            return 1 + new VarInt(_changes.Count).GetSerializedLength() + GetSerializedLengths().Sum();
+            return 1 + 
+                _changes.Count.GetSerializedLength() +
+                GetSerializedLengths().Sum();
         }
 
         public long WriteChanges(long previousVersion)
@@ -124,23 +131,23 @@ namespace Wibblr.Grufs.Core
 
             var builder = new BufferBuilder(GetSerializedLength());
 
-            builder.AppendByte(0);
+            builder.AppendByte(0); // serialization version
             builder.AppendInt(_changes.Count());
             foreach (var kv in _changes)
             {
-                if (kv.Value != null)
+                var key = Convert.FromHexString(kv.Key);
+                var value = kv.Value;
+
+                if (value != null)
                 {
-                    builder.AppendByte(0);
-                    builder.AppendInt(kv.Key.Length / 2);
-                    builder.AppendBytes(Convert.FromHexString(kv.Key));
-                    builder.AppendInt(kv.Value.Length);
-                    builder.AppendBytes(kv.Value);
+                    builder.AppendByte(0); // update flag
+                    builder.AppendSpan(key);
+                    builder.AppendSpan(value);
                 }
                 else
                 {
-                    builder.AppendByte(1);
-                    builder.AppendInt(kv.Key.Length / 2);
-                    builder.AppendBytes(Convert.FromHexString(kv.Key));
+                    builder.AppendByte(1); // delete flag
+                    builder.AppendSpan(key);
                 }
             }
 

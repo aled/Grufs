@@ -18,5 +18,15 @@ namespace Wibblr.Grufs.Core
         {
             return new VarLong(i).GetSerializedLength();
         }
+
+        public static int GetSerializedLength(this ReadOnlySpan<byte> bytes)
+        {
+            return GetSerializedLength(bytes.Length) + bytes.Length;
+        }
+
+        public static int GetSerializedLength(this byte[] bytes)
+        {
+            return GetSerializedLength(bytes.Length) + bytes.Length;
+        }
     }
 }

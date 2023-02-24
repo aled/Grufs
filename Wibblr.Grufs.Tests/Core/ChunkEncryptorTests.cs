@@ -48,7 +48,7 @@ namespace Wibblr.Grufs.Tests
             var plaintextBytes = Encoding.UTF8.GetBytes(plaintext);
 
             var encryptor = new ChunkEncryptor(keyEncryptionKey, hmacKey, compressor);
-            var buffer = new BufferBuilder(100).AppendBytes(plaintextBytes).ToBuffer();
+            var buffer = new BufferBuilder(100).AppendKnownLengthSpan(plaintextBytes).ToBuffer();
 
             var chunk = encryptor.EncryptContentAddressedChunk(iv, key, buffer.AsSpan());
 

@@ -70,8 +70,8 @@ namespace Wibblr.Grufs.Filesystem
 
         public int GetSerializedLength()
         {
-            return new VarInt(OriginalName.Length).GetSerializedLength() + (sizeof(char) * OriginalName.Length) + 
-                   new VarInt(CanonicalName.Length).GetSerializedLength() + (sizeof(char) * CanonicalName.Length);
+            return OriginalName.GetSerializedLength() +
+                   CanonicalName.GetSerializedLength();
         }
 
         public void SerializeTo(BufferBuilder builder)
