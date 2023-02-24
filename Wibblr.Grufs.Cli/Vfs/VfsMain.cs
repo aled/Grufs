@@ -21,6 +21,8 @@ namespace Wibblr.Grufs.Cli
 
         public int Run(string[] args)
         {
+            var startTime = DateTime.UtcNow;
+
             var argDefinitions = new ArgDefinition[]
             {
                 new ArgDefinition(null, "upload", x => _args.Upload = bool.Parse(x), isFlag: true),
@@ -70,18 +72,27 @@ namespace Wibblr.Grufs.Cli
             }
 
             // TODO: implement simultaneous upload and download
-            if (_args.Upload)
+            try
             {
-                return Upload(repo);
+                if (_args.Upload)
+                {
+                    return Upload(repo);
+                }
+                if (_args.Download)
+                {
+                    return Download(repo);
+                }
+                if (_args.List)
+                {
+                    return List(repo, "[default]");
+                }
             }
-            if (_args.Download)
+            finally
             {
-                return Download(repo);
+                var endTime = DateTime.UtcNow;
+                Console.WriteLine($"Completed in {Math.Round(Convert.ToDecimal((endTime - startTime).TotalSeconds), 3)}s");
             }
-            if (_args.List)
-            {
-                return List(repo, "[default]");
-            }
+
             throw new UsageException("Operation not specified (--upload --download --list)");
         }
 
