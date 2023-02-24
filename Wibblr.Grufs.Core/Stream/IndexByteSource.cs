@@ -50,7 +50,7 @@ namespace Wibblr.Grufs.Core
 
             var bytes = new BufferBuilder(Address.Length + chunkLength.GetSerializedLength())
                 .AppendBytes(address)
-               // .AppendInt(chunkLength)
+                .AppendInt(chunkLength)
                 .ToSpan();
 
             for (int i = 0; i < bytes.Length; i++)

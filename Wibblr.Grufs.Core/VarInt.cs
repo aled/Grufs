@@ -15,6 +15,8 @@ namespace Wibblr.Grufs.Core
     {
         public int Value;
 
+        public static int MaxSerializedLength => 5;
+
         public VarInt(int i)
         {
             Value = i;

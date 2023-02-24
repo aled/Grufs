@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 
 using Wibblr.Grufs.Storage;
@@ -178,7 +179,7 @@ namespace Wibblr.Grufs.Core
 
                 if (indexBuilders[level - 1] == null)
                 {
-                    indexBuilders[level - 1] = new BufferBuilder(Address.Length + 0);
+                    indexBuilders[level - 1] = new BufferBuilder(Address.Length + VarInt.MaxSerializedLength);
                 
                     var serializationVersion = reader.ReadByte(); // serialization version
 
@@ -199,23 +200,31 @@ namespace Wibblr.Grufs.Core
                 var indexBuilder = indexBuilders[level - 1];
                 while (reader.RemainingLength() > 0)
                 {
-                    int bytesToCopy = Math.Min(reader.RemainingLength(), indexBuilder.RemainingLength());
-                    indexBuilder.AppendBytes(reader.ReadBytes(bytesToCopy));
+                    indexBuilder.AppendByte(reader.ReadByte());
 
-                    if (indexBuilder.RemainingLength() == 0)
+                    // need to fill the indexBuilder with the address and a varint.
+                    var span = indexBuilder.ToSpan();
+                    if (span.Length > Address.Length)
                     {
-                        var subAddress = new Address(indexBuilder.GetUnderlyingArray().AsSpan(0, Address.Length));
-                     //   var chunkLength = indexBuilder.GetUnderlyingArray().AsSpan(Address.Length, 4);
+                        var b0 = span[Address.Length];
+                        var leadingOnes = BitOperations.LeadingZeroCount(unchecked((uint)~(b0 << 24)));
 
-                        indexBuilder.Clear();
-
-                        var subchunkLevel = level - 1;
-
-                        //Console.WriteLine($"  Read subchunk addresses for level {subchunkLevel}: {subAddress}");
-
-                        foreach (var subBuffer in Read(subchunkLevel, subAddress, indexBuilders))
+                        if (span.Length == Address.Length + 1 + leadingOnes)
                         {
-                            yield return subBuffer;
+                            var indexBuilderReader = new BufferReader(indexBuilder.ToBuffer());
+                            var subAddress = new Address(indexBuilderReader.ReadBytes(Address.Length));
+                            var chunkLength = indexBuilderReader.ReadInt();
+
+                            indexBuilder.Clear();
+
+                            var subchunkLevel = level - 1;
+
+                            Console.WriteLine($"  Read subchunk addresses for level {subchunkLevel}: {subAddress}, chunkLength {chunkLength}");
+
+                            foreach (var subBuffer in Read(subchunkLevel, subAddress, indexBuilders))
+                            {
+                                yield return subBuffer;
+                            }
                         }
                     }
                 }
