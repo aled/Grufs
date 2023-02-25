@@ -100,7 +100,7 @@ namespace Wibblr.Grufs.Filesystem
                     {
                         try
                         {
-                            using (var stream = new FileStream(file.FullName, FileMode.Open))
+                            using (var stream = new FileStream(file.FullName, FileMode.Open, FileAccess.Read, FileShare.Read))
                             {
                                 var (address, level, fileStats) = _streamStorage.Write(stream);
                                 cumulativeStats.Add(fileStats);
