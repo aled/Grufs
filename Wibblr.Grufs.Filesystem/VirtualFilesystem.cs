@@ -130,7 +130,7 @@ namespace Wibblr.Grufs.Filesystem
                 if (directory == null)
                 {
                     ret = WriteVirtualDirectoryVersion(new VirtualDirectory(directoryPath, 0, snapshotTimestamp, false, filesBuilder.ToImmutableArray(), directoriesBuilder.ToImmutableArray()), 0);
-                    Console.WriteLine($"Write new virtual directory version: {directoryPath}, {version}");
+                    //Console.WriteLine($"Write new virtual directory version: {directoryPath}, {version}");
                 }
                 else
                 {
