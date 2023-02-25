@@ -28,6 +28,7 @@ namespace Wibblr.Grufs.Cli
                 new ArgDefinition('n', "name",  x => _repoArgs.RepoName = x),
                 new ArgDefinition('o', "non-interactive", x => _repoArgs.NonInteractive = bool.Parse(x), isFlag: true),
                 new ArgDefinition('p', "protocol", x => _repoArgs.Protocol = x),
+                new ArgDefinition('h', "host", x => _repoArgs.Host = x),
                 new ArgDefinition('t', "port", x => _repoArgs.Port = int.Parse(x)),
                 new ArgDefinition('U', "username", x => _repoArgs.Username = x),
                 new ArgDefinition('P', "password", x => _repoArgs.Password = x),
@@ -44,7 +45,7 @@ namespace Wibblr.Grufs.Cli
             if (!Directory.Exists(repoRegistrationDirectory))
             {
                 Directory.CreateDirectory(repoRegistrationDirectory);
-                Console.WriteLine($"Created directory {repoRegistrationDirectory}");
+                //Console.WriteLine($"Created directory {repoRegistrationDirectory}");
             }
 
             if (_repoArgs.Operation == RepoArgs.OperationEnum.None)
