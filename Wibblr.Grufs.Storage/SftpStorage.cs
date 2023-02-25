@@ -102,7 +102,7 @@ namespace Wibblr.Grufs.Storage
                 using (var stream = _client.OpenWrite(path.ToString()))
                 {
                     stream.Write(content, 0, content.Length);
-                    Console.WriteLine($"Wrote {path}");
+                    //Console.WriteLine($"Wrote {path}");
                     return WriteFileStatus.Success;
                 }
             }
@@ -113,7 +113,7 @@ namespace Wibblr.Grufs.Storage
                     return WriteFileStatus.PathNotFound;
                 }
 
-                Console.WriteLine(e.Message);
+                //Console.WriteLine(e.Message);
                 return WriteFileStatus.Error;
             }
         }
@@ -126,7 +126,7 @@ namespace Wibblr.Grufs.Storage
             try
             {
                 _client.CreateDirectory(path);
-                Console.WriteLine($"Created directory {relativePath}");
+                //Console.WriteLine($"Created directory {relativePath}");
                 return CreateDirectoryStatus.Success;
             }
             catch (SshConnectionException sce)
@@ -141,7 +141,7 @@ namespace Wibblr.Grufs.Storage
             }
             catch (SshException se)
             {
-                Console.WriteLine(se.Message);
+                // Console.WriteLine(se.Message);
             }
             catch (Exception e)
             {
@@ -164,7 +164,7 @@ namespace Wibblr.Grufs.Storage
             }
             catch (SftpPathNotFoundException spnfe)
             {
-                Console.WriteLine(spnfe.Message);
+                //Console.WriteLine(spnfe.Message);
                 return CreateDirectoryStatus.PathNotFound;
             }
             catch (SshConnectionException sce)
