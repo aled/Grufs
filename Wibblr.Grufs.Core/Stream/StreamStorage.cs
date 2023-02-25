@@ -219,7 +219,7 @@ namespace Wibblr.Grufs.Core
 
                             var subchunkLevel = level - 1;
 
-                            Console.WriteLine($"  Read subchunk addresses for level {subchunkLevel}: {subAddress}, chunkLength {chunkLength}");
+                            //Console.WriteLine($"  Read subchunk addresses for level {subchunkLevel}: {subAddress}, chunkLength {chunkLength}");
 
                             foreach (var subBuffer in Read(subchunkLevel, subAddress, indexBuilders))
                             {
