@@ -2,6 +2,7 @@
 using System.Numerics;
 using System.Runtime.CompilerServices;
 
+using Wibblr.Grufs.Logging;
 using Wibblr.Grufs.Storage;
 
 [assembly: InternalsVisibleTo("Wibblr.Grufs.Tests")]
@@ -32,6 +33,8 @@ namespace Wibblr.Grufs.Core
             var stats = new StreamWriteStats();
 
             var (address, level) = Write(chunkSource, level: 0);
+
+            Log.WriteLine(0, stats.ToString());
             return new StreamWriteResult(address, level, stats);
 
             (Address, byte) Write(IChunkSource chunkSource, byte level)
@@ -98,12 +101,10 @@ namespace Wibblr.Grufs.Core
                             throw new Exception("Failed to store chunk in repository");
                     }
 
-                    Console.CursorVisible = false;
-                    Console.Write(stats);
-                    Console.CursorLeft = 0;
-                    //Console.WriteLine($"Wrote chunk, level {level}, offset {streamOffset}, length {bytes.Length}, compressed/encrypted length {encryptedChunk.Content.Length}, address {encryptedChunk.Address}");
-                    //Console.WriteLine(level == 0 ? Encoding.ASCII.GetString(bytes) : $"   {Convert.ToHexString(bytes)}");
-                    //Console.WriteLine("-----------------");
+                    Log.WriteStatusLine(0, stats.ToString());
+                    //Log.WriteLine(0, $"Wrote chunk, level {level}, offset {streamOffset}, length {bytes.Length}, compressed/encrypted length {encryptedChunk.Content.Length}, address {encryptedChunk.Address}");
+                    //Log.WriteLine(0, level == 0 ? Encoding.ASCII.GetString(bytes) : $"   {Convert.ToHexString(bytes)}");
+                    //Log.WriteLine(0, "-----------------");
 
                     address = encryptedChunk.Address;
 
@@ -139,7 +140,7 @@ namespace Wibblr.Grufs.Core
                     }
                 }
 
-                //Console.WriteLine($"Returning from Write: address = {addressStreamAddress ?? address}, level = {returnLevel}");
+                //Log.WriteLine(0, $"Returning from Write: address = {addressStreamAddress ?? address}, level = {returnLevel}");
 
                 return (indexAddress ?? address, returnLevel);
             }
@@ -167,7 +168,7 @@ namespace Wibblr.Grufs.Core
             }
 
             var buffer = _chunkEncryptor.DecryptContentAddressedChunk(chunk);
-            //Console.WriteLine($"Read chunk; level = {level} address = {address}");
+            //Log.WriteLine(0, $"Read chunk; level = {level} address = {address}");
 
             if (level == 0)
             {
@@ -194,7 +195,7 @@ namespace Wibblr.Grufs.Core
                     {
                         throw new Exception();
                     }
-                    //Console.WriteLine($"  serialization version = {serializationVersion}, deserializedLevel = {deserializedLevel}");
+                    //Log.WriteLine(0, $"  serialization version = {serializationVersion}, deserializedLevel = {deserializedLevel}");
                 }
 
                 var indexBuilder = indexBuilders[level - 1];
@@ -219,7 +220,7 @@ namespace Wibblr.Grufs.Core
 
                             var subchunkLevel = level - 1;
 
-                            //Console.WriteLine($"  Read subchunk addresses for level {subchunkLevel}: {subAddress}, chunkLength {chunkLength}");
+                            //Log.WriteLine(0, $"  Read subchunk addresses for level {subchunkLevel}: {subAddress}, chunkLength {chunkLength}");
 
                             foreach (var subBuffer in Read(subchunkLevel, subAddress, indexBuilders))
                             {

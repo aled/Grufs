@@ -4,6 +4,8 @@ using Renci.SshNet;
 using Renci.SshNet.Common;
 using Renci.SshNet.Sftp;
 
+using Wibblr.Grufs.Logging;
+
 namespace Wibblr.Grufs.Storage
 {
     public class SftpStorage : AbstractFileStorage, IDisposable
@@ -41,7 +43,7 @@ namespace Wibblr.Grufs.Storage
                 catch (Exception)
                 {
                     Thread.Sleep(1000);
-                    Console.WriteLine($"Error connecting to host {Host}:{Port}; {--triesRemaining} try(s) remaining");
+                    Log.WriteLine(0, $"Error connecting to host {Host}:{Port}; {--triesRemaining} try(s) remaining");
                     if (triesRemaining <= 0)
                     {
                         throw new Exception();
@@ -102,7 +104,7 @@ namespace Wibblr.Grufs.Storage
                 using (var stream = _client.OpenWrite(path.ToString()))
                 {
                     stream.Write(content, 0, content.Length);
-                    //Console.WriteLine($"Wrote {path}");
+                    //Log.WriteLine(0, $"Wrote {path}");
                     return WriteFileStatus.Success;
                 }
             }
@@ -113,7 +115,7 @@ namespace Wibblr.Grufs.Storage
                     return WriteFileStatus.PathNotFound;
                 }
 
-                //Console.WriteLine(e.Message);
+                //Log.WriteLine(0, e.Message);
                 return WriteFileStatus.Error;
             }
         }
@@ -126,26 +128,26 @@ namespace Wibblr.Grufs.Storage
             try
             {
                 _client.CreateDirectory(path);
-                //Console.WriteLine($"Created directory {relativePath}");
+                //Log.WriteLine(0, $"Created directory {relativePath}");
                 return CreateDirectoryStatus.Success;
             }
             catch (SshConnectionException sce)
             {
-                Console.WriteLine(sce.Message);
+                Log.WriteLine(0, sce.Message);
                 return CreateDirectoryStatus.ConnectionError;
             }
             catch (SftpPermissionDeniedException spde)
             {
-                Console.WriteLine(spde.Message);
+                Log.WriteLine(0, spde.Message);
                 return CreateDirectoryStatus.PermissionError;
             }
             catch (SshException se)
             {
-                // Console.WriteLine(se.Message);
+                // Log.WriteLine(0, se.Message);
             }
             catch (Exception e)
             {
-                Console.WriteLine(e.Message);
+                Log.WriteLine(0, e.Message);
                 return CreateDirectoryStatus.UnknownError;
             }
 
@@ -164,12 +166,12 @@ namespace Wibblr.Grufs.Storage
             }
             catch (SftpPathNotFoundException spnfe)
             {
-                //Console.WriteLine(spnfe.Message);
+                //Log.WriteLine(0, spnfe.Message);
                 return CreateDirectoryStatus.PathNotFound;
             }
             catch (SshConnectionException sce)
             {
-                Console.WriteLine(sce.Message);
+                Log.WriteLine(0, sce.Message);
                 return CreateDirectoryStatus.ConnectionError;
             }
         }
@@ -201,7 +203,7 @@ namespace Wibblr.Grufs.Storage
             }
             catch(Exception ex)
             {
-                Console.WriteLine(ex.Message);
+                Log.WriteLine(0, ex.Message);
             }
 
             void DeleteDirectory(SftpFile directory)

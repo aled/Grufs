@@ -22,7 +22,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Wibblr.Grufs.Filesystem", "
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Wibblr.Grufs.Core", "Wibblr.Grufs.Core\Wibblr.Grufs.Core.csproj", "{D6DD52BF-C001-4406-817E-03DAB47215E0}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wibblr.Grufs.Storage.Sqlite", "Wibblr.Grufs.Storage.Sqlite\Wibblr.Grufs.Storage.Sqlite.csproj", "{6F4625DD-2510-4EE1-891F-C0AE7665C33B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Wibblr.Grufs.Storage.Sqlite", "Wibblr.Grufs.Storage.Sqlite\Wibblr.Grufs.Storage.Sqlite.csproj", "{6F4625DD-2510-4EE1-891F-C0AE7665C33B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wibblr.Grufs.Logging", "Wibblr.Grufs.Logging\Wibblr.Grufs.Logging.csproj", "{9BBF396C-7D42-4913-8CD1-B73CFC663549}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -58,6 +60,10 @@ Global
 		{6F4625DD-2510-4EE1-891F-C0AE7665C33B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6F4625DD-2510-4EE1-891F-C0AE7665C33B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6F4625DD-2510-4EE1-891F-C0AE7665C33B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9BBF396C-7D42-4913-8CD1-B73CFC663549}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9BBF396C-7D42-4913-8CD1-B73CFC663549}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9BBF396C-7D42-4913-8CD1-B73CFC663549}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9BBF396C-7D42-4913-8CD1-B73CFC663549}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

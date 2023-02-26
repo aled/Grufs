@@ -55,7 +55,7 @@ namespace Wibblr.Grufs.Tests
 
             decryptedText.Should().Be(plaintext);
 
-            Console.WriteLine("Dedup ratio: " + repository.DeduplicationCompressionRatio());
+            Log.WriteLine(0, "Dedup ratio: " + repository.DeduplicationCompressionRatio());
         }
     }
 }

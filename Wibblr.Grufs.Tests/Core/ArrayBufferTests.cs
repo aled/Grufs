@@ -50,7 +50,7 @@ namespace Wibblr.Grufs.Tests
                 .AppendByte(0x67)
                 .ToBuffer();
 
-            Console.WriteLine(b);
+            Log.WriteLine(0, b.ToString());
 
             var reader = new BufferReader(b);
 

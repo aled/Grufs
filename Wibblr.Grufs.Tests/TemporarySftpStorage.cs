@@ -18,7 +18,7 @@ namespace Wibblr.Grufs.Tests
         {
             BaseDir = $"grufs/test-{DateTime.UtcNow.ToString("yyyyMMdd-HHmmss")}-{Convert.ToHexString(RandomNumberGenerator.GetBytes(8))}";
 
-            Console.WriteLine($"Using SFTP temporary directory {BaseDir}");
+            Log.WriteLine(0, $"Using SFTP temporary directory {BaseDir}");
 
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             var text = File.ReadAllText("sftp-credentials.json");
@@ -37,7 +37,7 @@ namespace Wibblr.Grufs.Tests
 
         public void Dispose()
         {
-            Console.WriteLine($"Deleting temporary directory '{BaseDir}'");
+            Log.WriteLine(0, $"Deleting temporary directory '{BaseDir}'");
 
             _storage.DeleteDirectory("");
         }

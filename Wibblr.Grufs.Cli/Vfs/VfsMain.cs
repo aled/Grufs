@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 
 using Wibblr.Grufs.Core;
 using Wibblr.Grufs.Filesystem;
+using Wibblr.Grufs.Logging;
 
 namespace Wibblr.Grufs.Cli
 {
@@ -44,13 +45,13 @@ namespace Wibblr.Grufs.Cli
             {
                 throw new UsageException("Repository name not specified");
             }
-            Console.WriteLine($"Repository name: '{_args.RepoName}'");
+            Log.WriteLine(0, $"Repository name: '{_args.RepoName}'");
 
             if (_args.ConfigDir == null)
             {
                 _args.ConfigDir = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".grufs");
             }
-            Console.WriteLine($"Config directory: '{_args.ConfigDir}'");
+            Log.WriteLine(0, $"Config directory: '{_args.ConfigDir}'");
 
             var repoRegistryPath = Path.Join(_args.ConfigDir, "repos", _args.RepoName);
 
@@ -63,11 +64,11 @@ namespace Wibblr.Grufs.Cli
             switch (result.Status)
             {
                 case OpenRepositoryStatus.Success:
-                    Console.WriteLine("Opened repository");
+                    Log.WriteLine(0, "Opened repository");
                     break;
 
                 default:
-                    Console.WriteLine("Failed to open repository");
+                    Log.WriteLine(0, "Failed to open repository");
                     return -1;
             }
 
@@ -90,7 +91,7 @@ namespace Wibblr.Grufs.Cli
             finally
             {
                 var endTime = DateTime.UtcNow;
-                Console.WriteLine($"Completed in {Math.Round(Convert.ToDecimal((endTime - startTime).TotalSeconds), 3)}s");
+                Log.WriteLine(0, $"Completed in {Math.Round(Convert.ToDecimal((endTime - startTime).TotalSeconds), 3)}s");
             }
 
             throw new UsageException("Operation not specified (--upload --download --list)");
@@ -110,7 +111,7 @@ namespace Wibblr.Grufs.Cli
             if (_args.Recursive)
             {
                 var (_, _, stats) = new VirtualFilesystem(repo, "[default]").UploadDirectoryRecursive(_args.LocalPath, new DirectoryPath(_args.VfsPath));
-                Console.WriteLine(stats);
+                Log.WriteLine(0, stats.ToString());
             }
             else
             {

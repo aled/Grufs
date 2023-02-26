@@ -18,7 +18,7 @@
             var compressedPercent = PlaintextLength > 0 ? 100 * TotalBytes / (decimal)PlaintextLength : 0m;
             var transferredPercent = PlaintextLength > 0 ? 100 * TransferredBytes / (decimal)PlaintextLength : 0m;
 
-            return $"Length: {PlaintextLength}; compressed/encrypted {TotalBytes} ({decimal.Round(compressedPercent, 1)}%), transferred {TransferredBytes} ({decimal.Round(transferredPercent, 2)}%), deduplication reduction {DeduplicationPercent}";
+            return $"Wrote {PlaintextLength} bytes in {TotalContentChunks + TotalIndexChunks} chunks, {TotalBytes} encrypted bytes of which {DeduplicationPercent} deduplicated, {TransferredBytes} bytes transferred ({decimal.Round(transferredPercent, 2)}%)";
         }
 
         public void Add(StreamWriteStats other)

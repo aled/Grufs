@@ -18,7 +18,7 @@ namespace Wibblr.Grufs.Tests
 
         public IChunkStorage GetChunkStorage()
         {
-            Console.WriteLine($"Using local temporary directory {_baseDir}");
+            Log.WriteLine(0, $"Using local temporary directory {_baseDir}");
             return _storage;
         }
 

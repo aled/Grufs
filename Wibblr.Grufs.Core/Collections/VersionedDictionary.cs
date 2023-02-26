@@ -77,7 +77,7 @@ namespace Wibblr.Grufs.Core
             var address = _chunkEncryptor.GetLookupKeyAddress(structuredLookupKey);
             var exists = _chunkStorage.Exists(address);
             lookupCount++;
-            //Console.WriteLine($"Searching for seq# {sequenceNumber} - {(exists ? "found" : "missing")}");
+            //Log.WriteLine(0, $"Searching for seq# {sequenceNumber} - {(exists ? "found" : "missing")}");
             return exists;
         }
 
@@ -152,7 +152,7 @@ namespace Wibblr.Grufs.Core
             {
                 var candidate = highestExisting + ((lowestMissing - highestExisting) / 2);
 
-                //Console.WriteLine($"Searching for sequence higher than {highestExisting} and less-than-or-equal to {lowestMissing}; trying {candidate}");
+                //Log.WriteLine(0, $"Searching for sequence higher than {highestExisting} and less-than-or-equal to {lowestMissing}; trying {candidate}");
 
                 if (SequenceNumberExists(candidate, lookupKey, ref lookupCount))
                 {

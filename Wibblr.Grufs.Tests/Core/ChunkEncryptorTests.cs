@@ -27,9 +27,9 @@ namespace Wibblr.Grufs.Tests
 
             var decryptedCiphertext = Encoding.ASCII.GetString(encryptor.DecryptContentAddressedChunk(chunk).AsSpan());
 
-            Console.WriteLine($"plaintext: {plaintext}");
-            Console.WriteLine($"address:   {chunk.Address}");
-            Console.WriteLine($"content:   {Convert.ToHexString(chunk.Content)}");
+            Log.WriteLine(0, $"plaintext: {plaintext}");
+            Log.WriteLine(0, $"address:   {chunk.Address}");
+            Log.WriteLine(0, $"content:   {Convert.ToHexString(chunk.Content)}");
 
             decryptedCiphertext.Should().Be(plaintext);
         }
@@ -54,9 +54,9 @@ namespace Wibblr.Grufs.Tests
 
             var decryptedCiphertext = Encoding.ASCII.GetString(encryptor.DecryptContentAddressedChunk(chunk).AsSpan());
 
-            Console.WriteLine($"plaintext: {plaintext}");
-            Console.WriteLine($"address:   0x{chunk.Address}");
-            Console.WriteLine($"content:   0x{Convert.ToHexString(chunk.Content)}");
+            Log.WriteLine(0, $"plaintext: {plaintext}");
+            Log.WriteLine(0, $"address:   0x{chunk.Address}");
+            Log.WriteLine(0, $"content:   0x{Convert.ToHexString(chunk.Content)}");
 
             decryptedCiphertext.Should().Be(plaintext);
         }

@@ -1,6 +1,7 @@
 ﻿using System;
 
 using Wibblr.Grufs.Core;
+using Wibblr.Grufs.Logging;
 using Wibblr.Grufs.Storage;
 using Wibblr.Grufs.Storage.Sqlite;
 
@@ -39,13 +40,13 @@ namespace Wibblr.Grufs.Cli
             new ArgParser(argDefinitions).Parse(args);
 
             _repoArgs.ConfigDir ??= Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".grufs");
-            Console.WriteLine($"Using config directory: '{_repoArgs.ConfigDir}'");
+            Log.WriteLine(0, $"Using config directory: '{_repoArgs.ConfigDir}'");
 
             var repoRegistrationDirectory = Path.Join(_repoArgs.ConfigDir, "repos");
             if (!Directory.Exists(repoRegistrationDirectory))
             {
                 Directory.CreateDirectory(repoRegistrationDirectory);
-                //Console.WriteLine($"Created directory {repoRegistrationDirectory}");
+                //Log.WriteLine(0, $"Created directory {repoRegistrationDirectory}");
             }
 
             if (_repoArgs.Operation == RepoArgs.OperationEnum.None)
@@ -72,14 +73,14 @@ namespace Wibblr.Grufs.Cli
         {
             if (File.Exists(repoRegistrationPath))
             {
-                Console.WriteLine($"Repository '{_repoArgs.RepoName}' already registered");
+                Log.WriteLine(0, $"Repository '{_repoArgs.RepoName}' already registered");
                 throw new Exception();
             }
 
             if (_repoArgs.Protocol == null)
             {
                 _repoArgs.Protocol = "directory";
-                Console.WriteLine($"Using protocol: '{_repoArgs.Protocol}'");
+                Log.WriteLine(0, $"Using protocol: '{_repoArgs.Protocol}'");
             }
 
             if (_repoArgs.BaseDir == null)
@@ -98,7 +99,7 @@ namespace Wibblr.Grufs.Cli
             {
                 throw new UsageException("Repository name not specified (example: -n myrepo)");
             }
-            Console.WriteLine($"Using repository name: '{_repoArgs.RepoName}'");
+            Log.WriteLine(0, $"Using repository name: '{_repoArgs.RepoName}'");
 
             IChunkStorage storage = _repoArgs.Protocol switch
             {
@@ -133,7 +134,7 @@ namespace Wibblr.Grufs.Cli
                     return 0;
 
                 case InitRepositoryStatus.AlreadyExists:
-                    Console.WriteLine(message);
+                    Log.WriteLine(0, message);
                     return 0;
 
                 default:
@@ -157,7 +158,7 @@ namespace Wibblr.Grufs.Cli
                 case OpenRepositoryStatus.BadPassword:
                 case OpenRepositoryStatus.InvalidMetadata:
                 case OpenRepositoryStatus.Unknown:
-                    Console.WriteLine(message);
+                    Log.WriteLine(0, message);
                     return -1;
 
                 default:
@@ -169,12 +170,15 @@ namespace Wibblr.Grufs.Cli
         {
             if (!File.Exists(repoRegistrationPath))
             {
-                Console.WriteLine($"Repository '{_repoArgs.RepoName}' is not registered");
+                Log.WriteLine(0, $"Repository '{_repoArgs.RepoName}' is not registered");
                 return -1;
             }
 
-            Console.Write($"After deregistering this repository, you will need to re-enter the password to access it again. Type '{_repoArgs.RepoName}' to continue: ");
-            if (Console.ReadLine() == _repoArgs.RepoName)
+            if (Log.StdOutIsConsole)
+            {
+                Console.Write($"After deregistering this repository, you will need to re-enter the password to access it again. Type '{_repoArgs.RepoName}' to continue: ");
+            }
+            if (!Log.StdOutIsConsole || Console.ReadLine() == _repoArgs.RepoName)
             {
                 File.Delete(repoRegistrationPath);
                 return 0;
@@ -185,12 +189,12 @@ namespace Wibblr.Grufs.Cli
 
         private int ListRepos(string repoRegistrationDirectory)
         {
-            Console.WriteLine("Registered repositories:");
+            Log.WriteLine(0, "Registered repositories:");
             foreach (var f in Directory.GetFiles(repoRegistrationDirectory))
             {
                 var content = File.ReadAllText(f);
                 var repo = new RepositorySerializer().Deserialize(content);
-                Console.WriteLine(new FileInfo(f).Name);
+                Log.WriteLine(0, new FileInfo(f).Name);
             }
             return 0;
         }

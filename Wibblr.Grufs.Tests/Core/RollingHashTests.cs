@@ -29,7 +29,7 @@ namespace Wibblr.Grufs.Tests
             {
                 hash.Roll(bytes[i - RollingHash.WindowSize], bytes[i]);
                 values.Add(hash.Value);
-                Console.WriteLine(hash.Value);
+                Log.WriteLine(0, hash.Value.ToString());
             }
 
             values[bytes.Length - RollingHash.WindowSize].Should().Be(6492841u);

@@ -1,9 +1,7 @@
-﻿using System.Security.Cryptography;
-using System.Text;
+﻿using System.Text;
 
 using Wibblr.Grufs.Core;
 using Wibblr.Grufs.Encryption;
-using Wibblr.Grufs.Storage.Sqlite;
 
 namespace Wibblr.Grufs.Tests.Core
 {
@@ -125,8 +123,8 @@ namespace Wibblr.Grufs.Tests.Core
 
                 decryptedText.Should().Be(plaintext);
 
-                //Console.WriteLine("Dedup ratio: " + storage.DeduplicationCompressionRatio());
-                Console.WriteLine($"Stored {storage.Count()} chunks");
+                //Log.WriteLine(0, "Dedup ratio: " + storage.DeduplicationCompressionRatio());
+                Log.WriteLine(0, $"Stored {storage.Count()} chunks");
 
                 plaintext = "";
                 for (int i = 10; i < 1099; i++)
@@ -148,9 +146,9 @@ namespace Wibblr.Grufs.Tests.Core
 
                 decryptedText.Should().Be(plaintext);
 
-                //Console.WriteLine("Dedup ratio: " + storage.DeduplicationCompressionRatio());
+                //Log.WriteLine(0, "Dedup ratio: " + storage.DeduplicationCompressionRatio());
 
-                Console.WriteLine($"Stored {storage.Count()} chunks");
+                // Log.WriteLine(0, $"Stored {storage.Count()} chunks");
             }
         }
     }

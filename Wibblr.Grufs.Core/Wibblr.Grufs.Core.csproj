@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Wibblr.Grufs.Encryption\Wibblr.Grufs.Encryption.csproj" />
+    <ProjectReference Include="..\Wibblr.Grufs.Logging\Wibblr.Grufs.Logging.csproj" />
     <ProjectReference Include="..\Wibblr.Grufs.Storage\Wibblr.Grufs.Storage.csproj" />
   </ItemGroup>
 

@@ -58,13 +58,13 @@ namespace Wibblr.Grufs.Core
 
                 if (compressedBytes.Length >= data.Length * 0.9f)
                 {
-                    //Console.WriteLine($"Compression ratio >= 0.9 ({data.Length} to {compressedBytes.Length} bytes); ignoring compression algorithm");
+                    //Log.WriteLine(0, $"Compression ratio >= 0.9 ({data.Length} to {compressedBytes.Length} bytes); ignoring compression algorithm");
                     algorithm = CompressionAlgorithm.None;
                     return data;
                 }
                 else
                 {
-                    //Console.WriteLine($"Compressed chunk ({data.Length} to {compressedBytes.Length} bytes)");
+                    //Log.WriteLine(0, $"Compressed chunk ({data.Length} to {compressedBytes.Length} bytes)");
                     return compressedBytes;
                 }
             }

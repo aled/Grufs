@@ -35,7 +35,7 @@ namespace Wibblr.Grufs
             {
                 Value = ((Value << 8) + b) % modulus;
             }
-            //Console.WriteLine("initial hash " + hash);
+            //Log.WriteLine(0, "initial hash " + hash);
         }
 
         public void Roll(byte oldByte, byte newByte)

@@ -53,7 +53,7 @@ namespace Wibblr.Grufs.Tests
                     var value = Encoding.ASCII.GetBytes($"value-{lookupKeyId}-sequence-{sequence}");
                     _dictionary.TryPutValue(lookupKey, sequence, value).Should().BeTrue();
                 }
-                Console.WriteLine($"Created test fixture for lookup key id {lookupKeyId} in {((DateTime.Now.Ticks - start.Ticks) / 10000)} ms");
+                Log.WriteLine(0, $"Created test fixture for lookup key id {lookupKeyId} in {((DateTime.Now.Ticks - start.Ticks) / 10000)} ms");
             }
         }
 
@@ -185,7 +185,7 @@ namespace Wibblr.Grufs.Tests
             dictionaryStorage.TryPutValue(lookupKeyBytes, i, GetValue(i)).Should().BeTrue();
 
             // Should be exactly two 'exists' calls when the actual highest used sequence number is given as a hint
-            Console.WriteLine("hint is optimal");
+            Log.WriteLine(0, "hint is optimal");
             storage.ResetStats();
             var hint = long.MaxValue; // highest existing sequence number
 

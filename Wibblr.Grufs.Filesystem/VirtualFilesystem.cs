@@ -3,6 +3,7 @@ using System.IO.Compression;
 using System.Text;
 
 using Wibblr.Grufs.Core;
+using Wibblr.Grufs.Logging;
 
 namespace Wibblr.Grufs.Filesystem
 {
@@ -82,7 +83,7 @@ namespace Wibblr.Grufs.Filesystem
 
             (VirtualDirectory, long version, StreamWriteStats stats) UploadDirectoryRecursive(string localDirectoryPath, DirectoryPath vfsDirectoryPath, long parentVersion, bool recursive)
             {
-                //Console.WriteLine($"In UploadDirectoryRecursive: {localDirectoryPath}");
+                //Log.WriteLine(0, $"In UploadDirectoryRecursive: {localDirectoryPath}");
                 var cumulativeStats = new StreamWriteStats();
 
                 // Upload all local files, recording the address/chunk type/other metadata of each
@@ -105,17 +106,17 @@ namespace Wibblr.Grufs.Filesystem
                             {
                                 var (address, level, fileStats) = _streamStorage.Write(stream);
                                 cumulativeStats.Add(fileStats);
-                                Console.WriteLine($"{file.FullName}, {fileStats}");
+                                Log.WriteLine(0, $"{file.FullName}, {fileStats}");
                                 filesBuilder.Add(new FileMetadata(new Filename(file.Name), address, level, snapshotTimestamp, new Timestamp(file.LastWriteTimeUtc), file.Length));
                             }
                         }
                         catch (IOException)
                         {
-                            Console.WriteLine($"IO Exception for {file.FullName}");
+                            Log.WriteLine(0, $"IO Exception for {file.FullName}");
                         }
                         catch (UnauthorizedAccessException)
                         {
-                            Console.WriteLine($"Unauthorized access for {file.FullName}");
+                            Log.WriteLine(0, $"Unauthorized access for {file.FullName}");
                         }
                     }
                     if (fsi is DirectoryInfo dir)
@@ -131,7 +132,7 @@ namespace Wibblr.Grufs.Filesystem
                 if (vfsDirectory == null)
                 {
                     ret = WriteVirtualDirectoryVersion(new VirtualDirectory(vfsDirectoryPath, 0, snapshotTimestamp, false, filesBuilder.ToImmutableArray(), directoriesBuilder.ToImmutableArray()), 0);
-                    //Console.WriteLine($"Write new virtual directory version: {directoryPath}, {version}");
+                    //Log.WriteLine(0, $"Write new virtual directory version: {directoryPath}, {version}");
                 }
                 else
                 {
@@ -245,10 +246,10 @@ namespace Wibblr.Grufs.Filesystem
                 {
                     continue;
                 }
-                Console.WriteLine(directory.SnapshotTimestamp.ToString("yyyy-MM-dd HH:mm:ss") + " " +  version.ToString("0000") + " " + directory.Path.NormalizedPath);
+                Log.WriteLine(0, directory.SnapshotTimestamp.ToString("yyyy-MM-dd HH:mm:ss") + " " +  version.ToString("0000") + " " + directory.Path.NormalizedPath);
                 foreach (var file in directory.Files)
                 {
-                    Console.WriteLine(directory.SnapshotTimestamp.ToString("yyyy-MM-dd HH:mm:ss") + "      " + directory.Path.NormalizedPath + "/" + file.Name.ToString());
+                    Log.WriteLine(0, directory.SnapshotTimestamp.ToString("yyyy-MM-dd HH:mm:ss") + "      " + directory.Path.NormalizedPath + "/" + file.Name.ToString());
                 }
                 foreach (var subDir in directory.Directories)
                 {
@@ -285,11 +286,8 @@ namespace Wibblr.Grufs.Filesystem
                         {
                             stream.Write(buffer.AsSpan());
                             bytesWritten += buffer.AsSpan().Length;
-                            Console.CursorVisible = false;
-                            Console.Write(localPath + " " + bytesWritten + "/" + file.Size);
-                            Console.CursorLeft = 0;
+                            Log.WriteStatusLine(0, localPath + " " + bytesWritten + "/" + file.Size);
                         }
-                        Console.WriteLine();
                     }
                 }
             }

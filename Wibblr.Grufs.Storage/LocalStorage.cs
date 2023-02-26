@@ -1,5 +1,7 @@
 ﻿using System;
 
+using Wibblr.Grufs.Logging;
+
 namespace Wibblr.Grufs.Storage
 {
     public class LocalStorage : AbstractFileStorage
@@ -33,7 +35,7 @@ namespace Wibblr.Grufs.Storage
             catch (Exception e)
             {
                 //[x]
-                Console.WriteLine(e.Message);
+                Log.WriteLine(0, e.Message);
             }
         }
 
@@ -56,7 +58,7 @@ namespace Wibblr.Grufs.Storage
             catch (Exception e)
             {
                 //[x]
-                Console.WriteLine(e.Message);
+                Log.WriteLine(0, e.Message);
                 throw;
             }
         }
@@ -72,7 +74,7 @@ namespace Wibblr.Grufs.Storage
             catch (Exception e)
             {
                 //TODO: error handling
-                Console.WriteLine(e.Message);
+                Log.WriteLine(0, e.Message);
                 bytes = new byte[0];
                 return ReadFileStatus.UnknownError;
             }
@@ -108,7 +110,7 @@ namespace Wibblr.Grufs.Storage
             catch (Exception e)
             {
                 //TODO: error handling
-                Console.WriteLine(e.Message);
+                Log.WriteLine(0, e.Message);
                 return WriteFileStatus.Error;
             }
         }

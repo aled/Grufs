@@ -16,7 +16,7 @@ namespace Wibblr.Grufs.Tests
         public TemporaryLocalStorage()
         {
             BaseDir = Path.Join(Path.GetTempPath(), "grufs", $"test-{DateTime.UtcNow.ToString("yyyyMMdd-HHmmss")}-{Convert.ToHexString(RandomNumberGenerator.GetBytes(8))}");
-            Console.WriteLine($"Using local temporary directory {BaseDir}");
+            Log.WriteLine(0, $"Using local temporary directory {BaseDir}");
 
             _storage = new LocalStorage(BaseDir);
             _storage.CreateDirectory("", createParents: true);
@@ -24,7 +24,7 @@ namespace Wibblr.Grufs.Tests
 
         public void Dispose()
         {
-            Console.WriteLine($"Deleting temporary directory {BaseDir}");
+            Log.WriteLine(0, $"Deleting temporary directory {BaseDir}");
             _storage.DeleteDirectory("");
         }
     }

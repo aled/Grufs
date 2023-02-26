@@ -1,4 +1,6 @@
-﻿namespace Wibblr.Grufs.Cli
+﻿using Wibblr.Grufs.Logging;
+
+namespace Wibblr.Grufs.Cli
 {
     /// <summary>
     /// Grand Remote Unified File System
@@ -57,6 +59,7 @@
     {
         public static void Main(string[] args)
         {
+            Log.StdOutIsConsole = true;
             Environment.Exit(new Program().Run(args));
         }
 
@@ -75,7 +78,7 @@
             }
             catch (UsageException ue)
             {
-                Console.WriteLine(ue.Message);
+                Log.WriteLine(0, ue.Message);
                 return -1;
             }
         }
