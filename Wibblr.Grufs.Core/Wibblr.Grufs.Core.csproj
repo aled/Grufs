@@ -7,7 +7,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <PublishAot>true</PublishAot>
+    <PublishAot>false</PublishAot>
     <StripSymbols>true</StripSymbols>
   </PropertyGroup>
 
