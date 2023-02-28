@@ -143,7 +143,7 @@ namespace Wibblr.Grufs.Storage
             }
             catch (SshException se)
             {
-                // Log.WriteLine(0, se.Message);
+                Log.WriteLine(1, se.Message);
             }
             catch (Exception e)
             {
@@ -166,7 +166,7 @@ namespace Wibblr.Grufs.Storage
             }
             catch (SftpPathNotFoundException spnfe)
             {
-                //Log.WriteLine(0, spnfe.Message);
+                Log.WriteLine(1, spnfe.Message);
                 return CreateDirectoryStatus.PathNotFound;
             }
             catch (SshConnectionException sce)

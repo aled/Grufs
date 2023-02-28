@@ -108,15 +108,11 @@ namespace Wibblr.Grufs.Cli
                 throw new UsageException("Vfs path not specified (--local-path /path/to/dir)");
             }
 
-            if (_args.Recursive)
-            {
-                var (_, _, stats) = new VirtualFilesystem(repo, "[default]").UploadDirectoryRecursive(_args.LocalPath, new DirectoryPath(_args.VfsPath));
-                Log.WriteLine(0, stats.ToString());
-            }
-            else
-            {
-                new VirtualFilesystem(repo, "[default]").UploadDirectoryNonRecursive(_args.LocalPath, new DirectoryPath(_args.VfsPath));
-            }
+            var vfs = new VirtualFilesystem(repo, "[default]");
+            var (_, _, stats) = vfs.UploadDirectory(_args.LocalPath, new DirectoryPath(_args.VfsPath), _args.Recursive);
+
+            Log.WriteLine(0, stats.ToString());
+
             return 0;
         }
 

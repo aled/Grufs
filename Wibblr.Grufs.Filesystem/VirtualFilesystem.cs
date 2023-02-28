@@ -76,12 +76,11 @@ namespace Wibblr.Grufs.Filesystem
                 0);
         }
 
-        // TODO: refactor this
-        public (VirtualDirectory, long version, StreamWriteStats stats) UploadDirectoryRecursive(string localDirectoryPath, DirectoryPath vfsDirectoryPath, bool recursive = true)
+        public (VirtualDirectory, long version, StreamWriteStats stats) UploadDirectory(string localDirectoryPath, DirectoryPath vfsDirectoryPath, bool recursive = true)
         {
             var snapshotTimestamp = new Timestamp(DateTime.UtcNow);
 
-            (VirtualDirectory, long version, StreamWriteStats stats) UploadDirectoryRecursive(string localDirectoryPath, DirectoryPath vfsDirectoryPath, long parentVersion, bool recursive)
+            (VirtualDirectory, long version, StreamWriteStats stats) UploadDirectory(string localDirectoryPath, DirectoryPath vfsDirectoryPath, long parentVersion, bool recursive)
             {
                 //Log.WriteLine(0, $"In UploadDirectoryRecursive: {localDirectoryPath}");
                 var cumulativeStats = new StreamWriteStats();
@@ -164,7 +163,7 @@ namespace Wibblr.Grufs.Filesystem
 
                 foreach (var d in directoriesBuilder)
                 {
-                    var (_, _, stats) = UploadDirectoryRecursive(Path.Join(di.FullName, d), new DirectoryPath(vfsDirectoryPath + "/" + d), version + 1, recursive);
+                    var (_, _, stats) = UploadDirectory(Path.Join(di.FullName, d), new DirectoryPath(vfsDirectoryPath + "/" + d), version + 1, recursive);
                     cumulativeStats.Add(stats);
                 }
 
@@ -181,56 +180,7 @@ namespace Wibblr.Grufs.Filesystem
                 (_, parentVersion) = EnsureDirectoryContains(dirPath, childDirName, parentVersion, snapshotTimestamp);
             }
 
-            return UploadDirectoryRecursive(localDirectoryPath, vfsDirectoryPath, parentVersion, recursive);
-        }
-
-        // Non recursive upload of a local directory to the repository
-        public (VirtualDirectory, long version) UploadDirectoryNonRecursive(string localDirectoryPath, DirectoryPath directoryPath)
-        {
-            var snapshotTimestamp = new Timestamp(DateTime.UtcNow);
-
-            long parentVersion = 0; // default value for root directory
-
-            // Starting at the root and going down to the parent of this directory, ensure each directory exists and contains the child directory
-            // Note we do not go down to this directory, as it also needs the files before we write it.
-            foreach (var (dirPath, childDirName) in directoryPath.PathHierarchy())
-            {
-                // ensure that dir exists, and contains childDir
-                (_, parentVersion) = EnsureDirectoryContains(dirPath, childDirName, parentVersion, snapshotTimestamp);
-            }
-
-            // Upload all local files, recording the address/chunk type/other metadata of each
-            // Ignore directories.
-            var filesBuilder = ImmutableArray.CreateBuilder<FileMetadata>();
-
-            var di = new DirectoryInfo(localDirectoryPath);
-            if (!di.Exists)
-            {
-                throw new Exception("Invalid directory");
-            }
-
-            foreach (var file in di.EnumerateFiles())
-            {
-                using (var stream = new FileStream(file.FullName, FileMode.Open))
-                {
-                    var (address, level, stats) = _streamStorage.Write(stream);
-                    filesBuilder.Add(new FileMetadata(new Filename(file.Name), address, level, snapshotTimestamp, new Timestamp(file.LastWriteTimeUtc), file.Length));
-                }
-            }
-
-            // finally upload this directory
-            var (directory, version) = GetLatestVirtualDirectory(directoryPath);
-
-            if (directory == null)
-            {
-                return WriteVirtualDirectoryVersion(new VirtualDirectory(directoryPath, parentVersion, snapshotTimestamp, false, filesBuilder.ToImmutableArray(), new Filename[0]), 0);
-            }
-
-            var oldFiles = directory.Files.Except(filesBuilder);
-            filesBuilder.AddRange(oldFiles);
-
-            var updated = directory with { Files = filesBuilder.ToImmutableArray() };
-            return WriteVirtualDirectoryVersion(updated, version + 1);
+            return UploadDirectory(localDirectoryPath, vfsDirectoryPath, parentVersion, recursive);
         }
 
         public void ListDirectory(DirectoryPath path)
