@@ -18,7 +18,7 @@
             // Use this to detect and disable console status messages
             try 
             {
-                Console.CursorVisible = false;
+                Console.CursorVisible = true;
             }
             catch (Exception)
             {
@@ -46,6 +46,7 @@
                 Console.Write(message);
                 Console.Write(new string(' ', Console.WindowWidth - message.Length));
                 Console.CursorLeft = 0;
+                Console.CursorVisible = true;
             }
         }
     }
