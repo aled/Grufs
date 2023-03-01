@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Text;
 
 namespace Wibblr.Grufs.Core
 {
@@ -6,7 +7,8 @@ namespace Wibblr.Grufs.Core
     {
         public static int GetSerializedLength(this string s)
         {
-            return GetSerializedLength(s.Length) + (2 * s.Length);
+            int byteCount = Encoding.UTF8.GetByteCount(s);
+            return GetSerializedLength(byteCount) + byteCount;
         }
 
         public static int GetSerializedLength(this int i)

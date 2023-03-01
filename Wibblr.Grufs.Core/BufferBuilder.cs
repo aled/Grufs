@@ -4,6 +4,7 @@ using System.Buffers.Binary;
 
 using Wibblr.Grufs.Encryption;
 using Wibblr.Grufs.Storage;
+using System.Text;
 
 namespace Wibblr.Grufs.Core
 {
@@ -89,21 +90,11 @@ namespace Wibblr.Grufs.Core
 
         public BufferBuilder AppendString(string s)
         {
-            AppendInt(s.Length);
-
-            // TODO: make this efficient
-            foreach (var c in s)
-            {
-                AppendUShort(c);
-            }
-            return this;
-        }
-
-        public BufferBuilder AppendUShort(ushort i)
-        {
-            Debug.Assert(CheckBounds(sizeof(ushort)));
-            BinaryPrimitives.WriteUInt16LittleEndian(_buf.AsSpan(_offset, sizeof(ushort)), i);
-            _offset += sizeof(ushort);
+            var byteCount = Encoding.UTF8.GetByteCount(s);
+            AppendInt(byteCount);
+            var destination = _buf.AsSpan(_offset, byteCount);
+            Encoding.UTF8.GetBytes(s, destination);
+            _offset += byteCount;
             return this;
         }
 

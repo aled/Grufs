@@ -2,6 +2,7 @@
 using System.Buffers.Binary;
 using Wibblr.Grufs.Encryption;
 using Wibblr.Grufs.Storage;
+using System.Text;
 
 namespace Wibblr.Grufs.Core
 {
@@ -48,21 +49,8 @@ namespace Wibblr.Grufs.Core
 
         public string ReadString()
         {
-            int charCount = ReadInt();
-            int byteCount = charCount * sizeof(char);
-            var s = string.Create(charCount, charCount, (chars, state) =>
-            {
-                for (int i = 0; i < state; i++)
-                {
-                    chars[i] = (char)ReadUShort();
-                }
-            });
-            return s;
-        }
-
-        public ushort ReadUShort()
-        {
-            return BinaryPrimitives.ReadUInt16LittleEndian(ReadKnownLengthSpan(sizeof(ushort)));
+            var span = ReadSpan();
+            return Encoding.UTF8.GetString(span);
         }
 
         public int ReadInt()

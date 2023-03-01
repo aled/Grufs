@@ -30,11 +30,11 @@ namespace Wibblr.Grufs.Tests
             name.ToString().Should().Be("ASDF");
             name.OriginalName.Should().Be("ASDF");
             name.CanonicalName.Should().Be("asdf");
-            name.GetSerializedLength().Should().Be(18); // length = 1 content = 2 * 4, so 9 for each of original and canonical
+            name.GetSerializedLength().Should().Be(10); // length = 1 content = 4, so 5 for each of original and canonical
 
             var builder = new BufferBuilder(name.GetSerializedLength());
             var buffer = builder.AppendFilename(name).ToBuffer();
-            buffer.AsSpan().ToArray().Should().BeEquivalentTo(new byte[] { 4, (byte)'A', 0, (byte)'S', 0, (byte)'D', 0, (byte)'F', 0, 4, (byte)'a', 0, (byte)'s', 0, (byte)'d', 0, (byte)'f', 0 });
+            buffer.AsSpan().ToArray().Should().BeEquivalentTo(new byte[] { 4, (byte)'A', (byte)'S', (byte)'D', (byte)'F', 4, (byte)'a', (byte)'s', (byte)'d', (byte)'f' });
 
             var reader = new BufferReader(buffer);
             var name2 = reader.ReadFilename();
