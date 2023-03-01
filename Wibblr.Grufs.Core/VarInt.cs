@@ -72,8 +72,12 @@ namespace Wibblr.Grufs.Core
             //    >= 4  leading zeros -> 4 byte varint
             //    else                -> 5 byte varint
             int leadingZeroCount = BitOperations.LeadingZeroCount(unchecked((uint)Value));
-
-            return 5 - ((leadingZeroCount + 3) / 7) + (leadingZeroCount / 32);
+            
+            // This is an optimised version of the expression (5 - ((leadingZeroCount + 3) / 7) + (leadingZeroCount / 32))
+            // obtained by substituting in ((x + (x << 3) + 9) >> 6) in place of (x / 7), which works for x <= 69
+            // Also change '/ 32' to '>> 5' which makes a big difference.
+            // The optimisation reduced the time from 1.36ns to zero, according to benchmarkdotnet.
+            return 5 - ((leadingZeroCount + (leadingZeroCount << 3) + 36) >> 6) + (leadingZeroCount >> 5);
         }
 
         public void SerializeTo(BufferBuilder builder)
