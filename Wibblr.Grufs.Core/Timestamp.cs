@@ -30,7 +30,6 @@ namespace Wibblr.Grufs.Core
 
         public void SerializeTo(BufferBuilder builder)
         {
-            builder.CheckBounds(GetSerializedLength());
             builder.AppendLong(Value.Ticks);
         }
 

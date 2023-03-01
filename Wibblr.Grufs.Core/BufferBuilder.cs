@@ -18,12 +18,13 @@ namespace Wibblr.Grufs.Core
             _buf = new byte[capacity];
         }
 
-        internal void CheckBounds(int i)
+        internal bool CheckBounds(int i)
         {
             if (_offset + i > _buf.Length)
             {
                 throw new IndexOutOfRangeException("Cannot append to buffer");
             }
+            return true;
         }
 
         public BufferBuilder AppendSpan(ReadOnlySpan<byte> bytes)
@@ -44,7 +45,7 @@ namespace Wibblr.Grufs.Core
 
         public BufferBuilder AppendBytes(byte b0, byte b1)
         {
-            CheckBounds(2);
+            Debug.Assert(CheckBounds(2));
             _buf[_offset++] = b0; 
             _buf[_offset++] = b1;
             return this;
@@ -52,7 +53,7 @@ namespace Wibblr.Grufs.Core
 
         public BufferBuilder AppendBytes(byte b0, byte b1, byte b2)
         {
-            CheckBounds(3);
+            Debug.Assert(CheckBounds(3));
             _buf[_offset++] = b0;
             _buf[_offset++] = b1;
             _buf[_offset++] = b2;
@@ -61,7 +62,7 @@ namespace Wibblr.Grufs.Core
 
         public BufferBuilder AppendBytes(byte b0, byte b1, byte b2, byte b3)
         {
-            CheckBounds(4);
+            Debug.Assert(CheckBounds(4));
             _buf[_offset++] = b0;
             _buf[_offset++] = b1;
             _buf[_offset++] = b2;
@@ -71,7 +72,7 @@ namespace Wibblr.Grufs.Core
 
         public BufferBuilder AppendBytes(byte b0, byte b1, byte b2, byte b3, byte b4)
         {
-            CheckBounds(5);
+            Debug.Assert(CheckBounds(5));
             _buf[_offset++] = b0;
             _buf[_offset++] = b1;
             _buf[_offset++] = b2;
@@ -100,7 +101,7 @@ namespace Wibblr.Grufs.Core
 
         public BufferBuilder AppendUShort(ushort i)
         {
-            CheckBounds(sizeof(ushort));
+            Debug.Assert(CheckBounds(sizeof(ushort)));
             BinaryPrimitives.WriteUInt16LittleEndian(_buf.AsSpan(_offset, sizeof(ushort)), i);
             _offset += sizeof(ushort);
             return this;
