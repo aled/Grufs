@@ -44,7 +44,7 @@
             {
                 Console.CursorVisible = false;
                 Console.Write(message);
-                Console.Write(new string(' ', Console.WindowWidth - message.Length));
+                Console.Write(new string(' ', Math.Clamp(Console.WindowWidth - message.Length, 0, 1000)));
                 Console.CursorLeft = 0;
                 Console.CursorVisible = true;
             }
