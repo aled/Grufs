@@ -208,13 +208,13 @@ namespace Wibblr.Grufs.Filesystem
             }
         }
 
-        public void Download(DirectoryPath path, Filename? filename, string localDirectoryPath, bool recursive)
+        public void Download(DirectoryPath vfsDirectory, Filename? filename, string localDirectoryPath, bool recursive)
         {
-            var (directory, version) = GetLatestVirtualDirectory(path);
+            var (directory, version) = GetLatestVirtualDirectory(vfsDirectory);
 
             if (directory == null)
             {
-                throw new Exception($"Virtual Directory not found: '{path}'");
+                throw new Exception($"Virtual Directory not found: '{vfsDirectory}'");
             }
 
             Directory.CreateDirectory(localDirectoryPath);
@@ -246,7 +246,7 @@ namespace Wibblr.Grufs.Filesystem
             {
                 foreach (var subdir in directory.Directories)
                 {
-                    Download(new DirectoryPath(path + "/" + subdir), null, Path.Join(localDirectoryPath, subdir.OriginalName), true);
+                    Download(new DirectoryPath(vfsDirectory + "/" + subdir), null, Path.Join(localDirectoryPath, subdir.OriginalName), true);
                 }
             }
         }

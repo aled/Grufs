@@ -26,16 +26,21 @@ namespace Wibblr.Grufs.Cli
 
             var argDefinitions = new ArgDefinition[]
             {
-                new ArgDefinition(null, "upload", x => _args.Upload = bool.Parse(x), isFlag: true),
-                new ArgDefinition(null, "list", x => _args.List = bool.Parse(x), isFlag: true),
-                new ArgDefinition(null, "download", x => _args.Download = bool.Parse(x), isFlag: true),
-                new ArgDefinition('c', "config-dir", x => _args.ConfigDir = x),
-                new ArgDefinition('n', "repo-name",  x => _args.RepoName = x),
-                new ArgDefinition('d', "delete", x => _args.Delete = bool.Parse(x), isFlag: true),
-                new ArgDefinition('r', "recursive", x => _args.Recursive = bool.Parse(x), isFlag: true),
-                new ArgDefinition('f', "file-only", x => _args.FileOnly = bool.Parse(x), isFlag: true),
-                new ArgDefinition(null, "local-path",  x => _args.LocalPath = x),
-                new ArgDefinition(null, "vfs-path",  x => _args.VfsPath = x),
+                new PositionalStringArgDefinition(0, x => _args.Operation = x switch
+                {
+                    "list" => VfsArgs.OperationEnum.List,
+                    "sync" =>  VfsArgs.OperationEnum.Sync,
+                    _ => throw new UsageException()
+                }),
+                new NamedStringArgDefinition('c', "config-dir", x => _args.ConfigDir = x),
+                new NamedStringArgDefinition('n', "repo-name",  x => _args.RepoName = x),
+                new NamedFlagArgDefinition('d', "delete", x => _args.Delete = x),
+                new NamedFlagArgDefinition('r', "recursive", x => _args.Recursive = x),
+                new NamedFlagArgDefinition('f', "file-only", x => _args.FileOnly = x),
+                new NamedFlagArgDefinition('p', "progress", x => _args.Progress = x),
+                new NamedFlagArgDefinition('v', "verbose", x => _args.Verbose += x ? 1 : -1),
+                new PositionalStringArgDefinition(-2, x => _args.Source = x),
+                new PositionalStringArgDefinition(-1, x => _args.Destination = x),
             };
 
             new ArgParser(argDefinitions).Parse(args);
@@ -75,15 +80,11 @@ namespace Wibblr.Grufs.Cli
             // TODO: implement simultaneous upload and download
             try
             {
-                if (_args.Upload)
+                if (_args.Operation == VfsArgs.OperationEnum.Sync)
                 {
-                    return Upload(repo);
+                    return Sync(repo);
                 }
-                if (_args.Download)
-                {
-                    return Download(repo);
-                }
-                if (_args.List)
+                if (_args.Operation == VfsArgs.OperationEnum.List)
                 {
                     return List(repo, "[default]");
                 }
@@ -97,21 +98,43 @@ namespace Wibblr.Grufs.Cli
             throw new UsageException("Operation not specified (--upload --download --list)");
         }
 
-        public int Upload(Repository repo)
+        public int Sync(Repository repo)
         {
-            if (_args.LocalPath == null)
+            if (_args.Source == null)
             {
-                throw new UsageException("Local path not specified (--local-path c:\\temp)");
+                throw new UsageException("Source path not specified");
             }
-            if (_args.VfsPath == null)
+            if (_args.Destination == null)
             {
-                throw new UsageException("Vfs path not specified (--local-path /path/to/dir)");
+                throw new UsageException("Destination path not specified");
+            }
+
+            // Either the source or destination must be a VFS path
+            var vfsPrefix = "vfs://";
+            var sourceIsVfs = _args.Source.StartsWith(vfsPrefix);
+            var destIsVfs = _args.Destination.StartsWith(vfsPrefix);
+
+            if (!(sourceIsVfs ^ destIsVfs))
+            {
+                throw new UsageException();
             }
 
             var vfs = new VirtualFilesystem(repo, "[default]");
-            var (_, _, stats) = vfs.UploadDirectory(_args.LocalPath, new DirectoryPath(_args.VfsPath), _args.Recursive);
+            if (sourceIsVfs)
+            {
+                var vfsDirectory = new DirectoryPath(_args.Source.Substring(vfsPrefix.Length));
+                var localDirectory = _args.Destination;
 
-            Log.WriteLine(0, stats.ToString());
+                vfs.Download(vfsDirectory, null, localDirectory, _args.Recursive);
+            }
+            else
+            {
+                var vfsDirectory = new DirectoryPath(_args.Destination.Substring(vfsPrefix.Length));
+                var localDirectory = _args.Source;
+
+                var (_, _, stats) = vfs.UploadDirectory(localDirectory, vfsDirectory, _args.Recursive);
+                Log.WriteLine(0, stats.ToString());
+            }
 
             return 0;
         }
@@ -119,35 +142,6 @@ namespace Wibblr.Grufs.Cli
         public int List(Repository repo, string vfsName)
         {
             new VirtualFilesystem(repo, vfsName).ListDirectory(new DirectoryPath("/"));
-            return 0;
-        }
-
-        public int Download(Repository repo)
-        {
-            if (_args.LocalPath == null)
-            {
-                throw new UsageException("Local path not specified (--local-path c:\\temp)");
-            }
-            if (_args.VfsPath == null)
-            {
-                throw new UsageException("Vfs path not specified (--local-path /path/to/dir)");
-            }
-
-            // TODO: don't require upfront arg to specify file or directory - discover at runtime
-            if (_args.FileOnly)
-            {
-                var separatorIndex = _args.VfsPath.LastIndexOfAny(new[] { '/', '\\' });
-                var virtualFile = _args.VfsPath.Substring(separatorIndex);
-                var virtualDirectory = _args.VfsPath.Substring(0, separatorIndex);
-
-                new VirtualFilesystem(repo, "[default]").Download(new DirectoryPath(virtualDirectory), new Filename(virtualFile), _args.LocalPath, false);
-            }
-            else
-            {
-                var recursive = _args.Recursive;
-
-                new VirtualFilesystem(repo, "[default]").Download(new DirectoryPath(_args.VfsPath), null, _args.LocalPath, recursive);
-            }
             return 0;
         }
     }

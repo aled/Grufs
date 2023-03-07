@@ -20,21 +20,27 @@ namespace Wibblr.Grufs.Cli
         {
             var argDefinitions = new ArgDefinition[]
             {
-                new ArgDefinition(null, "init", x => _repoArgs.Operation = RepoArgs.OperationEnum.Init, isFlag: true),
-                new ArgDefinition(null, "register", x => _repoArgs.Operation = RepoArgs.OperationEnum.Register, isFlag: true),
-                new ArgDefinition(null, "unregister", x => _repoArgs.Operation = RepoArgs.OperationEnum.Unregister, isFlag: true),
-                new ArgDefinition(null, "list", x => _repoArgs.Operation = RepoArgs.OperationEnum.List, isFlag: true),
-                new ArgDefinition(null, "scrub", x => _repoArgs.Operation = RepoArgs.OperationEnum.Scrub, isFlag: true),
-                new ArgDefinition('c', "config-dir", x => _repoArgs.ConfigDir = x),
-                new ArgDefinition('n', "name",  x => _repoArgs.RepoName = x),
-                new ArgDefinition('o', "non-interactive", x => _repoArgs.NonInteractive = bool.Parse(x), isFlag: true),
-                new ArgDefinition('p', "protocol", x => _repoArgs.Protocol = x),
-                new ArgDefinition('h', "host", x => _repoArgs.Host = x),
-                new ArgDefinition('t', "port", x => _repoArgs.Port = int.Parse(x)),
-                new ArgDefinition('U', "username", x => _repoArgs.Username = x),
-                new ArgDefinition('P', "password", x => _repoArgs.Password = x),
-                new ArgDefinition('e', "encryption-password", x => _repoArgs.EncryptionPassword = x),
-                new ArgDefinition('b', "basedir", x => _repoArgs.BaseDir = x),
+                new PositionalStringArgDefinition(0, x => {
+                    _repoArgs.Operation = x switch
+                    {
+                        "init" => RepoArgs.OperationEnum.Init,
+                        "register" => RepoArgs.OperationEnum.Register,
+                        "unregister" => RepoArgs.OperationEnum.Unregister,
+                        "list" => RepoArgs.OperationEnum.List,
+                        "scrub" => RepoArgs.OperationEnum.Scrub,
+                        _ => throw new UsageException()
+                    };
+                }),
+                new NamedStringArgDefinition('c', "config-dir", x => _repoArgs.ConfigDir = x),
+                new NamedStringArgDefinition('n', "name",  x => _repoArgs.RepoName = x),
+                new NamedFlagArgDefinition('o', "non-interactive", x => _repoArgs.NonInteractive = x),
+                new NamedStringArgDefinition('p', "protocol", x => _repoArgs.Protocol = x),
+                new NamedStringArgDefinition('h', "host", x => _repoArgs.Host = x),
+                new NamedStringArgDefinition('t', "port", x => _repoArgs.Port = int.Parse(x)),
+                new NamedStringArgDefinition('U', "username", x => _repoArgs.Username = x),
+                new NamedStringArgDefinition('P', "password", x => _repoArgs.Password = x),
+                new NamedStringArgDefinition('e', "encryption-password", x => _repoArgs.EncryptionPassword = x),
+                new NamedStringArgDefinition('b', "basedir", x => _repoArgs.BaseDir = x),
             };
 
             new ArgParser(argDefinitions).Parse(args);

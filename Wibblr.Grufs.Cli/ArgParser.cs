@@ -1,4 +1,6 @@
-﻿namespace Wibblr.Grufs.Cli
+﻿using System.Globalization;
+
+namespace Wibblr.Grufs.Cli
 {
     public class ArgParser
     {
@@ -16,6 +18,7 @@
         {
             // Warn on duplicate definitions
             IEnumerable<string> shortNameDuplicates = _argDefinitions
+                .OfType<NamedArgDefinition>()
                 .Select(x => x.ShortName)
                 .OfType<char>()
                 .GroupBy(x => x)
@@ -23,6 +26,7 @@
                 .Select(grp => grp.Key.ToString());
 
             var longNameDuplicates = _argDefinitions
+                .OfType<NamedArgDefinition>()
                 .GroupBy(x => x.LongName)
                 .Where(grp => grp.Count() > 1)
                 .Select(grp => grp.Key);
@@ -37,54 +41,67 @@
             }
         }
 
-        private void ParseArg(string name, IEnumerator<string>? e)
+        public void Parse(IList<string> args)
         {
-            var arg = name.Length switch
+            for (int i = 0; i < args.Count; i++)
             {
-                1 => _argDefinitions.FirstOrDefault(x => x.ShortName == name[0]),
-                > 1 => _argDefinitions.FirstOrDefault(x => x.LongName == name),
-                _ => throw new Exception()
-            };
+                var arg = args[i];
 
-            if (arg == null)
-            {
-                invalidArgs.Add(name);
-            }
-            else if (arg.IsFlag)
-            {
-                arg.Set(true.ToString());
-            }
-            else
-            {
-                if (e == null)
+                // Check if this is a long-name arg
+                if (arg.StartsWith("--"))
                 {
-                    throw new Exception($"No value available for arg '{name}'");
-                }
-                if (!e.MoveNext())
-                {
-                    throw new Exception($"No value supplied for arg '{name}'");
-                }
-                arg.Set(e.Current);
-            }
-        }
+                    var argDefinition = _argDefinitions
+                        .OfType<NamedArgDefinition>()
+                        .FirstOrDefault(x => x.LongName == arg.Substring(2));
 
-        public void Parse(IEnumerable<string> args)
-        {
-            var e = args.GetEnumerator();
-            while (e.MoveNext())
-            {
-                if (e.Current.StartsWith("--"))
-                {
-                    ParseArg(e.Current.Substring(2), e);
-                }
-                else if (e.Current.StartsWith("-"))
-                {
-                    var chars = e.Current.Substring(1);
-                    foreach (char c in chars)
+                    if (argDefinition is NamedFlagArgDefinition f)
                     {
-                        ParseArg(c.ToString(), chars.Length > 1 ? null : e);
+                        f.Set("true");
+                        continue;
+                    }
+                    else if (argDefinition is NamedStringArgDefinition s)
+                    {
+                        s.Set(args[++i]);
+                        continue;
                     }
                 }
+                else if (arg.StartsWith('-'))
+                {
+                    for (int j = 1; j < arg.Length; j++)
+                    {
+                        var argDefinition = _argDefinitions
+                            .OfType<NamedArgDefinition>()
+                            .FirstOrDefault(x => x.ShortName == arg[j]);
+
+                        if (argDefinition is NamedFlagArgDefinition f)
+                        {
+                            f.Set("true");
+                        }
+                        else if (argDefinition is NamedStringArgDefinition s && j == arg.Length - 1)
+                        {
+                            s.Set(args[++i]);
+                        }
+                        else
+                        {
+                            throw new UsageException($"Unhandled argument '{arg[j]}'");
+                        }
+                    }
+                    continue;
+                }
+                else
+                {
+                    // Check whether this is a positional argument
+                    var positionalArg = _argDefinitions
+                        .OfType<PositionalStringArgDefinition>()
+                        .FirstOrDefault(x => x.Position == i || x.Position == i - args.Count);
+
+                    if (positionalArg != null)
+                    {
+                        positionalArg.Set(arg);
+                        continue;
+                    }
+                }
+                throw new UsageException();
             }
         }
     }

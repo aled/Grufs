@@ -8,15 +8,22 @@ namespace Wibblr.Grufs.Cli
 {
     public class VfsArgs
     {
+        public enum OperationEnum
+        {
+            None,
+            List,
+            Sync
+        }
+
         public string? ConfigDir; 
         public string? RepoName;
-        public bool Upload;
-        public bool List;
-        public bool Download;
+        public OperationEnum Operation;
         public bool Delete;
         public bool Recursive;
-        public string? LocalPath;
-        public string? VfsPath;
+        public bool Progress;
+        public int Verbose;
+        public string? Source;
+        public string? Destination;
         public bool FileOnly;
     }
 }

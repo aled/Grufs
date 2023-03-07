@@ -14,11 +14,11 @@ namespace Wibblr.Grufs.Tests
 
             var definitions = new ArgDefinition[]
             {
-                new ArgDefinition('a', "asdf", action),
-                new ArgDefinition('a', "qwer", action),
-                new ArgDefinition('b', "qwer", action),
-                new ArgDefinition('c', "zxcv", action),
-                new ArgDefinition('d', "zxcv", action),
+                new NamedArgDefinition('a', "asdf", action),
+                new NamedArgDefinition('a', "qwer", action),
+                new NamedArgDefinition('b', "qwer", action),
+                new NamedArgDefinition('c', "zxcv", action),
+                new NamedArgDefinition('d', "zxcv", action),
             };
 
             new Action(() => new ArgParser(definitions)).Should().Throw<Exception>().WithMessage("Duplicate argument definition(s): 'a',' qwer',' zxcv'");
@@ -33,7 +33,7 @@ namespace Wibblr.Grufs.Tests
             var repoName = "TestRepo";
             var encryptionPassword = "correct-horse-battery-staple";
 
-            new Program().Run(new[] { "repo", "--init", "--config-dir", configDir, "--non-interactive", "--name", repoName, "--basedir", baseDir, "--encryption-password", encryptionPassword });
+            new Program().Run(new[] { "repo", "init", "--config-dir", configDir, "--non-interactive", "--name", repoName, "--basedir", baseDir, "--encryption-password", encryptionPassword });
 
             Directory.Exists(baseDir).Should().BeTrue();
 
@@ -63,7 +63,7 @@ namespace Wibblr.Grufs.Tests
             var repoName = "TestRepo";
             var encryptionPassword = "correct-horse-battery-staple";
 
-            new Cli.Program().Run(new[] { "repo", "--init", "--config-dir", configDir, "--non-interactive", "--name", repoName, "--basedir", baseDir, "--encryption-password", encryptionPassword });
+            new Cli.Program().Run(new[] { "repo", "init", "--config-dir", configDir, "--name", repoName, "--basedir", baseDir, "--encryption-password", encryptionPassword });
 
             // create files:
             // a.txt
@@ -79,13 +79,13 @@ namespace Wibblr.Grufs.Tests
             Directory.CreateDirectory(Path.Combine(contentDir, "b", "e"));
             File.WriteAllText(Path.Combine(contentDir, "b", "e", "f.txt"), "hello f");
 
-            new Cli.Program().Run(new[] { "vfs", "-r", "--config-dir", configDir, "--repo-name", repoName, "--upload", "--local-path", contentDir, "--vfs-path", "some/subdir"  });
+            new Cli.Program().Run(new[] { "vfs", "sync", "-rc", configDir, "--repo-name", repoName, contentDir, "vfs://some/subdir" });
 
             // TODO: list virtual files
 
             var downloadDir = Path.Join(tempPath, "download");
 
-            new Cli.Program().Run(new[] { "vfs", "-r", "--config-dir", configDir, "--repo-name", repoName, "--download", "--local-path", downloadDir, "--vfs-path", "/" });
+            new Cli.Program().Run(new[] { "vfs", "sync", "-r", "--config-dir", configDir, "-n", repoName, "vfs://", downloadDir });
 
             File.ReadAllText(Path.Combine(downloadDir, "some", "subdir", "a.txt")).Should().Be("hello a");
             File.ReadAllText(Path.Combine(downloadDir, "some", "subdir", "b", "c.txt")).Should().Be("hello c");

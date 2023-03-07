@@ -4,10 +4,6 @@
       "commandName": "WSL2",
       "distributionName": ""
     },
-    "interactive": {
-      "commandName": "Project",
-      "commandLineArgs": "interactive"
-    },
     "storage init sftp": {
       "commandName": "Project",
       "commandLineArgs": "storage init --name mystorage --protocol sftp"
@@ -19,6 +15,10 @@
     "repo init sqlite": {
       "commandName": "Project",
       "commandLineArgs": "repo --init -n repo1 -p sqlite --basedir c:\\temp\\grufs -e correct-horse-battery-staple"
+    },
+    "vfs list -n test1": {
+      "commandName": "Project",
+      "commandLineArgs": "vfs list -n test1"
     }
   }
 }
