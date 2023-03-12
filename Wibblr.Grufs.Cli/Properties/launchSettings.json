@@ -23,6 +23,10 @@
     "vfs sync -n test1 g:\\temp\\roslyn vfs://roslyn": {
       "commandName": "Project",
       "commandLineArgs": "vfs sync -hvprn test1 g:\\temp\\roslyn vfs://roslyn"
+    },
+    "vfs sync -hvprn test1 vfs://roslyn h:\\temp\\roslyn-download": {
+      "commandName": "Project",
+      "commandLineArgs": "vfs sync -hvprn test1 vfs://roslyn h:\\temp\\roslyn-download"
     }
   }
 }
