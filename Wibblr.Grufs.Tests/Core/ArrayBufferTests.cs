@@ -61,4 +61,31 @@ namespace Wibblr.Grufs.Tests
             reader.ReadByte().Should().Be(0x67);
         }
     }
+
+    public class LogTests
+    {
+        [Fact]
+        public void NumbersShouldUseThousandsSeparators()
+        {
+            1.Format(false).Should().Be("1");
+            999.Format(false).Should().Be("999");
+            1000.Format(false).Should().Be("1,000");
+            1000000.Format(false).Should().Be("1,000,000");
+
+            1.Format(true).Should().Be("1");
+            999.Format(true).Should().Be("999");
+            1000.Format(true).Should().Be("0.977 Ki");
+            10000.Format(true).Should().Be("9.77 Ki");
+            100000.Format(true).Should().Be("97.7 Ki");
+            1000000.Format(true).Should().Be("976.6 Ki");
+            10000000.Format(true).Should().Be("9.54 Mi");
+            100000000.Format(true).Should().Be("95.4 Mi");
+            1000000000.Format(true).Should().Be("953.7 Mi");
+            10000000000.Format(true).Should().Be("9.31 Gi");
+            100000000000.Format(true).Should().Be("93.1 Gi");
+            1000000000000.Format(true).Should().Be("931.3 Gi");
+            10000000000000.Format(true).Should().Be("9.09 Ti");
+            100000000000000.Format(true).Should().Be("90.9 Ti");
+        }
+    }
 }

@@ -39,24 +39,29 @@ namespace Wibblr.Grufs.Cli
                 new NamedFlagArgDefinition('f', "file-only", x => _args.FileOnly = x),
                 new NamedFlagArgDefinition('p', "progress", x => _args.Progress = x),
                 new NamedFlagArgDefinition('v', "verbose", x => _args.Verbose += x ? 1 : -1),
+                new NamedFlagArgDefinition('h', "human", x => _args.Human = x),
                 new PositionalStringArgDefinition(-2, x => _args.Source = x),
                 new PositionalStringArgDefinition(-1, x => _args.Destination = x),
             };
 
             new ArgParser(argDefinitions).Parse(args);
 
+            Log.HumanFormatting = _args.Human;
+            Log.Verbose = _args.Verbose;
+            Log.Progress = _args.Progress;
+
             // Open repository
             if (_args.RepoName == null)
             {
                 throw new UsageException("Repository name not specified");
             }
-            Log.WriteLine(0, $"Repository name: '{_args.RepoName}'");
+            Log.WriteLine(1, $"Repository name: '{_args.RepoName}'");
 
             if (_args.ConfigDir == null)
             {
                 _args.ConfigDir = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".grufs");
             }
-            Log.WriteLine(0, $"Config directory: '{_args.ConfigDir}'");
+            Log.WriteLine(1, $"Config directory: '{_args.ConfigDir}'");
 
             var repoRegistryPath = Path.Join(_args.ConfigDir, "repos", _args.RepoName);
 
@@ -69,7 +74,7 @@ namespace Wibblr.Grufs.Cli
             switch (result.Status)
             {
                 case OpenRepositoryStatus.Success:
-                    Log.WriteLine(0, "Opened repository");
+                    Log.WriteLine(1, "Opened repository");
                     break;
 
                 default:
@@ -116,7 +121,7 @@ namespace Wibblr.Grufs.Cli
 
             if (!(sourceIsVfs ^ destIsVfs))
             {
-                throw new UsageException();
+                throw new UsageException("One of source or destination must be vfs://");
             }
 
             var vfs = new VirtualFilesystem(repo, "[default]");
@@ -133,7 +138,7 @@ namespace Wibblr.Grufs.Cli
                 var localDirectory = _args.Source;
 
                 var (_, _, stats) = vfs.UploadDirectory(localDirectory, vfsDirectory, _args.Recursive);
-                Log.WriteLine(0, stats.ToString());
+                Log.WriteLine(0, stats.ToString(Log.HumanFormatting));
             }
 
             return 0;

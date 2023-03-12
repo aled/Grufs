@@ -31,10 +31,11 @@ namespace Wibblr.Grufs.Core
             var indexByteSources = new List<IndexByteSource>();
             var indexChunkSources = new List<IChunkSource>();
             var stats = new StreamWriteStats();
+            var statusUpdateTime = DateTime.UtcNow - TimeSpan.FromMinutes(1);
 
             var (address, level) = Write(chunkSource, level: 0);
 
-            Log.WriteLine(0, stats.ToString());
+            //Log.WriteLine(1, stats.ToString(Log.HumanFormatting));
             return new StreamWriteResult(address, level, stats);
 
             (Address, byte) Write(IChunkSource chunkSource, byte level)
@@ -101,7 +102,12 @@ namespace Wibblr.Grufs.Core
                             throw new Exception("Failed to store chunk in repository");
                     }
 
-                    Log.WriteStatusLine(0, stats.ToString());
+                    var timeSinceLastStatusUpdate = DateTime.UtcNow - statusUpdateTime;
+                    if (timeSinceLastStatusUpdate > TimeSpan.FromSeconds(0.5))
+                    {
+                        Log.WriteStatusLine(0, "  " + stats.ToString(Log.HumanFormatting));
+                        statusUpdateTime = DateTime.UtcNow;
+                    }
                     //Log.WriteLine(0, $"Wrote chunk, level {level}, offset {streamOffset}, length {bytes.Length}, compressed/encrypted length {encryptedChunk.Content.Length}, address {encryptedChunk.Address}");
                     //Log.WriteLine(0, level == 0 ? Encoding.ASCII.GetString(bytes) : $"   {Convert.ToHexString(bytes)}");
                     //Log.WriteLine(0, "-----------------");
@@ -138,6 +144,8 @@ namespace Wibblr.Grufs.Core
                     {
                         (indexAddress, returnLevel) = Write(indexChunkSource, indexLevel);
                     }
+
+                    Log.WriteStatusLine(0, "  " + stats.ToString(Log.HumanFormatting));
                 }
 
                 //Log.WriteLine(0, $"Returning from Write: address = {addressStreamAddress ?? address}, level = {returnLevel}");

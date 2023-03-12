@@ -22,6 +22,7 @@ namespace Wibblr.Grufs.Cli
         public bool Recursive;
         public bool Progress;
         public int Verbose;
+        public bool Human;
         public string? Source;
         public string? Destination;
         public bool FileOnly;

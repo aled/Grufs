@@ -76,7 +76,7 @@ namespace Wibblr.Grufs.Filesystem
                 0);
         }
 
-        public (VirtualDirectory, long version, StreamWriteStats stats) UploadDirectory(string localDirectoryPath, DirectoryPath vfsDirectoryPath, bool recursive = true)
+        public (VirtualDirectory, long version, StreamWriteStats stats) UploadDirectory(string localRootDirectoryPath, DirectoryPath vfsDirectoryPath, bool recursive = true)
         {
             var snapshotTimestamp = new Timestamp(DateTime.UtcNow);
 
@@ -102,11 +102,16 @@ namespace Wibblr.Grufs.Filesystem
                         try
                         {
                             using (var stream = new FileStream(file.FullName, FileMode.Open, FileAccess.Read, FileShare.Read))
-                            {
+                            { 
+                                // verbose = 0
+                                Log.WriteLine(0, Path.GetRelativePath(localRootDirectoryPath, file.FullName));
+                                
+                                //Log.WriteLine(1, $" {fileStats.ToString(Log.HumanFormatting)}");
+
                                 var (address, level, fileStats) = _streamStorage.Write(stream);
                                 cumulativeStats.Add(fileStats);
-                                Log.WriteLine(0, $"{file.FullName}, {fileStats}");
-                                filesBuilder.Add(new FileMetadata(new Filename(file.Name), address, level, snapshotTimestamp, new Timestamp(file.LastWriteTimeUtc), file.Length));
+
+                               filesBuilder.Add(new FileMetadata(new Filename(file.Name), address, level, snapshotTimestamp, new Timestamp(file.LastWriteTimeUtc), file.Length));
                             }
                         }
                         catch (IOException)
@@ -131,6 +136,7 @@ namespace Wibblr.Grufs.Filesystem
                 if (vfsDirectory == null)
                 {
                     ret = WriteVirtualDirectoryVersion(new VirtualDirectory(vfsDirectoryPath, 0, snapshotTimestamp, false, filesBuilder.ToImmutableArray(), directoriesBuilder.ToImmutableArray()), 0);
+
                     //Log.WriteLine(0, $"Write new virtual directory version: {directoryPath}, {version}");
                 }
                 else
@@ -161,14 +167,23 @@ namespace Wibblr.Grufs.Filesystem
                     }
                 }
 
-                foreach (var d in directoriesBuilder)
+                if (recursive)
                 {
-                    var (_, _, stats) = UploadDirectory(Path.Join(di.FullName, d), new DirectoryPath(vfsDirectoryPath + "/" + d), version + 1, recursive);
-                    cumulativeStats.Add(stats);
+                    foreach (var d in directoriesBuilder)
+                    {
+                        var (_, _, stats) = UploadDirectory(Path.Join(di.FullName, d), new DirectoryPath(vfsDirectoryPath + "/" + d), version + 1, recursive);
+                        cumulativeStats.Add(stats);
+                    }
                 }
+
+                // verbose = 0
+                Log.Write(0, Path.GetRelativePath(localRootDirectoryPath, localDirectoryPath));
+                Log.Write(1, " OK: " + cumulativeStats.ToString(Log.HumanFormatting));
+                Log.WriteLine(0, "");
 
                 return (ret.directory, ret.version, cumulativeStats);
             }
+
 
             long parentVersion = 0; // default value for root directory
 
@@ -180,7 +195,7 @@ namespace Wibblr.Grufs.Filesystem
                 (_, parentVersion) = EnsureDirectoryContains(dirPath, childDirName, parentVersion, snapshotTimestamp);
             }
 
-            return UploadDirectory(localDirectoryPath, vfsDirectoryPath, parentVersion, recursive);
+            return UploadDirectory(localRootDirectoryPath, vfsDirectoryPath, parentVersion, recursive);
         }
 
         public void ListDirectory(DirectoryPath path)

@@ -11,6 +11,8 @@
     {
         public static bool StdOutIsConsole { get; set; }
         public static int Verbose { get; set; } = 0;
+        public static bool HumanFormatting { get; set; }
+        public static bool Progress { get; set; }
 
         static Log()
         {
@@ -26,22 +28,34 @@
             }
         }
 
+        public static void Write(int verbose, string message)
+        {
+            if (Verbose >= verbose)
+            {
+                Console.Write(message);
+            }
+        }
+
         public static void WriteLine(int verbose, string message)
         {
-            if (verbose >= Verbose)
+            if (Verbose >= verbose)
             {
                 Console.WriteLine(message);
             }
         }
 
-        public static void WriteStatusLine(int verbose,string message)
+        public static void WriteStatusLine(int verbose, string message)
         {
-            if (!StdOutIsConsole)
+            if (!StdOutIsConsole || !Progress)
             {
                 return;
             }
-            if (verbose >= Verbose)
+            if (Verbose >= verbose)
             {
+                if (message.Length > Console.WindowWidth)
+                {
+                    message = message.Substring(0, Console.WindowWidth - 1);
+                }
                 Console.CursorVisible = false;
                 Console.Write(message);
                 Console.Write(new string(' ', Math.Clamp(Console.WindowWidth - message.Length, 0, 1000)));

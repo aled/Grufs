@@ -12,13 +12,18 @@
         public long TransferredContentBytes;
         public long TransferredIndexBytes;
 
-        public override string ToString()
+        public override string ToString() => throw new Exception("Use ToString(bool)");
+
+        public string ToString(bool human)
         {
             //return $"length:{PlaintextLength}, content chunks:{TransferredFileChunks}/{TotalFileChunks}, index chunks:{TransferredFileIndexChunks}/{TotalFileIndexChunks}, content bytes:{TransferredFileBytes}/{TotalFileBytes}, index bytes:{TransferredFileIndexBytes}/{TotalFileIndexBytes}";
             var compressedPercent = PlaintextLength > 0 ? 100 * TotalBytes / (decimal)PlaintextLength : 0m;
             var transferredPercent = PlaintextLength > 0 ? 100 * TransferredBytes / (decimal)PlaintextLength : 0m;
 
-            return $"Wrote {PlaintextLength} bytes in {TotalContentChunks + TotalIndexChunks} chunks, {TotalBytes} encrypted bytes of which {DeduplicationPercent} deduplicated, {TransferredBytes} bytes transferred ({decimal.Round(transferredPercent, 2)}%)";
+            // Log these at -vv level
+            // encoded {TotalBytes.Format(human)}B 
+            //{(TotalContentChunks + TotalIndexChunks).Format(human)} chunks
+            return $"Synced {PlaintextLength.Format(human)}B, transferred {TransferredBytes.Format(human)}B, deduplication {DeduplicationPercent}";
         }
 
         public void Add(StreamWriteStats other)
