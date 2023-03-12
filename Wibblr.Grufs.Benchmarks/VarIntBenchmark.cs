@@ -1,50 +1,76 @@
 ﻿using System.Numerics;
 
 using BenchmarkDotNet.Attributes;
-using BenchmarkDotNet.Running;
+
+using Wibblr.Grufs.Core;
 
 namespace Wibblr.Grufs.Benchmarks
 {
     [SimpleJob]
+    [MinIterationTime(1000)]
+    [MinIterationCount(1000)]
+    [MaxIterationCount(10000)]
     public class VarIntBenchmark
     {
-        //static void Main(string[] args) => BenchmarkSwitcher.FromAssembly(typeof(VarIntBenchmark).Assembly).Run(args);
-        static void Main(string[] args) => BenchmarkRunner.Run<VarLongBenchmark>();
+        BufferBuilder builder = new BufferBuilder(50);
 
-        [Benchmark]
-        public int OldLengthMethod()
+        [IterationSetup]
+        public void IterationSetup()
         {
-            int i = 123;
-            int leadingZeroCount = BitOperations.LeadingZeroCount(unchecked((uint)i));
-            return 5 - ((leadingZeroCount + 3) / 7) + (leadingZeroCount / 32);
+            builder.Clear();
         }
 
         [Benchmark]
-        public int NewLengthMethod()
+        public void Serialize10()
         {
-            int i = 123;
-            int leadingZeroCount = BitOperations.LeadingZeroCount(unchecked((uint)i));
-            return 5 - ((leadingZeroCount + (leadingZeroCount << 3) + 36) >> 6) + (leadingZeroCount >> 5);
-        }
-    }
-
-    [SimpleJob]
-    public class VarLongBenchmark
-    {
-        [Benchmark]
-        public int OldLengthMethod()
-        {
-            long i = 123;
-            int leadingZeroCount = BitOperations.LeadingZeroCount(unchecked((ulong)i));
-            return 9 - (Math.Clamp(leadingZeroCount - 1, 0, 64) / 7) + (leadingZeroCount / 64);
+            // < 2^7
+            new VarInt(10).SerializeTo(builder);
         }
 
         [Benchmark]
-        public int NewLengthMethod()
+        public void Serialize10_new()
         {
-            long i = 123;
-            int leadingZeroCount = BitOperations.LeadingZeroCount(unchecked((ulong)i));
-            return 9 - ((leadingZeroCount - 9 + (leadingZeroCount << 3) + 9) >> 6) + (leadingZeroCount >> 6);
+            var Value = new VarInt(10).Value;
+
+            int leadingZeroCount = BitOperations.LeadingZeroCount(unchecked((uint)Value));
+
+            if (leadingZeroCount >= 25)
+            {
+                builder.AppendByte((byte)Value);
+            }
+            else if (leadingZeroCount >= 18)
+            {
+                builder.AppendBytes(
+                    (byte)(0b10000000 | Value >> 8),
+                    (byte)Value
+                );
+            }
+        }
+
+        [Benchmark]
+        public void Serialize10000()
+        {
+            // < 2^14
+            new VarInt(10000).SerializeTo(builder);
+        }
+
+        [Benchmark]
+        public void Serialize1000000()
+        {
+            // < 2^21
+            new VarInt(1000000).SerializeTo(builder);
+        }
+        [Benchmark]
+        public void Serialize100000000()
+        { 
+            // < 2^28
+            new VarInt(100000000).SerializeTo(builder);
+        }
+        [Benchmark]
+        public void Serialize1000000000()
+        { 
+            // < 2^31
+            new VarInt(1000000000).SerializeTo(builder);
         }
     }
 }

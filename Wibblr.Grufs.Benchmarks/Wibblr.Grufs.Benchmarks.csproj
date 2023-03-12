@@ -5,11 +5,15 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <OutputType>Exe</OutputType>
-    <StartupObject>Wibblr.Grufs.Benchmarks.VarIntBenchmark</StartupObject>
+    <StartupObject>Wibblr.Grufs.Benchmarks.Program</StartupObject>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" Version="0.13.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Wibblr.Grufs.Core\Wibblr.Grufs.Core.csproj" />
   </ItemGroup>
 
 </Project>

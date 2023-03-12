@@ -1,0 +1,16 @@
+{
+  "profiles": {
+    "WSL": {
+      "commandName": "WSL2",
+      "distributionName": ""
+    },
+    "VarIntBenchmark": {
+      "commandName": "Project",
+      "commandLineArgs": "--filter *VarIntBenchmark*"
+    },
+    "VarIntLengthBenchmark": {
+      "commandName": "Project",
+      "commandLineArgs": "--filter *VarIntLengthBenchmark* --unrollfactor 64"
+    }
+  }
+}
