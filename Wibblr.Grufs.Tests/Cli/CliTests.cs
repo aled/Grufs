@@ -1,6 +1,4 @@
-﻿using System.Security.Cryptography;
-
-using Wibblr.Grufs.Cli;
+﻿using Wibblr.Grufs.Cli;
 
 namespace Wibblr.Grufs.Tests
 {
@@ -27,25 +25,24 @@ namespace Wibblr.Grufs.Tests
         [Fact]
         public void RepoInitShouldCreateRegistration()
         {
-            var uniquifier = $"{DateTime.UtcNow.ToString("yyyyMMdd-HHmmss")}-{Convert.ToHexString(RandomNumberGenerator.GetBytes(8))}";
-            var configDir = Path.Join(Path.GetTempPath(), "grufs", $"config-{uniquifier}");
-            var baseDir = Path.Join(Path.GetTempPath(), "grufs", $"test-{uniquifier}");
-            var repoName = "TestRepo";
-            var encryptionPassword = "correct-horse-battery-staple";
+            using (var autoDeleteDirectory = new AutoDeleteDirectory())
+            {
+                var configDir = Path.Join(autoDeleteDirectory.Path, "config");
+                var baseDir = Path.Join(autoDeleteDirectory.Path, "repo");
+                var repoName = "TestRepo";
+                var encryptionPassword = "correct-horse-battery-staple";
 
-            new Program().Run(new[] { "repo", "init", "--config-dir", configDir, "--non-interactive", "--name", repoName, "--basedir", baseDir, "--encryption-password", encryptionPassword });
+                new Program().Run(new[] { "repo", "init", "--config-dir", configDir, "--non-interactive", "--name", repoName, "--basedir", baseDir, "--encryption-password", encryptionPassword });
 
-            Directory.Exists(baseDir).Should().BeTrue();
+                Directory.Exists(baseDir).Should().BeTrue();
 
-            // storage should be registered in config
-            var repoRegistration = File.ReadAllText(Path.Join(configDir, "repos", repoName));
-            repoRegistration.Should().Contain($"repoName:\"{repoName}\"");
-            repoRegistration.Should().Contain($"baseDir:\"{baseDir.Replace("\\", "\\\\")}\"");
-            repoRegistration.Should().Contain($"encryptionPassword:\"{encryptionPassword}\"");
-            repoRegistration.Should().Contain($"repoName:\"{repoName}\"");
-
-            Directory.Delete(baseDir, true);
-            Directory.Delete(configDir, true);
+                // storage should be registered in config
+                var repoRegistration = File.ReadAllText(Path.Join(configDir, "repos", repoName));
+                repoRegistration.Should().Contain($"repoName:\"{repoName}\"");
+                repoRegistration.Should().Contain($"baseDir:\"{baseDir.Replace("\\", "\\\\")}\"");
+                repoRegistration.Should().Contain($"encryptionPassword:\"{encryptionPassword}\"");
+                repoRegistration.Should().Contain($"repoName:\"{repoName}\"");
+            }
         }
 
         // TODO: enter passwords interactively if not set
@@ -54,43 +51,56 @@ namespace Wibblr.Grufs.Tests
         [Fact]
         public void SyncDirectory()
         {
-            var uniquifier = $"{DateTime.UtcNow.ToString("yyyyMMdd-HHmmss")}-{Convert.ToHexString(RandomNumberGenerator.GetBytes(8))}";
-            var tempPath = Path.Join(Path.GetTempPath(), $"grufs-{uniquifier}");
-            var configDir = Path.Join(tempPath, "config"); ;
-            var baseDir = Path.Join(tempPath, "repo");
-            var contentDir = Path.Join(tempPath, "content");
+            using (var autoDeleteDirectory = new AutoDeleteDirectory())
+            {
+                var configDir = Path.Join(autoDeleteDirectory.Path, "config"); ;
+                var baseDir = Path.Join(autoDeleteDirectory.Path, "repo");
+                var contentDir = Path.Join(autoDeleteDirectory.Path, "content");
 
-            var repoName = "TestRepo";
-            var encryptionPassword = "correct-horse-battery-staple";
+                var repoName = "TestRepo";
+                var encryptionPassword = "correct-horse-battery-staple";
 
-            new Cli.Program().Run(new[] { "repo", "init", "--config-dir", configDir, "--name", repoName, "--basedir", baseDir, "--encryption-password", encryptionPassword });
+                new Cli.Program().Run(new[] { "repo", "init", "--config-dir", configDir, "--name", repoName, "--basedir", baseDir, "--encryption-password", encryptionPassword });
 
-            // create files:
-            // a.txt
-            // b/c.txt
-            // b/d.txt
-            // b/e/f.txt
+                CreateDirectoryTree(contentDir, "a.txt", "b/c.txt", "b/d.txt", "b/e/f.txt");
 
-            Directory.CreateDirectory(contentDir);
-            File.WriteAllText(Path.Combine(contentDir, "a.txt"), "hello a");
-            Directory.CreateDirectory(Path.Combine(contentDir, "b"));
-            File.WriteAllText(Path.Combine(contentDir, "b", "c.txt"), "hello c");
-            File.WriteAllText(Path.Combine(contentDir, "b", "d.txt"), "hello d");
-            Directory.CreateDirectory(Path.Combine(contentDir, "b", "e"));
-            File.WriteAllText(Path.Combine(contentDir, "b", "e", "f.txt"), "hello f");
+                new Cli.Program().Run(new[] { "vfs", "sync", "-rc", configDir, "--repo-name", repoName, contentDir, "vfs://some/subdir" });
 
-            new Cli.Program().Run(new[] { "vfs", "sync", "-rc", configDir, "--repo-name", repoName, contentDir, "vfs://some/subdir" });
+                var downloadDir = Path.Join(autoDeleteDirectory.Path, "download");
 
-            // TODO: list virtual files
+                new Cli.Program().Run(new[] { "vfs", "sync", "-r", "--config-dir", configDir, "-n", repoName, "vfs://", downloadDir });
 
-            var downloadDir = Path.Join(tempPath, "download");
+                File.ReadAllText(Path.Combine(downloadDir, "some", "subdir", "a.txt")).Should().Be(GetFileContent("a.txt"));
+                File.ReadAllText(Path.Combine(downloadDir, "some", "subdir", "b", "c.txt")).Should().Be(GetFileContent("b/c.txt"));
+                File.ReadAllText(Path.Combine(downloadDir, "some", "subdir", "b", "d.txt")).Should().Be(GetFileContent("b/d.txt"));
+                File.ReadAllText(Path.Combine(downloadDir, "some", "subdir", "b", "e", "f.txt")).Should().Be(GetFileContent("b/e/f.txt"));
+            }
+        }
 
-            new Cli.Program().Run(new[] { "vfs", "sync", "-r", "--config-dir", configDir, "-n", repoName, "vfs://", downloadDir });
+        private string GetFileContent(string path)
+        {
+            return $"This is the content of file {path}";
+        }
 
-            File.ReadAllText(Path.Combine(downloadDir, "some", "subdir", "a.txt")).Should().Be("hello a");
-            File.ReadAllText(Path.Combine(downloadDir, "some", "subdir", "b", "c.txt")).Should().Be("hello c");
-            File.ReadAllText(Path.Combine(downloadDir, "some", "subdir", "b", "d.txt")).Should().Be("hello d");
-            File.ReadAllText(Path.Combine(downloadDir, "some", "subdir", "b", "e", "f.txt")).Should().Be("hello f");
+        private void CreateDirectoryTree(string baseDir, params string[] paths)
+        {
+            Directory.CreateDirectory(baseDir);
+
+            foreach (var path in paths)
+            {
+                var nativeFullPath = path.Replace('/', Path.DirectorySeparatorChar);
+                var lastDirectorySeparatorIndex = nativeFullPath.LastIndexOf(Path.DirectorySeparatorChar);
+
+                if (lastDirectorySeparatorIndex > 0)
+                {
+                    Directory.CreateDirectory(Path.Join(baseDir, nativeFullPath.Substring(0, lastDirectorySeparatorIndex)));
+                }
+
+                if (lastDirectorySeparatorIndex < path.Length)
+                {
+                    File.WriteAllText(Path.Join(baseDir, nativeFullPath), $"This is the content of file {path}");
+                }
+            }
         }
     }
 }
