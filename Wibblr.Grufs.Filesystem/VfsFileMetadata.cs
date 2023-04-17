@@ -7,7 +7,7 @@ using Wibblr.Grufs.Storage;
 namespace Wibblr.Grufs.Filesystem
 {
     [DebuggerDisplay("{ToString()}")]
-    public record struct FileMetadata 
+    public record struct VfsFileMetadata 
     {
         public required Filename Name { get; init; }
 
@@ -22,7 +22,7 @@ namespace Wibblr.Grufs.Filesystem
         public required long Size { get; init; }
 
         [SetsRequiredMembers]
-        public FileMetadata(Filename name, Address address, byte indexLevel, Timestamp snapshotTimestamp, Timestamp lastModifiedTimestamp, long size)
+        public VfsFileMetadata(Filename name, Address address, byte indexLevel, Timestamp snapshotTimestamp, Timestamp lastModifiedTimestamp, long size)
         {
             Name = name;
             Address = address;
@@ -33,7 +33,7 @@ namespace Wibblr.Grufs.Filesystem
         }
 
         [SetsRequiredMembers]
-        public FileMetadata(BufferReader reader)
+        public VfsFileMetadata(BufferReader reader)
         {
             ArgumentNullException.ThrowIfNull(reader);
 

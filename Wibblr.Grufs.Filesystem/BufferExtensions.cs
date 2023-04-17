@@ -4,12 +4,12 @@ namespace Wibblr.Grufs.Filesystem
 {
     public static class BufferExtensions
     {
-        public static VirtualDirectory ReadVirtualDirectory(this BufferReader reader)
+        public static VfsDirectoryMetadata ReadVirtualDirectory(this BufferReader reader)
         {
-            return new VirtualDirectory(reader);
+            return new VfsDirectoryMetadata(reader);
         }
 
-        public static BufferBuilder AppendVirtualDirectory(this BufferBuilder builder, VirtualDirectory directory) 
+        public static BufferBuilder AppendVirtualDirectory(this BufferBuilder builder, VfsDirectoryMetadata directory) 
         { 
             directory.SerializeTo(builder);
             return builder;
@@ -26,12 +26,12 @@ namespace Wibblr.Grufs.Filesystem
             return builder;
         }
 
-        public static FileMetadata ReadFileMetadata(this BufferReader reader)
+        public static VfsFileMetadata ReadFileMetadata(this BufferReader reader)
         {
-            return new FileMetadata(reader);
+            return new VfsFileMetadata(reader);
         }
 
-        public static BufferBuilder AppendFileMetadata(this BufferBuilder builder, FileMetadata file)
+        public static BufferBuilder AppendFileMetadata(this BufferBuilder builder, VfsFileMetadata file)
         {
             file.SerializeTo(builder);
             return builder;

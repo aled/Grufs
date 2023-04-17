@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+﻿using System;
 
 namespace Wibblr.Grufs.Cli
 {
@@ -101,6 +101,7 @@ namespace Wibblr.Grufs.Cli
                         continue;
                     }
                 }
+
                 throw new UsageException();
             }
         }

@@ -28,7 +28,7 @@ namespace Wibblr.Grufs.Cli
             {
                 new PositionalStringArgDefinition(0, x => _args.Operation = x switch
                 {
-                    "list" => VfsArgs.OperationEnum.List,
+                    "ls" => VfsArgs.OperationEnum.List,
                     "sync" =>  VfsArgs.OperationEnum.Sync,
                     _ => throw new UsageException()
                 }),
@@ -36,7 +36,6 @@ namespace Wibblr.Grufs.Cli
                 new NamedStringArgDefinition('n', "repo-name",  x => _args.RepoName = x),
                 new NamedFlagArgDefinition('d', "delete", x => _args.Delete = x),
                 new NamedFlagArgDefinition('r', "recursive", x => _args.Recursive = x),
-                new NamedFlagArgDefinition('f', "file-only", x => _args.FileOnly = x),
                 new NamedFlagArgDefinition('p', "progress", x => _args.Progress = x),
                 new NamedFlagArgDefinition('v', "verbose", x => _args.Verbose += x ? 1 : -1),
                 new NamedFlagArgDefinition('h', "human", x => _args.Human = x),
@@ -53,7 +52,7 @@ namespace Wibblr.Grufs.Cli
             // Open repository
             if (_args.RepoName == null)
             {
-                throw new UsageException("Repository name not specified");
+                throw new UsageException("Repository name not specified (example: -n myrepo)");
             }
             Log.WriteLine(1, $"Repository name: '{_args.RepoName}'");
 
@@ -91,7 +90,7 @@ namespace Wibblr.Grufs.Cli
                 }
                 if (_args.Operation == VfsArgs.OperationEnum.List)
                 {
-                    return List(repo, "[default]");
+                    return List(repo, new Timestamp(DateTime.MinValue), new Timestamp(DateTime.MaxValue));
                 }
             }
             finally
@@ -100,53 +99,42 @@ namespace Wibblr.Grufs.Cli
                 Log.WriteLine(0, $"Completed in {Math.Round(Convert.ToDecimal((endTime - startTime).TotalSeconds), 3)}s");
             }
 
-            throw new UsageException("Operation not specified (--upload --download --list)");
+            throw new UsageException("Operation not specified (--sync or --ls)");
         }
 
         public int Sync(Repository repo)
         {
             if (_args.Source == null)
             {
-                throw new UsageException("Source path not specified");
+                throw new UsageException("Source path(s) not specified");
             }
             if (_args.Destination == null)
             {
                 throw new UsageException("Destination path not specified");
             }
 
-            // Either the source or destination must be a VFS path
-            var vfsPrefix = "vfs://";
-            var sourceIsVfs = _args.Source.StartsWith(vfsPrefix);
-            var destIsVfs = _args.Destination.StartsWith(vfsPrefix);
+            var vfs = new VirtualFilesystem(repo, "[default]");
 
-            if (!(sourceIsVfs ^ destIsVfs))
+            try
             {
-                throw new UsageException("One of source or destination must be vfs://");
+                return vfs.Sync(_args.Source, _args.Destination, _args.Recursive);
+            }
+            catch (Exception) 
+            {
+                return -1;
+            }
+        }
+
+        public int List(Repository repo, Timestamp from, Timestamp to)
+        {
+            if (_args.Destination == null)
+            {
+                throw new UsageException("Path not specified");
             }
 
             var vfs = new VirtualFilesystem(repo, "[default]");
-            if (sourceIsVfs)
-            {
-                var vfsDirectory = new DirectoryPath(_args.Source.Substring(vfsPrefix.Length));
-                var localDirectory = _args.Destination;
 
-                vfs.Download(vfsDirectory, null, localDirectory, _args.Recursive);
-            }
-            else
-            {
-                var vfsDirectory = new DirectoryPath(_args.Destination.Substring(vfsPrefix.Length));
-                var localDirectory = _args.Source;
-
-                var (_, _, stats) = vfs.UploadDirectory(localDirectory, vfsDirectory, _args.Recursive);
-                Log.WriteLine(0, stats.ToString(Log.HumanFormatting));
-            }
-
-            return 0;
-        }
-
-        public int List(Repository repo, string vfsName)
-        {
-            new VirtualFilesystem(repo, vfsName).ListDirectory(new DirectoryPath("/"));
+            vfs.ListDirectoryRecursive(new DirectoryPath(_args.Destination));
             return 0;
         }
     }

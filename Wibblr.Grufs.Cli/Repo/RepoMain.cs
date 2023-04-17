@@ -57,7 +57,7 @@ namespace Wibblr.Grufs.Cli
 
             if (_repoArgs.Operation == RepoArgs.OperationEnum.None)
             {
-                throw new UsageException("Operation not specified (examples: --init --register, --unregister --list --scrub");
+                throw new UsageException("Operation not specified (examples: init register unregister list scrub");
             }
 
             string repoRegistrationPath = Path.Join(repoRegistrationDirectory, _repoArgs.RepoName);
@@ -199,7 +199,9 @@ namespace Wibblr.Grufs.Cli
             foreach (var f in Directory.GetFiles(repoRegistrationDirectory))
             {
                 var content = File.ReadAllText(f);
+
                 var repo = new RepositorySerializer().Deserialize(content);
+
                 Log.WriteLine(0, new FileInfo(f).Name);
             }
             return 0;

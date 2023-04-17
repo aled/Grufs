@@ -55,6 +55,10 @@ namespace Wibblr.Grufs.Storage
                 var directories = Directory.GetDirectories(path).Select(x => new DirectoryInfo(x).Name).ToList();
                 return (files, directories);
             }
+            catch (DirectoryNotFoundException dnfe)
+            {
+                return (new List<string>(), new List<string>());
+            }
             catch (Exception e)
             {
                 //[x]

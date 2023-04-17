@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using System.Numerics;
 
 namespace Wibblr.Grufs.Core
 {
@@ -25,6 +26,11 @@ namespace Wibblr.Grufs.Core
         public static Timestamp Now => new Timestamp(DateTime.UtcNow);
 
         public static implicit operator DateTime(Timestamp timestamp) => timestamp.Value;
+
+        public static bool operator <(Timestamp a, Timestamp b) => a.Value < b.Value;
+        public static bool operator <=(Timestamp a, Timestamp b) => a.Value <= b.Value;
+        public static bool operator >(Timestamp a, Timestamp b) => a.Value > b.Value;
+        public static bool operator >=(Timestamp a, Timestamp b) => a.Value >= b.Value;
 
         public int GetSerializedLength() => new VarLong(Value.Ticks).GetSerializedLength();
 

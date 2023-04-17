@@ -16,10 +16,6 @@
       "commandName": "Project",
       "commandLineArgs": "repo --init -n repo1 -p sqlite --basedir c:\\temp\\grufs -e correct-horse-battery-staple"
     },
-    "vfs list -n test1": {
-      "commandName": "Project",
-      "commandLineArgs": "vfs list -n test1"
-    },
     "vfs sync -n test1 g:\\temp\\roslyn vfs://roslyn": {
       "commandName": "Project",
       "commandLineArgs": "vfs sync -hvprn test1 g:\\temp\\roslyn vfs://roslyn"
@@ -27,6 +23,14 @@
     "vfs sync -hvprn test1 vfs://roslyn h:\\temp\\roslyn-download": {
       "commandName": "Project",
       "commandLineArgs": "vfs sync -hvprn test1 vfs://roslyn h:\\temp\\roslyn-download"
+    },
+    "repo list": {
+      "commandName": "Project",
+      "commandLineArgs": "repo list\r\n"
+    },
+    "vfs ls -n temp-backups": {
+      "commandName": "Project",
+      "commandLineArgs": "vfs ls -n temp-backups vfs://"
     }
   }
 }

@@ -7,22 +7,22 @@ using Wibblr.Grufs.Core;
 namespace Wibblr.Grufs.Filesystem;
 
 /// <summary>
-/// A mutable directory is stored in the repository using the versioned dictionary storage.
+/// A VFS directory is stored in the repository using the versioned dictionary storage.
 /// 
 /// To find a subdirectory, find the directory with the appropriate name, and the latest version
 /// that has it's parent version set to this directory version.
 /// </summary>
-public record VirtualDirectory
+public record VfsDirectoryMetadata
 {
     public required DirectoryPath Path { get; init; }  // set to 
     public required long ParentVersion { get; init; }
     public required Timestamp SnapshotTimestamp { get; init; }
     public required bool IsDeleted { get; init; }
-    public required ImmutableArray<FileMetadata> Files { get; init; }
+    public required ImmutableArray<VfsFileMetadata> Files { get; init; }
     public required ImmutableArray<Filename> Directories { get; init; }
 
     [SetsRequiredMembers]
-    public VirtualDirectory(DirectoryPath path, long parentVersion, Timestamp snapshotTimestamp, bool isDeleted, IEnumerable<FileMetadata> files, IEnumerable<Filename> directories)
+    public VfsDirectoryMetadata(DirectoryPath path, long parentVersion, Timestamp snapshotTimestamp, bool isDeleted, IEnumerable<VfsFileMetadata> files, IEnumerable<Filename> directories)
     {
         Path = path;
         ParentVersion = parentVersion;
@@ -33,7 +33,7 @@ public record VirtualDirectory
     }
 
     [SetsRequiredMembers]
-    public VirtualDirectory(BufferReader reader)
+    public VfsDirectoryMetadata(BufferReader reader)
     {
         var serializationVersion = reader.ReadByte();
         switch (serializationVersion)
@@ -53,7 +53,7 @@ public record VirtualDirectory
                         throw new Exception("Too many files in directory - limit is 10000");
                     }
 
-                    var filesBuilder = ImmutableArray.CreateBuilder<FileMetadata>();
+                    var filesBuilder = ImmutableArray.CreateBuilder<VfsFileMetadata>();
                     for (int i = 0; i < fileCount; i++)
                     {
                         filesBuilder.Add(reader.ReadFileMetadata());
@@ -109,7 +109,7 @@ public record VirtualDirectory
         }
     }
 
-    public virtual bool Equals(VirtualDirectory? other)
+    public virtual bool Equals(VfsDirectoryMetadata? other)
     {
         return other != null &&
             Path == other.Path &&

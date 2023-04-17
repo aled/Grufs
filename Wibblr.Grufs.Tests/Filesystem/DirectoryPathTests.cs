@@ -53,7 +53,7 @@ namespace Wibblr.Grufs.Tests
             var lastModified = new Timestamp("2001-01-01T10:00:00.1234567");
             var size = 123456L;
             
-            var file = new FileMetadata(name, address, 0, snapshotTimestamp, lastModified, size);
+            var file = new VfsFileMetadata(name, address, 0, snapshotTimestamp, lastModified, size);
 
             var builder = new BufferBuilder(file.GetSerializedLength());
             var buffer = builder.AppendFileMetadata(file).ToBuffer();
@@ -74,7 +74,7 @@ namespace Wibblr.Grufs.Tests
             var size = 1234L;
             var files = new[]
             {
-                new FileMetadata(
+                new VfsFileMetadata(
                     new Filename("asdf"),
                     new Address(new byte[32]),
                     0,
@@ -82,7 +82,7 @@ namespace Wibblr.Grufs.Tests
                     new Timestamp("2001-01-01T10:00:00.1234567"),
                     size),
 
-                new FileMetadata(
+                new VfsFileMetadata(
                     new Filename("qwer"),
                     new Address(new byte[32]),
                     0,
@@ -96,7 +96,7 @@ namespace Wibblr.Grufs.Tests
                 new Filename("g")
             };
 
-            var directory = new VirtualDirectory(path, parentVersion, snapshotTimestamp, isDeleted, files, directories);
+            var directory = new VfsDirectoryMetadata(path, parentVersion, snapshotTimestamp, isDeleted, files, directories);
             
             var builder = new BufferBuilder(directory.GetSerializedLength());
             var buffer = builder.AppendVirtualDirectory(directory).ToBuffer();

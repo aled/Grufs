@@ -32,7 +32,15 @@ namespace Wibblr.Grufs.Core
             return GetSerializedLength(bytes.Length) + bytes.Length;
         }
 
-       
+        public static (string head, string tail) SplitLast(this string s, char separator)
+        {
+            var index = s.LastIndexOf(separator);
+            if (index == -1)
+            {
+                return ("", s);
+            }
+            return (s.Substring(0, index), s.Substring(index + 1));
+        }
 
         public static string Format<T>(this T n, bool human) where T : INumber<T>
         {

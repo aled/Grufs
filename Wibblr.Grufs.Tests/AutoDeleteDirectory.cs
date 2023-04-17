@@ -13,6 +13,7 @@ namespace Wibblr.Grufs.Tests
             var tempDirectory = Directory.Exists(_ramdiskTempPath) ? _ramdiskTempPath : System.IO.Path.GetTempPath();
             var uniquifier = $"{DateTime.UtcNow.ToString("yyyyMMdd-HHmmss")}-{Convert.ToHexString(RandomNumberGenerator.GetBytes(8))}";
             Path = System.IO.Path.Join(tempDirectory, "grufs", uniquifier);
+            Directory.CreateDirectory(Path);
         }
 
         public void Dispose()
