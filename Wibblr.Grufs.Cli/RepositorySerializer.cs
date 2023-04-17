@@ -63,6 +63,8 @@ namespace Wibblr.Grufs.Cli
             string GetString(string key) => items.Single(x => x.Key == key).Value as string ?? throw new Exception($"Unable to find string {key}");
             int GetInt(string key) => items.Single(x => x.Key == key).Value as int? ?? throw new Exception();
 
+            Console.WriteLine($"Protocol={GetString(Protocol)}");
+
             IChunkStorage storage = GetString(Protocol) switch
             {
                 "sqlite" => new SqliteStorage(Path.Join(GetString(BaseDir), GetString(RepoName) + ".sqlite")),

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Immutable;
 using System.IO.Compression;
 using System.Runtime.CompilerServices;
@@ -6,6 +6,7 @@ using System.Text;
 
 using Wibblr.Grufs.Core;
 using Wibblr.Grufs.Logging;
+using Wibblr.Grufs.Storage;
 
 [assembly: InternalsVisibleTo("Wibblr.Grufs.Tests")]
 namespace Wibblr.Grufs.Filesystem
@@ -14,6 +15,7 @@ namespace Wibblr.Grufs.Filesystem
     {
         private readonly string _keyNamespace;
         private readonly VersionedDictionary _dictionaryStorage;
+        private readonly IChunkStorage _chunkStorage;
         private readonly StreamStorage _streamStorage;
 
         public VirtualFilesystem(Repository repository, string filesystemName)
@@ -21,6 +23,7 @@ namespace Wibblr.Grufs.Filesystem
             _keyNamespace = $"virtual-filesystem:{filesystemName.Length}-{filesystemName}";
             var chunkEncryptor = new ChunkEncryptor(repository.MasterKey, repository.VersionedDictionaryAddressKey, new Compressor(CompressionAlgorithm.Brotli, CompressionLevel.Optimal));
             _dictionaryStorage = new VersionedDictionary(_keyNamespace, repository.ChunkStorage, chunkEncryptor);
+            _chunkStorage = repository.ChunkStorage;
             _streamStorage = repository.StreamStorage;
         }
 
@@ -201,7 +204,6 @@ namespace Wibblr.Grufs.Filesystem
                 return (ret.directory, ret.version, cumulativeStats);
             }
 
-
             long parentVersion = 0; // default value for root directory
 
             // Starting at the root and going down to the parent of this directory, ensure each directory exists and contains the child directory
@@ -212,7 +214,9 @@ namespace Wibblr.Grufs.Filesystem
                 (_, parentVersion) = EnsureDirectoryContains(dirPath, childDirName, parentVersion, snapshotTimestamp);
             }
 
-            return UploadDirectory(localRootDirectoryPath, vfsDirectoryPath, parentVersion, recursive);
+            var ret = UploadDirectory(localRootDirectoryPath, vfsDirectoryPath, parentVersion, recursive);
+            _chunkStorage.Flush();
+            return ret;
         }
 
         public void List(string path, Timestamp timestampFrom, Timestamp timestampTo)

@@ -93,8 +93,24 @@ namespace Wibblr.Grufs.Storage.Sqlite
             throw new NotImplementedException();
         }
 
+        int rowsInTransaction = 0;
+
         public PutStatus Put(EncryptedChunk chunk, OverwriteStrategy overwriteStrategy)
         {
+            if (rowsInTransaction == 100)
+            {
+                Flush();
+            }
+
+            if (rowsInTransaction == 0)
+            {
+                using(var cmd = _connection.CreateCommand())
+                {
+                    cmd.CommandText = "BEGIN TRANSACTION;";
+                    cmd.ExecuteScalar();
+                }
+            }
+
             try
             {
                 var cmd = overwriteStrategy switch
@@ -107,6 +123,7 @@ namespace Wibblr.Grufs.Storage.Sqlite
                 cmd.Parameters[1].Value = chunk.Content;
 
                 int rowsInserted = cmd.ExecuteNonQuery();
+                rowsInTransaction++;
 
                 return rowsInserted switch
                 {
@@ -123,6 +140,8 @@ namespace Wibblr.Grufs.Storage.Sqlite
 
         public bool TryGet(Address address, out EncryptedChunk chunk)
         {
+            Flush();
+
             var cmd = _selectCommand;
             cmd.Parameters[0].Value = address.ToSpan().ToArray();
             using (var reader = cmd.ExecuteReader())
@@ -138,8 +157,23 @@ namespace Wibblr.Grufs.Storage.Sqlite
             return false;
         }
 
+        public void Flush()
+        {
+            if (rowsInTransaction > 0)
+            {
+                using (var cmd = _connection.CreateCommand())
+                {
+                    cmd.CommandText = "COMMIT;";
+                    cmd.ExecuteScalar();
+                }
+                rowsInTransaction = 0;
+            }
+        }
+
         public void Dispose()
         {
+            Flush();
+
             _insertCommand.Dispose();
             _upsertCommand.Dispose();
             _connection.Close();
