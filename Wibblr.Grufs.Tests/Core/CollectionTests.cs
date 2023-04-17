@@ -44,12 +44,11 @@ namespace Wibblr.Grufs.Tests.Core
                     "colour:spotty"
                 });
 
+                animalsStorage.PrepareDelete(Encoding.UTF8.GetBytes("cat20"));
+                animalsStorage.WriteChanges(0);
 
-                    animalsStorage.PrepareDelete(Encoding.UTF8.GetBytes("cat20"));
-                    animalsStorage.WriteChanges(0);
-
-                    animalsStorage.Values().Select(x => Encoding.UTF8.GetString(x.AsSpan())).Should().BeEquivalentTo(new[]
-                    {
+                animalsStorage.Values().Select(x => Encoding.UTF8.GetString(x.AsSpan())).Should().BeEquivalentTo(new[]
+                {
                     "colour:tortoiseshell",
                     "colour:black",
                     "colour:spotty"
