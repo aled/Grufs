@@ -27,10 +27,10 @@ namespace Wibblr.Grufs.Tests.Core
 
                 var animalsStorage = repository.GetCollectionStorage("animals"); ;
 
-                animalsStorage.PrepareUpdate(Encoding.UTF8.GetBytes("cat10"), Encoding.UTF8.GetBytes("colour:tortoiseshell"));
-                animalsStorage.PrepareUpdate(Encoding.UTF8.GetBytes("cat20"), Encoding.UTF8.GetBytes("colour:ginger"));
-                animalsStorage.PrepareUpdate(Encoding.UTF8.GetBytes("cat30"), Encoding.UTF8.GetBytes("colour:black"));
-                animalsStorage.PrepareUpdate(Encoding.UTF8.GetBytes("cat40"), Encoding.UTF8.GetBytes("colour:spotty"));
+                animalsStorage.PrepareUpdate(Encoding.UTF8.GetBytes("cat1"), Encoding.UTF8.GetBytes("colour:tortoiseshell"));
+                animalsStorage.PrepareUpdate(Encoding.UTF8.GetBytes("cat100"), Encoding.UTF8.GetBytes("colour:ginger"));
+                animalsStorage.PrepareUpdate(Encoding.UTF8.GetBytes("cat10000"), Encoding.UTF8.GetBytes("colour:black"));
+                animalsStorage.PrepareUpdate(Encoding.UTF8.GetBytes("cat1000000"), Encoding.UTF8.GetBytes("colour:spotty"));
 
                 animalsStorage.WriteChanges(0);
 
@@ -44,7 +44,7 @@ namespace Wibblr.Grufs.Tests.Core
                     "colour:spotty"
                 });
 
-                animalsStorage.PrepareDelete(Encoding.UTF8.GetBytes("cat20"));
+                animalsStorage.PrepareDelete(Encoding.UTF8.GetBytes("cat100"));
                 animalsStorage.WriteChanges(0);
 
                 animalsStorage.Values().Select(x => Encoding.UTF8.GetString(x.AsSpan())).Should().BeEquivalentTo(new[]

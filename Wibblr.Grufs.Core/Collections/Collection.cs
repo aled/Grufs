@@ -15,24 +15,21 @@ namespace Wibblr.Grufs.Core
 
         // Store the changes in a dictionary, so that later changes to a key's value
         // will overwrite the previous version.
-        //
-        // TODO: Store the keys as a byte array in the dictionary. Converting to hex
-        // string here as will need to write a custom byte array comparer
-        private readonly Dictionary<string, byte[]?> _changes;
+        private readonly Dictionary<byte[], byte[]?> _changes;
 
         public Collection(VersionedDictionary storage, string name)
         {
             _storage = storage;
             _name = Encoding.UTF8.GetBytes(name);
-            _changes = new Dictionary<string, byte[]?>();
+            _changes = new Dictionary<byte[], byte[]?>(new ByteArrayEqualityComparer());
         }
 
         public IEnumerable<byte[]> Values()
         {
-            var dict = new Dictionary<string, byte[]>();
+            var dict = new Dictionary<byte[], byte[]?>(new ByteArrayEqualityComparer());
 
             // Each buffer here represents a number of changesets
-            foreach (var buffer in _storage.Values(_name).Select(x => x.Item2))
+            foreach (var buffer in _storage.Values(_name).Select(x => x.value))
             {
                 var reader = new BufferReader(buffer);
 
@@ -47,16 +44,16 @@ namespace Wibblr.Grufs.Core
                     {
                         case 0:
                             {
-                                var key = reader.ReadSpan();
-                                var value = reader.ReadSpan();
-                                dict[Convert.ToHexString(key)] = value.ToArray();
+                                var key = reader.ReadSpan().ToArray();
+                                var value = reader.ReadSpan().ToArray();
+                                dict[key] = value;
                             }
                             break;
 
                         case 1:
                             {
-                                var key = reader.ReadSpan();
-                                dict.Remove(Convert.ToHexString(key));
+                                var key = reader.ReadSpan().ToArray();
+                                dict.Remove(key);
                             }
                             break;
                     }
@@ -68,19 +65,19 @@ namespace Wibblr.Grufs.Core
 
         public void PrepareUpdate(byte[] lookupKey, byte[] value)
         {
-            _changes[Convert.ToHexString(lookupKey)] = value;
+            _changes[lookupKey] = value;
         }
 
         public void PrepareDelete(byte[] lookupKey) 
         {
-            _changes[Convert.ToHexString(lookupKey)] = null;
+            _changes[lookupKey] = null;
         }
 
         private IEnumerable<int> GetSerializedLengths()
         {
             foreach (var kv in _changes)
             {
-                var key = Encoding.UTF8.GetBytes(kv.Key.Normalize());
+                var key = kv.Key;
                 var value = kv.Value;
 
                 if (value == null)
@@ -103,7 +100,7 @@ namespace Wibblr.Grufs.Core
 
         private int GetSerializedLength()
         {
-            return 1 + 
+            return 1 +
                 _changes.Count.GetSerializedLength() +
                 GetSerializedLengths().Sum();
         }
@@ -135,7 +132,7 @@ namespace Wibblr.Grufs.Core
             builder.AppendInt(_changes.Count());
             foreach (var kv in _changes)
             {
-                var key = Convert.FromHexString(kv.Key);
+                var key = kv.Key;
                 var value = kv.Value;
 
                 if (value != null)

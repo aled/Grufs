@@ -61,7 +61,7 @@ namespace Wibblr.Grufs.Core
             return true;
         }
 
-        public IEnumerable<(long, ArrayBuffer)> Values(byte[] lookupKey)
+        public IEnumerable<(long sequenceNumber, ArrayBuffer value)> Values(byte[] lookupKey)
         {
             long i = 0;
             while (TryGetValue(lookupKey, i, out ArrayBuffer value))
