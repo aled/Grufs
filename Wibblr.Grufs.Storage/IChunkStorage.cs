@@ -15,5 +15,6 @@
         public long Count();
         public bool Exists(Address address);
         public IEnumerable<Address> ListAddresses();
+        public void Flush();
     }
 }

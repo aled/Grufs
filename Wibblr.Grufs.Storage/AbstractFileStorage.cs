@@ -335,5 +335,10 @@
                     return false;
             }
         }
+
+        public void Flush()
+        {
+            // no op
+        }
     }
 }

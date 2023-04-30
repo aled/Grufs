@@ -65,7 +65,11 @@ namespace Wibblr.Grufs.Tests
         }
 
         public float DeduplicationCompressionRatio() =>
-            TotalPutCalls == 0 ? 1f : _dict.Count / (float)TotalPutCalls;
+            TotalPutCalls == 0 ? 1f : _dict.Count / (float)TotalPutCalls; 
+        
+        public void Flush()
+        {
+            // no op
+        }
     }
 }
-    

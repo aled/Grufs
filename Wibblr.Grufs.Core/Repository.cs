@@ -78,7 +78,6 @@ namespace Wibblr.Grufs.Core
         public HmacKey UnversionedDictionaryAddressKey { get; private set; }
 
 
-
         private StreamStorage? _streamStorage;
         public StreamStorage StreamStorage { get => _streamStorage ?? throw new NullReferenceException(); }
      
@@ -162,6 +161,8 @@ namespace Wibblr.Grufs.Core
             var chunkSourceFactory = new ContentDefinedChunkSourceFactory(13);
 
             _streamStorage = new StreamStorage(ChunkStorage, chunkSourceFactory, chunkEncryptor);
+
+            ChunkStorage.Flush();
 
             return new InitRepositoryResult(InitRepositoryStatus.Success, "OK");
         }
