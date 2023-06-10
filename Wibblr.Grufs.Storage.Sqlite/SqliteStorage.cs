@@ -1,4 +1,4 @@
-﻿using System.Net;
+﻿using System;
 
 using Microsoft.Data.Sqlite;
 
@@ -13,8 +13,8 @@ namespace Wibblr.Grufs.Storage.Sqlite
         private SqliteCommand _upsertCommand;
         private SqliteCommand _existsCommand;
         private SqliteCommand _selectCommand;
-
-        private List<EncryptedChunk> _chunks = new List<EncryptedChunk>();
+        private SqliteCommand _beginTransactionCommand;
+        private SqliteCommand _commitTransactionCommand;
 
         public SqliteStorage(string path) 
         {
@@ -71,6 +71,13 @@ namespace Wibblr.Grufs.Storage.Sqlite
             _selectCommand.CommandText = "SELECT Content FROM Chunk WHERE Address = $P1;";
             _selectCommand.Parameters.Add(new SqliteParameter("$P1", SqliteType.Blob));
 
+            _beginTransactionCommand = _connection.CreateCommand();
+            _beginTransactionCommand.CommandText = "BEGIN TRANSACTION;";
+
+            _commitTransactionCommand = _connection.CreateCommand();
+            _commitTransactionCommand.CommandText = "COMMIT;";
+        }
+
         public void Init()
         {
         }
@@ -107,11 +114,7 @@ namespace Wibblr.Grufs.Storage.Sqlite
 
             if (rowsInTransaction == 0)
             {
-                using(var cmd = _connection.CreateCommand())
-                {
-                    cmd.CommandText = "BEGIN TRANSACTION;";
-                    cmd.ExecuteScalar();
-                }
+                _beginTransactionCommand.ExecuteNonQuery();
             }
 
             try
@@ -164,11 +167,7 @@ namespace Wibblr.Grufs.Storage.Sqlite
         {
             if (rowsInTransaction > 0)
             {
-                using (var cmd = _connection.CreateCommand())
-                {
-                    cmd.CommandText = "COMMIT;";
-                    cmd.ExecuteScalar();
-                }
+                _commitTransactionCommand.ExecuteNonQuery();
                 rowsInTransaction = 0;
             }
         }
