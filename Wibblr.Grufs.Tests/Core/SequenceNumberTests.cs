@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Reflection;
+using System.Text;
 
 using Wibblr.Grufs.Core;
 using Wibblr.Grufs.Encryption;
@@ -21,12 +22,6 @@ namespace Wibblr.Grufs.Tests
         public SequenceNumberTests_Local(SequenceNumberTestsFixture<TemporaryLocalStorage> fixture) : base(fixture) { }
     };
 
-    // Currently SFTP is too slow to run this in a reasonable time.
-    public class SequenceNumberTests_Sftp : SequenceNumberTests<TemporarySftpStorage>
-    {
-        public SequenceNumberTests_Sftp(SequenceNumberTestsFixture<TemporarySftpStorage> fixture) : base(fixture) { }
-    };
-
     public class SequenceNumberTestsFixture<T> : IDisposable where T : IChunkStorageFactory, new()
     {
         private T temporaryStorage;
@@ -44,7 +39,7 @@ namespace Wibblr.Grufs.Tests
             _dictionary = new VersionedDictionary(_keyNamespace, _storage, chunkEncryptor);
 
             // Add a bunch of values into the dictionary storage. For each of these IDs, insert that many versions of the value
-            foreach (var lookupKeyId in new[] { 0, 1, 2, 10, 100, 1000})
+            foreach (var lookupKeyId in new[] { 0, 1, 2, 10, 100, 1000 })
             {
                 var start = DateTime.Now;
                 for (long sequence = 0; sequence < lookupKeyId; sequence++)
@@ -87,7 +82,7 @@ namespace Wibblr.Grufs.Tests
             _fixture = fixture;
         }
 
-        [SkippableFact(typeof(MissingSftpCredentialsException))]
+        [Fact]
         public void ShouldReturnSequenceNumberZeroForMissingKey()
         {
             _fixture.GetNextSequenceNumber(0, 0).Should().Be(0);
@@ -97,7 +92,7 @@ namespace Wibblr.Grufs.Tests
             _fixture.GetNextSequenceNumber(0, long.MinValue).Should().Be(0);
         }
 
-        [SkippableFact(typeof(MissingSftpCredentialsException))]
+        [Fact]
         public void ShouldHaveTwoLookupsWhenHintIsHighestExisting()
         {
             _fixture.GetNextSequenceNumberAndLookupCount(1, 0).Should().Be((1, 2));
@@ -107,7 +102,7 @@ namespace Wibblr.Grufs.Tests
             _fixture.GetNextSequenceNumberAndLookupCount(1000, 999).Should().Be((1000, 2));
         }
 
-        [SkippableFact(typeof(MissingSftpCredentialsException))]
+        [Fact]
         public void ShouldHaveThreeLookupsWhenHintIsOneLessThanHighestExisting()
         {
             _fixture.GetNextSequenceNumberAndLookupCount(2, 0).Should().Be((2, 3));
@@ -116,7 +111,7 @@ namespace Wibblr.Grufs.Tests
             _fixture.GetNextSequenceNumberAndLookupCount(1000, 998).Should().Be((1000, 3));
         }
 
-        [SkippableFact(typeof(MissingSftpCredentialsException))]
+        [Fact]
         public void ShouldHaveFiveLookupsWhenHintIsTwoLessThanHighestExisting()
         {
             _fixture.GetNextSequenceNumberAndLookupCount(10, 7).Should().Be((10, 5));
@@ -124,7 +119,7 @@ namespace Wibblr.Grufs.Tests
             _fixture.GetNextSequenceNumberAndLookupCount(1000, 997).Should().Be((1000, 5));
         }
 
-        [SkippableFact(typeof(MissingSftpCredentialsException))]
+        [Fact]
         public void ShouldHaveFiveLookupsWhenHintIsThreeLessThanHighestExisting()
         {
             _fixture.GetNextSequenceNumberAndLookupCount(10, 6).Should().Be((10, 5));
@@ -132,7 +127,7 @@ namespace Wibblr.Grufs.Tests
             _fixture.GetNextSequenceNumberAndLookupCount(1000, 996).Should().Be((1000, 5));
         }
 
-        [SkippableFact(typeof(MissingSftpCredentialsException))]
+        [Fact]
         public void ShouldWorkWhenHintIsTooHigh()
         {
             _fixture.GetNextSequenceNumber(0, 1).Should().Be(0);
@@ -166,7 +161,7 @@ namespace Wibblr.Grufs.Tests
             _fixture.GetNextSequenceNumber(1000, long.MaxValue).Should().Be(1000);
         }
 
-        [SkippableFact(typeof(MissingSftpCredentialsException))]
+        [Fact]
         public void ShouldThrowWhenMaxSequenceReached()
         {
             Func<long, byte[]> GetValue = i => Encoding.ASCII.GetBytes($"The quick brown fox-{i}");

@@ -1,4 +1,6 @@
-﻿using Wibblr.Grufs.Core;
+﻿using System.Reflection;
+
+using Wibblr.Grufs.Core;
 
 namespace Wibblr.Grufs.Tests.Core
 {
@@ -9,18 +11,25 @@ namespace Wibblr.Grufs.Tests.Core
 
     public abstract class RepositoryTests<T> where T : IChunkStorageFactory, new()
     {
-        [SkippableFact(typeof(MissingSftpCredentialsException))]
+        [Fact]
         public void RepositoryInitAndOpen()
         {
-            using (T temporaryStorage = new())
-            {
-                var storage = temporaryStorage.GetChunkStorage();
-                var r1 = new Repository("myrepo", storage, "hello");
-                r1.Initialize();
+            try
+            { 
+                using (T temporaryStorage = new())
+                {
+                    var storage = temporaryStorage.GetChunkStorage();
+                    var r1 = new Repository("myrepo", storage, "hello");
+                    r1.Initialize();
 
-                var r2 = new Repository("myrepo", storage, "hello");
-                r2.Open();
-                r1.MasterKey.ToString().Should().Be(r2.MasterKey.ToString());
+                    var r2 = new Repository("myrepo", storage, "hello");
+                    r2.Open();
+                    r1.MasterKey.ToString().Should().Be(r2.MasterKey.ToString());
+                }
+            }
+            catch (TargetInvocationException e) when (e.InnerException is MissingSftpCredentialsException)
+            {
+                Console.WriteLine("Skipping test due to missing SFTP credentials");
             }
         }
 
