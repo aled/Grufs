@@ -5,11 +5,11 @@ namespace Wibblr.Grufs.Tests.Core
     public class RepositoryTests_InMemory : RepositoryTests<TemporaryInMemoryStorage> { };
     public class RepositoryTests_Sqlite : RepositoryTests<TemporarySqliteStorage> { }; 
     public class RepositoryTests_Local : RepositoryTests<TemporaryLocalStorage> { };
-    //public class RepositoryTests_Sftp : RepositoryTests<TemporarySftpStorage> { };
+    public class RepositoryTests_Sftp : RepositoryTests<TemporarySftpStorage> { };
 
     public abstract class RepositoryTests<T> where T : IChunkStorageFactory, new()
     {
-        [Fact]
+        [SkippableFact(typeof(MissingSftpCredentialsException))]
         public void RepositoryInitAndOpen()
         {
             using (T temporaryStorage = new())

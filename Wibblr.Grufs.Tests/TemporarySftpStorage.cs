@@ -5,14 +5,13 @@ using Wibblr.Grufs.Storage;
 
 namespace Wibblr.Grufs.Tests
 {
-    public class TemporarySftpStorage : IChunkStorageFactory, IFileStorageFactory, IDisposable
+
+    public class TemporarySftpStorage : IChunkStorageFactory, IDisposable
     {
-        internal AbstractFileStorage _storage;
+        internal SftpStorage _storage;
         internal string BaseDir { get; set; }
 
         public IChunkStorage GetChunkStorage() => _storage;
-
-        public AbstractFileStorage GetFileStorage() => _storage;
 
         public TemporarySftpStorage()
         {
@@ -21,7 +20,16 @@ namespace Wibblr.Grufs.Tests
             Log.WriteLine(0, $"Using SFTP temporary directory {BaseDir}");
 
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            var text = File.ReadAllText("sftp-credentials.json");
+
+            string text;
+            try
+            {
+                text = File.ReadAllText("sftp-credentials.json");
+            }
+            catch(Exception)
+            {
+                throw new MissingSftpCredentialsException();
+            }
 
             var sftpCredentials = JsonSerializer.Deserialize<SftpCredentials>(text, options) ?? throw new Exception("Error deserializing SFTP credentials");
 
@@ -32,7 +40,7 @@ namespace Wibblr.Grufs.Tests
                     sftpCredentials.Password ?? throw new Exception("Invalid SFTP password"),
                     BaseDir);
 
-            _storage.CreateDirectory("", createParents: true);
+            _storage.Init();
         }
 
         public void Dispose()

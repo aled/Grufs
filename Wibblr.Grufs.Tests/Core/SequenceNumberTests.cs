@@ -22,10 +22,10 @@ namespace Wibblr.Grufs.Tests
     };
 
     // Currently SFTP is too slow to run this in a reasonable time.
-    //public class SequenceNumberTests_Sftp : SequenceNumberTests<TemporarySftpStorage>
-    //{
-    //    public SequenceNumberTests_Sftp(SequenceNumberTestsFixture<TemporarySftpStorage> fixture) : base(fixture) { }
-    //};
+    public class SequenceNumberTests_Sftp : SequenceNumberTests<TemporarySftpStorage>
+    {
+        public SequenceNumberTests_Sftp(SequenceNumberTestsFixture<TemporarySftpStorage> fixture) : base(fixture) { }
+    };
 
     public class SequenceNumberTestsFixture<T> : IDisposable where T : IChunkStorageFactory, new()
     {
@@ -87,7 +87,7 @@ namespace Wibblr.Grufs.Tests
             _fixture = fixture;
         }
 
-        [Fact]
+        [SkippableFact(typeof(MissingSftpCredentialsException))]
         public void ShouldReturnSequenceNumberZeroForMissingKey()
         {
             _fixture.GetNextSequenceNumber(0, 0).Should().Be(0);
@@ -97,7 +97,7 @@ namespace Wibblr.Grufs.Tests
             _fixture.GetNextSequenceNumber(0, long.MinValue).Should().Be(0);
         }
 
-        [Fact]
+        [SkippableFact(typeof(MissingSftpCredentialsException))]
         public void ShouldHaveTwoLookupsWhenHintIsHighestExisting()
         {
             _fixture.GetNextSequenceNumberAndLookupCount(1, 0).Should().Be((1, 2));
@@ -107,7 +107,7 @@ namespace Wibblr.Grufs.Tests
             _fixture.GetNextSequenceNumberAndLookupCount(1000, 999).Should().Be((1000, 2));
         }
 
-        [Fact]
+        [SkippableFact(typeof(MissingSftpCredentialsException))]
         public void ShouldHaveThreeLookupsWhenHintIsOneLessThanHighestExisting()
         {
             _fixture.GetNextSequenceNumberAndLookupCount(2, 0).Should().Be((2, 3));
@@ -116,7 +116,7 @@ namespace Wibblr.Grufs.Tests
             _fixture.GetNextSequenceNumberAndLookupCount(1000, 998).Should().Be((1000, 3));
         }
 
-        [Fact]
+        [SkippableFact(typeof(MissingSftpCredentialsException))]
         public void ShouldHaveFiveLookupsWhenHintIsTwoLessThanHighestExisting()
         {
             _fixture.GetNextSequenceNumberAndLookupCount(10, 7).Should().Be((10, 5));
@@ -124,7 +124,7 @@ namespace Wibblr.Grufs.Tests
             _fixture.GetNextSequenceNumberAndLookupCount(1000, 997).Should().Be((1000, 5));
         }
 
-        [Fact]
+        [SkippableFact(typeof(MissingSftpCredentialsException))]
         public void ShouldHaveFiveLookupsWhenHintIsThreeLessThanHighestExisting()
         {
             _fixture.GetNextSequenceNumberAndLookupCount(10, 6).Should().Be((10, 5));
@@ -132,7 +132,7 @@ namespace Wibblr.Grufs.Tests
             _fixture.GetNextSequenceNumberAndLookupCount(1000, 996).Should().Be((1000, 5));
         }
 
-        [Fact]
+        [SkippableFact(typeof(MissingSftpCredentialsException))]
         public void ShouldWorkWhenHintIsTooHigh()
         {
             _fixture.GetNextSequenceNumber(0, 1).Should().Be(0);
@@ -166,7 +166,7 @@ namespace Wibblr.Grufs.Tests
             _fixture.GetNextSequenceNumber(1000, long.MaxValue).Should().Be(1000);
         }
 
-        [Fact]
+        [SkippableFact(typeof(MissingSftpCredentialsException))]
         public void ShouldThrowWhenMaxSequenceReached()
         {
             Func<long, byte[]> GetValue = i => Encoding.ASCII.GetBytes($"The quick brown fox-{i}");

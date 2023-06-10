@@ -11,11 +11,11 @@ namespace Wibblr.Grufs.Tests.Core
 
     public class CollectionTests_Local : CollectionTests<TemporaryLocalStorage> { };
 
-    //public class CollectionTests_Sftp : CollectionTests<TemporarySftpStorage> { };
+    public class CollectionTests_Sftp : CollectionTests<TemporarySftpStorage> { };
 
     public abstract class CollectionTests<T> where T : IChunkStorageFactory, new()
     {
-        [Fact]
+        [SkippableFact(typeof(MissingSftpCredentialsException))]
         public void TestCollectionStorage()
         {
 

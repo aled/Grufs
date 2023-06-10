@@ -10,11 +10,11 @@ namespace Wibblr.Grufs.Tests.Core
     public class DictionaryStorageTests_InMemory : DictionaryStorageTests<TemporaryInMemoryStorage> { };
     public class DictionaryStorageTests_Sqlite : DictionaryStorageTests<TemporarySqliteStorage> { };
     public class DictionaryStorageTests_Local : DictionaryStorageTests<TemporaryLocalStorage> { };
-    //public class DictionaryStorageTests_Sftp : DictionaryStorageTests<TemporarySftpStorage> { };
+    public class DictionaryStorageTests_Sftp : DictionaryStorageTests<TemporarySftpStorage> { };
 
     public abstract class DictionaryStorageTests<T> where T: IChunkStorageFactory, new()
     {
-        [Fact]
+        [SkippableFact(typeof(MissingSftpCredentialsException))]
         public void TestUnversionedDictionaryStorage()
         {
             using (T temporaryStorage = new())
@@ -52,7 +52,7 @@ namespace Wibblr.Grufs.Tests.Core
             }
         }
 
-        [Fact]
+        [SkippableFact(typeof(MissingSftpCredentialsException))]
         public void TestVersionedDictionaryStorage()
         {
             using (T temporaryStorage = new())
@@ -86,7 +86,7 @@ namespace Wibblr.Grufs.Tests.Core
             }
         }
 
-        [Fact]
+        [SkippableFact(typeof(MissingSftpCredentialsException))]
         public void ValuesShouldEnumerate()
         {
             using (T temporaryStorage = new())

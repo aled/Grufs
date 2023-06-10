@@ -8,11 +8,11 @@ namespace Wibblr.Grufs.Tests.Core
     public class StreamStorageTests_InMemory : StreamStorageTests<TemporaryInMemoryStorage> { };
     public class StreamStorageTests_Sqlite : StreamStorageTests<TemporarySqliteStorage> { };
     public class StreamStorageTests_Local : StreamStorageTests<TemporaryLocalStorage> { };
-    //public class StreamStorageTests_Sftp : StreamStorageTests<TemporarySftpStorage> { };
+    public class StreamStorageTests_Sftp : StreamStorageTests<TemporarySftpStorage> { };
 
     public abstract class StreamStorageTests<T> where T : IChunkStorageFactory, new()
     {
-        [Fact]
+        [SkippableFact(typeof(MissingSftpCredentialsException))]
         public void EncryptZeroLengthStream()
         {
             using (T temporaryStorage = new())
@@ -46,7 +46,7 @@ namespace Wibblr.Grufs.Tests.Core
         }
 
         // encrypt stream (single chunk)
-        [Fact]
+        [SkippableFact(typeof(MissingSftpCredentialsException))]
         public void EncryptStreamWithSingleChunk()
         {
             using (T temporaryStorage = new())
@@ -78,7 +78,7 @@ namespace Wibblr.Grufs.Tests.Core
             }
         }
 
-        [Theory]
+        [SkippableTheory(typeof(MissingSftpCredentialsException))]
         [InlineData("fixed", 128)]
         [InlineData("fixed", 256)]
         [InlineData("cdc", 6)]

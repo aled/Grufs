@@ -15,7 +15,7 @@ namespace Wibblr.Grufs.Tests
 
     public abstract class CompressionTests<T> where T : IChunkStorageFactory, new()
     {
-        [Theory]
+        [SkippableTheory(typeof(MissingSftpCredentialsException))]
         [InlineData(CompressionAlgorithm.None)]
         [InlineData(CompressionAlgorithm.Deflate)]
         [InlineData(CompressionAlgorithm.Gzip)]
