@@ -1,35 +1,5 @@
 ﻿namespace Wibblr.Grufs.Storage
 {
-    public enum CreateDirectoryStatus
-    {
-        Unknown = 0,
-        Success = 1,
-        AlreadyExists = 2,
-        NonDirectoryAlreadyExists = 3,
-        PathNotFound = 4,
-        ConnectionError = 5,
-        PermissionError = 6,
-        UnknownError = 7,
-    }
-
-    public enum ReadFileStatus
-    {
-        Unknown = 0,
-        Success = 1,
-        PathNotFound = 2,
-        ConnectionError = 3,
-        UnknownError = 4,
-    }
-
-    public enum WriteFileStatus
-    {
-        Unknown = 0,
-        Success = 1,
-        OverwriteDenied= 2,
-        PathNotFound = 4,
-        Error = 5,
-    }
-
     public class StoragePath
     {
         public static readonly char[] DirectorySeparators = { '\\', '/' };
