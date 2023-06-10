@@ -18,6 +18,8 @@ namespace Wibblr.Grufs.Filesystem
         private readonly IChunkStorage _chunkStorage;
         private readonly StreamStorage _streamStorage;
 
+        private static readonly string vfsPrefix = "vfs://";
+
         public VirtualFilesystem(Repository repository, string filesystemName)
         {
             _keyNamespace = $"virtual-filesystem:{filesystemName.Length}-{filesystemName}";
@@ -98,11 +100,12 @@ namespace Wibblr.Grufs.Filesystem
                 0);
         }
 
-        public (VfsDirectoryMetadata, long version, StreamWriteStats stats) UploadDirectory(string localRootDirectoryPath, DirectoryPath vfsDirectoryPath, bool recursive = true)
+        public (VfsDirectoryMetadata, long version, StreamWriteStats stats) UploadDirectory(string localRootDirectoryPath, string vfsDirectoryPath, bool recursive = true)
         {
             var snapshotTimestamp = new Timestamp(DateTime.UtcNow);
+            var directoryPath = new DirectoryPath(vfsDirectoryPath.Substring(vfsPrefix.Length));
 
-            (VfsDirectoryMetadata, long version, StreamWriteStats stats) UploadDirectory(string localDirectoryPath, DirectoryPath vfsDirectoryPath, long parentVersion, bool recursive)
+            (VfsDirectoryMetadata, long version, StreamWriteStats stats) UploadDirectory(string localDirectoryPath, DirectoryPath directoryPath, long parentVersion, bool recursive)
             {
                 //Log.WriteLine(0, $"In UploadDirectoryRecursive: {localDirectoryPath}");
                 var cumulativeStats = new StreamWriteStats();
@@ -150,12 +153,12 @@ namespace Wibblr.Grufs.Filesystem
                 }
 
                 // upload this directory
-                var (vfsDirectory, version) = GetLatestVirtualDirectory(vfsDirectoryPath);
+                var (vfsDirectory, version) = GetLatestVirtualDirectory(directoryPath);
                 (VfsDirectoryMetadata directory, long version) ret;
 
                 if (vfsDirectory == null)
                 {
-                    ret = WriteVirtualDirectoryVersion(new VfsDirectoryMetadata(vfsDirectoryPath, 0, snapshotTimestamp, false, filesBuilder.ToImmutableArray(), directoriesBuilder.ToImmutableArray()), 0);
+                    ret = WriteVirtualDirectoryVersion(new VfsDirectoryMetadata(directoryPath, 0, snapshotTimestamp, false, filesBuilder.ToImmutableArray(), directoriesBuilder.ToImmutableArray()), 0);
 
                     //Log.WriteLine(0, $"Write new virtual directory version: {directoryPath}, {version}");
                 }
@@ -191,7 +194,7 @@ namespace Wibblr.Grufs.Filesystem
                 {
                     foreach (var d in directoriesBuilder)
                     {
-                        var (_, _, stats) = UploadDirectory(Path.Join(di.FullName, d), new DirectoryPath(vfsDirectoryPath + "/" + d), version + 1, recursive);
+                        var (_, _, stats) = UploadDirectory(Path.Join(di.FullName, d), new DirectoryPath(directoryPath + "/" + d), version + 1, recursive);
                         cumulativeStats.Add(stats);
                     }
                 }
@@ -208,53 +211,57 @@ namespace Wibblr.Grufs.Filesystem
 
             // Starting at the root and going down to the parent of this directory, ensure each directory exists and contains the child directory
             // Note we do not go down to this directory, as it also needs the files before we write it.
-            foreach (var (dirPath, childDirName) in vfsDirectoryPath.PathHierarchy())
+            foreach (var (dirPath, childDirName) in directoryPath.PathHierarchy())
             {
                 // ensure that dir exists, and contains childDir
                 (_, parentVersion) = EnsureDirectoryContains(dirPath, childDirName, parentVersion, snapshotTimestamp);
             }
 
-            var ret = UploadDirectory(localRootDirectoryPath, vfsDirectoryPath, parentVersion, recursive);
+            var ret = UploadDirectory(localRootDirectoryPath, directoryPath, parentVersion, recursive);
             _chunkStorage.Flush();
             return ret;
         }
 
-        public void List(string path, Timestamp timestampFrom, Timestamp timestampTo)
+        public (VfsDirectoryMetadata?, long) GetDirectory(DirectoryPath path, Timestamp timestamp)
+        {
+            // TODO: lookup using a binary search instead of linear.
+
+            var (metadata, version) = GetLatestVirtualDirectory(path);
+
+            // while the directory snapshot timestamp is later than the given timestamp, get the next earlier version
+            while (version > 0 && metadata != null && metadata.SnapshotTimestamp > timestamp)
+            {
+                version -= 1;
+                metadata = GetVirtualDirectory(path, version);
+            }
+
+            return (metadata, version);
+        }
+
+        public (VfsDirectoryMetadata?, long) GetDirectory(string path, Timestamp timestamp)
         {
             var (isVfs, exists, isDirectory) = AnalyzePath(path);
 
             if (!isVfs)
             {
                 Log.WriteLine(0, $"Path is not a VFS path: {path}");
-                return;
+                return (null, 0);
             }
-
+            
             if (!exists)
             {
-                Log.WriteLine(0, $"Path not found: {path}");
-                return;
+                Log.WriteLine(0, $"Path not found: {path}"); 
+                return (null, 0);
             }
-
-            if (isDirectory)
+            
+            if (!isDirectory)
             {
-                var directoryPath = new DirectoryPath(path.Substring(vfsPrefix.Length));
-                var (directory, version) = GetLatestVirtualDirectory(directoryPath);
-
-                while (directory != null && directory.SnapshotTimestamp <= timestampTo && directory.SnapshotTimestamp > timestampFrom)
-                {
-                    Log.WriteLine(0, "Version " + version + ", synced at " + directory.SnapshotTimestamp + " " + directory.Path);
-
-                    directory = GetVirtualDirectory(directoryPath, version - 1);
-                }
-
-                // The version with a timestamp earlier than timestampTo is the version that existed as
-                // of that timestamp
-                directory = GetVirtualDirectory(directoryPath, version - 1);
-                if (directory != null && directory.SnapshotTimestamp >= timestampFrom)
-                {
-                    Log.WriteLine(0, "Version " + version + ", synced at " + directory.SnapshotTimestamp + " " + directory.Path);
-                }
+                Log.WriteLine(0, $"Path is not a directory: {path}");
+                return (null, 0);
             }
+
+            var directoryPath = new DirectoryPath(path.Substring(vfsPrefix.Length));
+            return GetDirectory(directoryPath, timestamp);
         }
 
         public void ListDirectoryRecursive(DirectoryPath path)
@@ -282,13 +289,15 @@ namespace Wibblr.Grufs.Filesystem
             }
         }
 
-        private void DownloadDirectory(DirectoryPath vfsDirectory, string localDirectoryPath, bool recursive)
+        private void DownloadDirectory(string vfsDirectoryPath, string localDirectoryPath, bool recursive)
         {
-            var (directory, version) = GetLatestVirtualDirectory(vfsDirectory);
+            var directoryPath = new DirectoryPath(vfsDirectoryPath.Substring(vfsPrefix.Length));
+
+            var (directory, version) = GetLatestVirtualDirectory(directoryPath);
 
             if (directory == null)
             {
-                throw new Exception($"Virtual Directory not found: '{vfsDirectory}'");
+                throw new Exception($"Virtual Directory not found: '{directoryPath}'");
             }
 
             Directory.CreateDirectory(localDirectoryPath);
@@ -317,7 +326,7 @@ namespace Wibblr.Grufs.Filesystem
             {
                 foreach (var subdir in directory.Directories)
                 {
-                    DownloadDirectory(new DirectoryPath(vfsDirectory + "/" + subdir), Path.Join(localDirectoryPath, subdir.OriginalName), true);
+                    DownloadDirectory(vfsPrefix + directoryPath.ToString() + "/" + subdir, Path.Join(localDirectoryPath, subdir.OriginalName), true);
                 }
             }
         }
@@ -326,8 +335,6 @@ namespace Wibblr.Grufs.Filesystem
         {
 
         }
-
-        private static readonly string vfsPrefix = "vfs://";
 
         internal (bool isVfs, bool exists, bool isDirectory) AnalyzePath(string path)
         {
@@ -397,14 +404,14 @@ namespace Wibblr.Grufs.Filesystem
         /// <exception cref="Exception"></exception>
         public int Sync(string sourcePath, string destinationPath, bool recursive = true)
         {
-            if (destinationPath.StartsWith("vfs://"))
+            if (destinationPath.StartsWith(vfsPrefix))
             {
-                var (_, _, stats) = UploadDirectory(sourcePath, new DirectoryPath(destinationPath), recursive);
+                var (_, _, stats) = UploadDirectory(sourcePath, destinationPath, recursive);
                 Log.WriteLine(0, stats.ToString(Log.HumanFormatting));
             }
-            else
+            else if (sourcePath.StartsWith(vfsPrefix))
             {
-                DownloadDirectory(new DirectoryPath(sourcePath), destinationPath, recursive);
+                DownloadDirectory(sourcePath, destinationPath, recursive);
             }
 
             return 0;

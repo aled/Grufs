@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 
 using Wibblr.Grufs.Core;
@@ -12,6 +13,7 @@ namespace Wibblr.Grufs.Filesystem;
 /// To find a subdirectory, find the directory with the appropriate name, and the latest version
 /// that has it's parent version set to this directory version.
 /// </summary>
+[DebuggerDisplay("{ToString()}")]
 public record VfsDirectoryMetadata
 {
     public required DirectoryPath Path { get; init; }  // set to 
@@ -133,5 +135,10 @@ public record VfsDirectoryMetadata
             i = unchecked((i * 17) + Files[i].GetHashCode());
         }
         return HashCode.Combine(Path, ParentVersion, SnapshotTimestamp, IsDeleted, i);
+    }
+
+    public override string ToString()
+    {
+        return $"Path={Path};ParentVersion={ParentVersion};SnapshotTimestamp{SnapshotTimestamp};IsDeleted{IsDeleted};Files={string.Join(",", Files.OrderBy(x => x.Name.CanonicalName))};Directories={string.Join(",", Directories.OrderBy(x => x.CanonicalName))}";
     }
 }
