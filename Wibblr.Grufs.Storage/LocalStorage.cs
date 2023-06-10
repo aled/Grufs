@@ -2,16 +2,20 @@
 
 using Wibblr.Grufs.Logging;
 
+using static Wibblr.Grufs.Storage.FileStorageUtils;
+
 namespace Wibblr.Grufs.Storage
 {
-    public class LocalStorage : AbstractFileStorage
+    public class LocalStorage : IChunkStorage
     {
+        public string BaseDir { get; }
+
         public LocalStorage(string baseDir)
-            : base(baseDir, Path.DirectorySeparatorChar)
         {
+            BaseDir = Path.TrimEndingDirectorySeparator(baseDir);
         }
 
-        public override void Init()
+        public void Init()
         {
             try
             {
@@ -28,112 +32,160 @@ namespace Wibblr.Grufs.Storage
             }
         }
 
-        public override CreateDirectoryStatus CreateDirectory(string relativePath)
+        public long Count()
         {
-            try
+            return ListChunkFiles().Count();
+        }
+
+        public bool Exists(Address address)
+        {
+            return File.Exists(Path.Join(BaseDir, GeneratePath(address)));
+        }
+
+        public void Flush()
+        {
+            // no op
+        }
+
+        public IEnumerable<Address> ListAddresses()
+        {
+            foreach (var file in ListChunkFiles())
             {
-                var path = Path.Join(BaseDir, relativePath);
-                var result = Directory.CreateDirectory(path);
-                return CreateDirectoryStatus.Success;
-            }
-            catch (Exception)
-            {
-                return CreateDirectoryStatus.UnknownError;
+                yield return new Address(Convert.FromHexString(file.Name));
             }
         }
 
-        public override void DeleteDirectory(string relativePath)
+        private void CreateParentsAndWriteAllBytes(string path, byte[] content)
         {
+            ArgumentException.ThrowIfNullOrEmpty(path);
+
             try
             {
-                var path = Path.Join(BaseDir, relativePath);
-                Directory.Delete(path, true);
-            }
-            catch (Exception e)
-            {
-                //[x]
-                Log.WriteLine(0, e.Message);
-            }
-        }
-
-        public override bool Exists(string relativePath)
-        {
-            var path = Path.Join(BaseDir, relativePath);
-            //[x]
-            return File.Exists(path);
-        }
-
-        public override (List<string> files, List<string> directories) ListDirectoryEntries(string relativePath)
-        {
-            try
-            {
-                var path = Path.Join(BaseDir, relativePath);
-                var files = Directory.GetFiles(path).Select(x => new FileInfo(x).Name).ToList();
-                var directories = Directory.GetDirectories(path).Select(x => new DirectoryInfo(x).Name).ToList();
-                return (files, directories);
-            }
-            catch (DirectoryNotFoundException dnfe)
-            {
-                return (new List<string>(), new List<string>());
-            }
-            catch (Exception e)
-            {
-                //[x]
-                Log.WriteLine(0, e.Message);
-                throw;
-            }
-        }
-
-        public override ReadFileStatus ReadFile(string relativePath, out byte[] bytes)
-        {
-            try
-            {
-                var path = Path.Join(BaseDir, relativePath);
-                bytes = File.ReadAllBytes(path);
-                return ReadFileStatus.Success;
-            }
-            catch (Exception e)
-            {
-                //TODO: error handling
-                Log.WriteLine(0, e.Message);
-                bytes = new byte[0];
-                return ReadFileStatus.UnknownError;
-            }
-        }
-
-        public override WriteFileStatus WriteFile(string relativePath, byte[] content, OverwriteStrategy overwrite)
-        {
-            try
-            {
-                var path = Path.Join(BaseDir, relativePath);
-
-                switch (overwrite)
-                {
-                    case OverwriteStrategy.Allow:
-                        File.WriteAllBytes(path, content);
-                        return WriteFileStatus.Success;
-
-                    case OverwriteStrategy.Deny:
-                        if (File.Exists(path))
-                        {
-                            return WriteFileStatus.OverwriteDenied;
-                        }
-                        break;
-                }
-
                 File.WriteAllBytes(path, content);
-                return WriteFileStatus.Success;
             }
             catch (DirectoryNotFoundException)
             {
-                return WriteFileStatus.PathNotFound;
+                var parent = Path.GetDirectoryName(path);
+                if (parent != null)
+                {
+                    Directory.CreateDirectory(parent);
+                    File.WriteAllBytes(path, content);
+                }
+            }
+        }
+
+        public PutStatus Put(EncryptedChunk chunk, OverwriteStrategy overwriteStrategy)
+        {
+            var path = Path.Join(BaseDir, GeneratePath(chunk.Address));
+
+            switch (overwriteStrategy)
+            {
+                case OverwriteStrategy.Allow:
+                    CreateParentsAndWriteAllBytes(path, chunk.Content);
+                    return PutStatus.Success;
+
+                case OverwriteStrategy.Deny:
+                    if (File.Exists(path))
+                    {
+                        return PutStatus.OverwriteDenied;
+                    }
+
+                    CreateParentsAndWriteAllBytes(path, chunk.Content);
+                    return PutStatus.Success;
+
+                default:
+                    throw new Exception("Invalid overwrite strategy");
+            }
+        }
+
+        public bool TryGet(Address address, out EncryptedChunk chunk)
+        {
+            var path = Path.Join(BaseDir, GeneratePath(address));
+
+            try
+            {
+                chunk = new EncryptedChunk(address, File.ReadAllBytes(path));
             }
             catch (Exception e)
             {
                 //TODO: error handling
                 Log.WriteLine(0, e.Message);
-                return WriteFileStatus.Error;
+                chunk = default;
+                return false;
             }
+
+            return true;
+        }
+
+        private IEnumerable<FileInfo> ListChunkFiles()
+        {
+            foreach (var grandparent in new DirectoryInfo(BaseDir).EnumerateDirectories())
+            {
+                if (grandparent.Name.Length == 2 && IsHexString(grandparent.Name))
+                {
+                    foreach (var parent in grandparent.EnumerateDirectories())
+                    {
+                        if (parent.Name.Length == 2 && IsHexString(grandparent.Name))
+                        {
+                            foreach (var address in parent.EnumerateFiles())
+                            {
+                                if (address.Name.Length == Address.Length * 2 && IsHexString(address.Name))
+                                {
+                                    yield return address;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    public static class FileStorageUtils
+    {
+        public static string GeneratePath(Address address)
+        {
+            // return path of the form
+            //   ab\cd\abcdef...
+            var hex = address.ToString();
+            var length = 6 + hex.Length;
+
+            return string.Create(length, hex, (chars, hex) =>
+            {
+                chars[0] = hex[0];
+                chars[1] = hex[1];
+                chars[2] = Path.DirectorySeparatorChar;
+                chars[3] = hex[2];
+                chars[4] = hex[3];
+                chars[5] = Path.DirectorySeparatorChar;
+
+                hex.AsSpan().CopyTo(chars.Slice(6));
+            });
+        }
+
+        public static bool IsHexString(string s)
+        {
+            if (string.IsNullOrEmpty(s))
+            {
+                return false;
+            }
+
+            if (s.Length % 2 != 0)
+            {
+                return false;
+            }
+
+            foreach (var c in s)
+            {
+                if ((c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z'))
+                {
+                    continue;
+                }
+
+                return false;
+            }
+
+            return true;
         }
     }
 }

@@ -2,13 +2,12 @@
 
 namespace Wibblr.Grufs.Tests
 {
-    public class TemporaryLocalStorage : IChunkStorageFactory, IFileStorageFactory, IDisposable
+    public class TemporaryLocalStorage : IChunkStorageFactory, IDisposable
     {
-        internal AbstractFileStorage _storage;
+        internal IChunkStorage _storage;
         internal AutoDeleteDirectory _autoDeleteDirectory;
 
         public IChunkStorage GetChunkStorage() => _storage;
-        public AbstractFileStorage GetFileStorage() => _storage;
 
         public TemporaryLocalStorage()
         {
@@ -16,7 +15,7 @@ namespace Wibblr.Grufs.Tests
             Log.WriteLine(0, $"Using local temporary directory {_autoDeleteDirectory.Path}");
 
             _storage = new LocalStorage(_autoDeleteDirectory.Path);
-            _storage.CreateDirectory("", createParents: true);
+            _storage.Init();
         }
 
         public void Dispose()

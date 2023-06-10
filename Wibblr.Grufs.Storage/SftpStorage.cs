@@ -7,10 +7,13 @@ using Renci.SshNet.Sftp;
 
 using Wibblr.Grufs.Logging;
 
+using static Wibblr.Grufs.Storage.FileStorageUtils;
+
 namespace Wibblr.Grufs.Storage
 {
-    public class SftpStorage : AbstractFileStorage, IDisposable
+    public class SftpStorage : IChunkStorage, IDisposable
     {
+        public string BaseDir { get; init; }
         public string Host { get; init; }
         public string Username { get; init; }
         public string Password { get; init; }
@@ -19,7 +22,6 @@ namespace Wibblr.Grufs.Storage
         private SftpClient _client;
 
         public SftpStorage(string host, int port, string username, string password, string baseDir)
-            : base(baseDir, '/')
         {
             Host = host;
             Port = port;
@@ -27,6 +29,29 @@ namespace Wibblr.Grufs.Storage
             Password = password;
 
             _client = new SftpClient(Host, Port, Username, Password);
+            BaseDir = ToUnixPath(baseDir);
+        }
+
+        private string ToUnixPath(string path)
+        {
+            return Path.TrimEndingDirectorySeparator(path.Replace("\\", "/"));
+        }
+
+        /// <summary>
+        /// This has the same signature as System.IO.Directory.GetDirectoryName
+        /// </summary>
+        /// <param name="path"></param>
+        /// <returns></returns>
+        private string? GetDirectoryName(string path)
+        {
+            var lastIndex = path.LastIndexOf('/');
+
+            if (lastIndex > 0)
+            {
+                return path.Substring(0, path.LastIndexOf("/"));
+            }
+
+            return null;
         }
 
         private bool IsConnected() => _client.IsConnected;
@@ -54,43 +79,9 @@ namespace Wibblr.Grufs.Storage
             return this;
         }
 
-        public override void Init()
+        public void Init()
         {
-            EnsureConnected();
-
-            Stack<StoragePath> paths = new Stack<StoragePath>();
-            paths.Push(new StoragePath(BaseDir, _directorySeparator));
-            while (paths.Any())
-            {
-                var path = paths.Pop();
-
-                try
-                {
-                    _client.CreateDirectory("/" + path.ToString());
-
-                    if (!paths.Any())
-                    {
-                        return;
-                    }
-                }
-                catch (SftpPathNotFoundException)
-                {
-                    if (path.IsRoot)
-                    {
-                        throw new Exception("Error creating basedir");
-                    }
-                    paths.Push(path);
-                    paths.Push(path.Parent);
-                }
-                catch (SshException se)
-                {
-                    // Will get this if already exists
-                }
-                catch (Exception e)
-                {
-                    Log.WriteLine(0, e.Message);
-                }
-            }
+            CreateDirectory(BaseDir);
 
             var info = _client.Get(BaseDir);
 
@@ -100,137 +91,110 @@ namespace Wibblr.Grufs.Storage
             }
         }
 
-        public override ReadFileStatus ReadFile(string relativePath, out byte[] bytes)
+        /// <summary>
+        /// This has the same signature as System.IO.Directory.CreateDirectory
+        /// </summary>
+        /// <param name="path"></param>
+        /// <returns></returns>
+        private bool CreateDirectory(string path)
         {
-            var path = new StoragePath(BaseDir, _directorySeparator).Concat(relativePath).ToString();
+            ArgumentException.ThrowIfNullOrEmpty(path);
+
             EnsureConnected();
 
             try
             {
-                bytes = _client.ReadAllBytes(path);
-                return ReadFileStatus.Success;
+                _client.CreateDirectory(path);
+                return true;
+            }
+            catch (SshConnectionException sce)
+            {
+                Log.WriteLine(0, sce.Message);
+                return false;
+            }
+            catch (SftpPermissionDeniedException spde)
+            {
+                return false;
+            }
+            catch (Exception e)
+            {
+                if (e is not SftpPathNotFoundException && e is not SshException)
+                {
+                    Log.WriteLine(0, e.Message);
+                    return false;
+                }
+            }
+
+            // either directory already existed, or a parent did not exist, or a file with the same name exists
+            try
+            {
+                var info = _client.Get(path);
+
+                if (!info.IsDirectory)
+                {
+                    Log.WriteLine(0, $"Cannot create directory '{path}' - non directory already exists");
+                    return false;
+                }
+            }
+            catch (SshConnectionException sce)
+            {
+                Log.WriteLine(0, sce.Message);
+                return false;
             }
             catch (SftpPathNotFoundException)
             {
-                bytes = new byte[0];
-                return ReadFileStatus.PathNotFound;
             }
-            catch (SshConnectionException)
+
+            // create all parents
+            var parent = GetDirectoryName(path);
+
+            if (!string.IsNullOrEmpty(parent))
             {
-                bytes = new byte[0];
-                return ReadFileStatus.ConnectionError;
+                if (CreateDirectory(parent))
+                {
+                    _client.CreateDirectory(path);
+                    return true;
+                }
+                return false;
             }
-            catch (Exception)
-            {
-                bytes = new byte[0];
-                return ReadFileStatus.UnknownError;
-            }
+
+            return false;
         }
 
-        public override WriteFileStatus WriteFile(string relativePath, byte[] content, OverwriteStrategy overwrite)
+        /// <summary>
+        /// This uses the same signature as System.IO.File.WriteAllBytes
+        /// </summary>
+        /// <param name="path"></param>
+        /// <param name="content"></param>
+        /// <exception cref=""></exception>
+        /// <exception cref="Exception"></exception>
+        private void WriteAllBytes(string path, byte[] content)
         {
-            var path = new StoragePath(BaseDir, _directorySeparator).Concat(relativePath).ToString();
-            EnsureConnected();
-
-            if (_client.Exists(path))
-            {
-                switch (overwrite)
-                {
-                    case OverwriteStrategy.Allow:
-                        // fall through
-                        break;
-
-                    case OverwriteStrategy.Deny:
-                        return WriteFileStatus.OverwriteDenied;
-                }
-            }
-            
-            // try to write file
             try
             {
                 using (var stream = _client.OpenWrite(path.ToString()))
                 {
                     stream.Write(content, 0, content.Length);
                     //Log.WriteLine(0, $"Wrote {path}");
-                    return WriteFileStatus.Success;
                 }
             }
             catch (Exception e)
             {
                 if (e.Message == "No such file")
                 {
-                    return WriteFileStatus.PathNotFound;
+                    throw new DirectoryNotFoundException();
                 }
-
-                //Log.WriteLine(0, e.Message);
-                return WriteFileStatus.Error;
+                throw;
             }
         }
 
-        public override CreateDirectoryStatus CreateDirectory(string relativePath)
+        /// <summary>
+        /// This has the same signature as System.IO.File.Exists
+        /// </summary>
+        /// <param name="path"></param>
+        /// <returns></returns>
+        public bool Exists(string path)
         {
-            var path = new StoragePath(Path.Join(BaseDir, relativePath), _directorySeparator).ToString();
-           
-            EnsureConnected();
-
-            try
-            {
-                _client.CreateDirectory(path.ToString());
-                return CreateDirectoryStatus.Success;
-            }
-            catch (SftpPathNotFoundException)
-            {
-                return CreateDirectoryStatus.PathNotFound;
-            }
-            catch (SshConnectionException sce)
-            {
-                Log.WriteLine(0, sce.Message);
-                return CreateDirectoryStatus.ConnectionError;
-            }
-            catch (SftpPermissionDeniedException spde)
-            {
-                Log.WriteLine(0, spde.Message);
-                return CreateDirectoryStatus.PermissionError;
-            }
-            catch (SshException se)
-            {
-                Log.WriteLine(1, se.Message);
-            }
-            catch (Exception e)
-            {
-                Log.WriteLine(0, e.Message);
-                return CreateDirectoryStatus.UnknownError;
-            }
-
-            try
-            {
-                var info = _client.Get(path);
-
-                if (info.IsDirectory)
-                {
-                    return CreateDirectoryStatus.AlreadyExists;
-                }
-                else
-                {
-                    return CreateDirectoryStatus.NonDirectoryAlreadyExists;
-                }
-            }
-            catch (SftpPathNotFoundException spnfe)
-            {
-                Log.WriteLine(1, spnfe.Message);
-                return CreateDirectoryStatus.PathNotFound;
-            }
-            catch (SshConnectionException sce)
-            {
-                Log.WriteLine(0, sce.Message);
-                return CreateDirectoryStatus.ConnectionError;
-            }
-        }
-
-
-        public override bool Exists(string relativePath)
-        {
-            var path = new StoragePath(Path.Join(BaseDir, relativePath), _directorySeparator).ToString();
             EnsureConnected();
 
             try
@@ -243,16 +207,136 @@ namespace Wibblr.Grufs.Storage
             }
         }
 
-        public override void DeleteDirectory(string relativePath)
+        private void CreateParentsAndWriteAllBytes(string path, byte[] content)
         {
-            var path = Path.Join(BaseDir, relativePath);
+            ArgumentException.ThrowIfNullOrEmpty(path);
+
+            try
+            {
+                WriteAllBytes(path, content);
+            }
+            catch (DirectoryNotFoundException)
+            {
+                var parent = GetDirectoryName(path);
+
+                if (parent != null)
+                {
+                    CreateDirectory(parent);
+                    WriteAllBytes(path, content);
+                }
+            }
+        }
+
+        public PutStatus Put(EncryptedChunk chunk, OverwriteStrategy overwriteStrategy)
+        {
+            var path = ToUnixPath(Path.Join(BaseDir, GeneratePath(chunk.Address)));
+
+            EnsureConnected();
+
+            switch (overwriteStrategy)
+            {
+                case OverwriteStrategy.Allow:
+                    CreateParentsAndWriteAllBytes(path, chunk.Content);
+                    return PutStatus.Success;
+
+                case OverwriteStrategy.Deny:
+                    if (Exists(path))
+                    {
+                        return PutStatus.OverwriteDenied;
+                    }
+
+                    CreateParentsAndWriteAllBytes(path, chunk.Content);
+                    return PutStatus.Success;
+
+                default:
+                    throw new Exception("Invalid overwrite strategy");
+            }
+        }
+
+        public bool TryGet(Address address, out EncryptedChunk chunk)
+        {
+            var path = ToUnixPath(Path.Join(BaseDir, GeneratePath(address)));
+
+            EnsureConnected();
+
+            try
+            {
+                chunk = new EncryptedChunk(address, _client.ReadAllBytes(path));
+                return true;
+            }
+            catch (SftpPathNotFoundException)
+            {
+                chunk = default;
+                return false;
+            }
+            catch (SshConnectionException)
+            {
+                chunk = default;
+                return false;
+            }
+            catch (Exception)
+            {
+                chunk = default;
+                return false;
+            }
+        }
+
+        private IEnumerable<string> ListChunkFiles()
+        {
+            foreach (var grandparent in _client.ListDirectory(BaseDir))
+            {
+                if (grandparent.IsDirectory && grandparent.Name.Length == 2 && IsHexString(grandparent.Name))
+                {
+                    foreach (var parent in _client.ListDirectory(grandparent.FullName))
+                    {
+                        if (parent.IsDirectory && parent.Name.Length == 2 && IsHexString(parent.Name))
+                        {
+                            foreach (var address in _client.ListDirectory(parent.FullName))
+                            {
+                                if (address.IsRegularFile && address.Name.Length == Address.Length * 2 && IsHexString(address.Name))
+                                {
+                                    yield return address.Name;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+       
+        public long Count()
+        {
+            return ListChunkFiles().Count();
+        }
+
+        public bool Exists(Address address)
+        {
+            return Exists(ToUnixPath(Path.Join(BaseDir, GeneratePath(address))));
+        }
+
+        public IEnumerable<Address> ListAddresses()
+        {
+            foreach (var file in ListChunkFiles())
+            {
+                yield return new Address(Convert.FromHexString(file));
+            }
+        }
+
+        public void Flush()
+        {
+            // no op
+        }
+
+        public void DeleteDirectory(string relativePath)
+        {
+            var path = ToUnixPath(Path.Join(BaseDir, relativePath));
             EnsureConnected();
 
             try
             {
                 DeleteDirectory(_client.Get(path));
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 Log.WriteLine(0, ex.Message);
             }
@@ -278,36 +362,6 @@ namespace Wibblr.Grufs.Storage
                     _client.DeleteDirectory(directory.FullName);
                 }
             }
-        }
-
-        public override (List<string> files, List<string> directories) ListDirectoryEntries(string relativePath)
-        {
-            var path = new StoragePath(Path.Join(BaseDir, relativePath), _directorySeparator).ToString();
-            EnsureConnected();
-
-            var files = new List<string>();
-            var directories = new List<string>();
-
-            foreach (var item in _client.ListDirectory(path.ToString()))
-            {
-                if (item.Name == "." || item.Name == "..")
-                {
-                    continue;
-                }
-                else if (item.IsRegularFile)
-                {
-                    files.Add(item.Name);
-                }
-                else if (item.IsDirectory)
-                {
-                    directories.Add(item.Name);
-                }
-            }
-
-            files.Sort();
-            directories.Sort();
-
-            return (files, directories);
         }
 
         public void Dispose()
