@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 
 using Renci.SshNet;
 using Renci.SshNet.Common;
@@ -53,7 +54,53 @@ namespace Wibblr.Grufs.Storage
             return this;
         }
 
-        override public ReadFileStatus ReadFile(string relativePath, out byte[] bytes)
+        public override void Init()
+        {
+            EnsureConnected();
+
+            Stack<StoragePath> paths = new Stack<StoragePath>();
+            paths.Push(new StoragePath(BaseDir, _directorySeparator));
+            while (paths.Any())
+            {
+                var path = paths.Pop();
+
+                try
+                {
+                    _client.CreateDirectory("/" + path.ToString());
+
+                    if (!paths.Any())
+                    {
+                        return;
+                    }
+                }
+                catch (SftpPathNotFoundException)
+                {
+                    if (path.IsRoot)
+                    {
+                        throw new Exception("Error creating basedir");
+                    }
+                    paths.Push(path);
+                    paths.Push(path.Parent);
+                }
+                catch (SshException se)
+                {
+                    // Will get this if already exists
+                }
+                catch (Exception e)
+                {
+                    Log.WriteLine(0, e.Message);
+                }
+            }
+
+            var info = _client.Get(BaseDir);
+
+            if (!info.IsDirectory)
+            {
+                throw new Exception("Error creating basedir");
+            }
+        }
+
+        public override ReadFileStatus ReadFile(string relativePath, out byte[] bytes)
         {
             var path = new StoragePath(BaseDir, _directorySeparator).Concat(relativePath).ToString();
             EnsureConnected();
@@ -80,7 +127,7 @@ namespace Wibblr.Grufs.Storage
             }
         }
 
-        override public WriteFileStatus WriteFile(string relativePath, byte[] content, OverwriteStrategy overwrite)
+        public override WriteFileStatus WriteFile(string relativePath, byte[] content, OverwriteStrategy overwrite)
         {
             var path = new StoragePath(BaseDir, _directorySeparator).Concat(relativePath).ToString();
             EnsureConnected();
@@ -120,16 +167,20 @@ namespace Wibblr.Grufs.Storage
             }
         }
 
-        override public CreateDirectoryStatus CreateDirectory(string relativePath)
+        public override CreateDirectoryStatus CreateDirectory(string relativePath)
         {
             var path = new StoragePath(Path.Join(BaseDir, relativePath), _directorySeparator).ToString();
+           
             EnsureConnected();
 
             try
             {
-                _client.CreateDirectory(path);
-                //Log.WriteLine(0, $"Created directory {relativePath}");
+                _client.CreateDirectory(path.ToString());
                 return CreateDirectoryStatus.Success;
+            }
+            catch (SftpPathNotFoundException)
+            {
+                return CreateDirectoryStatus.PathNotFound;
             }
             catch (SshConnectionException sce)
             {
@@ -177,7 +228,7 @@ namespace Wibblr.Grufs.Storage
         }
 
 
-        override public bool Exists(string relativePath)
+        public override bool Exists(string relativePath)
         {
             var path = new StoragePath(Path.Join(BaseDir, relativePath), _directorySeparator).ToString();
             EnsureConnected();
@@ -192,7 +243,7 @@ namespace Wibblr.Grufs.Storage
             }
         }
 
-        override public void DeleteDirectory(string relativePath)
+        public override void DeleteDirectory(string relativePath)
         {
             var path = Path.Join(BaseDir, relativePath);
             EnsureConnected();
@@ -229,7 +280,7 @@ namespace Wibblr.Grufs.Storage
             }
         }
 
-        override public (List<string> files, List<string> directories) ListDirectoryEntries(string relativePath)
+        public override (List<string> files, List<string> directories) ListDirectoryEntries(string relativePath)
         {
             var path = new StoragePath(Path.Join(BaseDir, relativePath), _directorySeparator).ToString();
             EnsureConnected();

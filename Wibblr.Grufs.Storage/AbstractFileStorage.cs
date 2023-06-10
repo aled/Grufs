@@ -106,6 +106,8 @@
 
         abstract public bool Exists(string relativePath);
 
+        abstract public void Init();
+        
         abstract public CreateDirectoryStatus CreateDirectory(string relativePath);
 
         abstract public void DeleteDirectory(string relativePath);

@@ -15,6 +15,11 @@ namespace Wibblr.Grufs.Tests
             TotalExistsCalls = 0;
         }
 
+        public void Init()
+        {
+            // no op
+        }
+
         public bool TryGet(Address address, out EncryptedChunk chunk)
         {
             if (_dict.ContainsKey(address))

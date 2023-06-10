@@ -70,6 +70,9 @@ namespace Wibblr.Grufs.Storage.Sqlite
             _selectCommand = _connection.CreateCommand();
             _selectCommand.CommandText = "SELECT Content FROM Chunk WHERE Address = $P1;";
             _selectCommand.Parameters.Add(new SqliteParameter("$P1", SqliteType.Blob));
+
+        public void Init()
+        {
         }
 
         public long Count()

@@ -145,6 +145,8 @@ namespace Wibblr.Grufs.Core
             var metadataAddressKey = new HmacKey(new Rfc2898DeriveBytes(normalizedMetadataPassword, wellKnownSalt1.ToSpan().ToArray(), iterations, HashAlgorithmName.SHA256).GetBytes(KeyEncryptionKey.Length));
             var metadataChunkEncryptor = new ChunkEncryptor(metadataKeyEncryptionKey, metadataAddressKey, Compressor.None);
 
+            ChunkStorage.Init();
+
             var putResult = new UnversionedDictionary(ChunkStorage, metadataChunkEncryptor).TryPutValue(_metadataLookupKey.AsSpan(), repositoryMetadata.Serialize(), OverwriteStrategy.Deny);
             if (putResult == PutStatus.OverwriteDenied)
             {

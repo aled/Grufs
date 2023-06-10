@@ -11,6 +11,23 @@ namespace Wibblr.Grufs.Storage
         {
         }
 
+        public override void Init()
+        {
+            try
+            {
+                Directory.CreateDirectory(BaseDir);
+                return;
+            }
+            catch (Exception)
+            {
+                if (Directory.Exists(BaseDir))
+                {
+                    return;
+                }
+                throw new Exception("Error creating basedir");
+            }
+        }
+
         public override CreateDirectoryStatus CreateDirectory(string relativePath)
         {
             try
@@ -67,7 +84,7 @@ namespace Wibblr.Grufs.Storage
             }
         }
 
-        override public ReadFileStatus ReadFile(string relativePath, out byte[] bytes)
+        public override ReadFileStatus ReadFile(string relativePath, out byte[] bytes)
         {
             try
             {
