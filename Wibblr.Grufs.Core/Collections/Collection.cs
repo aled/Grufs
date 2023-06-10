@@ -26,7 +26,7 @@ namespace Wibblr.Grufs.Core
 
         public IEnumerable<byte[]> Values()
         {
-            var dict = new Dictionary<byte[], byte[]?>(new ByteArrayEqualityComparer());
+            var dict = new Dictionary<byte[], byte[]>(new ByteArrayEqualityComparer());
 
             // Each buffer here represents a number of changesets
             foreach (var buffer in _storage.Values(_name).Select(x => x.value))
