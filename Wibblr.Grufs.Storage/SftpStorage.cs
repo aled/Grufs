@@ -341,7 +341,7 @@ namespace Wibblr.Grufs.Storage
                 Log.WriteLine(0, ex.Message);
             }
 
-            void DeleteDirectory(SftpFile directory)
+            void DeleteDirectory(ISftpFile directory)
             {
                 if (directory.IsDirectory)
                 {
