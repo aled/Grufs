@@ -47,11 +47,6 @@ namespace Wibblr.Grufs.Storage.Sqlite
                 var result = cmd.ExecuteScalar();
                 //Console.WriteLine(result);
             }
-            using (var cmd = _connection.CreateCommand())
-            {
-                cmd.CommandText = "CREATE TABLE IF NOT EXISTS Chunk (Address BLOB NOT NULL PRIMARY KEY, Content BLOB NOT NULL) WITHOUT ROWID;";
-                cmd.ExecuteNonQuery();
-            }
 
             _insertCommand = _connection.CreateCommand();
             _insertCommand.CommandText = "INSERT OR IGNORE INTO Chunk (Address, Content) VALUES ($P1, $P2);";
@@ -80,6 +75,11 @@ namespace Wibblr.Grufs.Storage.Sqlite
 
         public void Init()
         {
+            using (var cmd = _connection.CreateCommand())
+            {
+                cmd.CommandText = "CREATE TABLE IF NOT EXISTS Chunk (Address BLOB NOT NULL PRIMARY KEY, Content BLOB NOT NULL) WITHOUT ROWID;";
+                cmd.ExecuteNonQuery();
+            }
         }
 
         public long Count()

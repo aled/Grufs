@@ -35,6 +35,8 @@ namespace Wibblr.Grufs.Tests
         {
             temporaryStorage = new();
             _storage = temporaryStorage.GetChunkStorage();
+            _storage.Init();
+
             var chunkEncryptor = new ChunkEncryptor(_keyEncryptionKey, _addressKey, Compressor.None);
             _dictionary = new VersionedDictionary(_keyNamespace, _storage, chunkEncryptor);
 

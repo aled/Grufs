@@ -21,6 +21,8 @@ namespace Wibblr.Grufs.Tests.Core
                 using (T temporaryStorage = new())
                 {
                     var storage = temporaryStorage.GetChunkStorage();
+                    storage.Init();
+
                     var keyEncryptionKey = new KeyEncryptionKey("0000000000000000000000000000000000000000000000000000000000000000".ToBytes());
                     var hmacKey = new HmacKey("0000000000000000000000000000000000000000000000000000000000000000".ToBytes());
                     var compressor = new Compressor(CompressionAlgorithm.None);
@@ -62,6 +64,8 @@ namespace Wibblr.Grufs.Tests.Core
                 using (T temporaryStorage = new())
                 {
                     var storage = temporaryStorage.GetChunkStorage(); var keyEncryptionKey = new KeyEncryptionKey("0000000000000000000000000000000000000000000000000000000000000000".ToBytes());
+                    storage.Init();
+
                     var hmacKey = new HmacKey("0000000000000000000000000000000000000000000000000000000000000000".ToBytes());
                     var compressor = new Compressor(CompressionAlgorithm.None);
                     var chunkEncryptor = new ChunkEncryptor(keyEncryptionKey, hmacKey, compressor);
@@ -121,6 +125,7 @@ namespace Wibblr.Grufs.Tests.Core
                 using (T temporaryStorage = new())
                 {
                     var storage = temporaryStorage.GetChunkStorage();
+                    storage.Init();
 
                     var chunkEncryptor = new ChunkEncryptor(keyEncryptionKey, hmacKey, compressor);
                     var streamStorage = new StreamStorage(storage, chunkSourceFactory, chunkEncryptor);

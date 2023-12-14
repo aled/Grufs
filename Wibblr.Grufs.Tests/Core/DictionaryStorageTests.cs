@@ -23,6 +23,8 @@ namespace Wibblr.Grufs.Tests.Core
                 using (T temporaryStorage = new())
                 {
                     var storage = temporaryStorage.GetChunkStorage();
+                    storage.Init();
+
                     var lookupKey = Encoding.ASCII.GetBytes("lookupkey");
                     var strValue = "The quick brown fox";
                     var value = Encoding.ASCII.GetBytes(strValue);
@@ -68,6 +70,8 @@ namespace Wibblr.Grufs.Tests.Core
                 using (T temporaryStorage = new())
                 {
                     var storage = temporaryStorage.GetChunkStorage();
+                    storage.Init();
+
                     Func<int, byte[]> GetValue = i => Encoding.ASCII.GetBytes($"The quick brown fox-{i}");
 
                     var keyEncryptionKey = new KeyEncryptionKey(Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000000000"));
@@ -109,6 +113,8 @@ namespace Wibblr.Grufs.Tests.Core
                 using (T temporaryStorage = new())
                 {
                     var storage = temporaryStorage.GetChunkStorage();
+                    storage.Init();
+
                     Func<int, byte[]> GetValue = i => Encoding.ASCII.GetBytes($"The quick brown fox-{i}");
 
                     var keyEncryptionKey = new KeyEncryptionKey(Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000000000"));

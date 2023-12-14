@@ -29,6 +29,8 @@ namespace Wibblr.Grufs.Tests
                 using (T temporaryStorage = new())
                 {
                     var storage = temporaryStorage.GetChunkStorage();
+                    storage.Init();
+
                     var keyEncryptionKey = new KeyEncryptionKey("0000000000000000000000000000000000000000000000000000000000000000".ToBytes());
                     var hmacKey = new HmacKey("0000000000000000000000000000000000000000000000000000000000000000".ToBytes());
                     var compressor = new Compressor(compressionAlgorithm);
