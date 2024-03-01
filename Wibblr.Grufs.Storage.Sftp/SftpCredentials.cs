@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace Wibblr.Grufs.Storage
+namespace Wibblr.Grufs.Storage.Sftp
 {
     [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
     [JsonSerializable(typeof(SftpCredentials))]
@@ -10,8 +10,10 @@ namespace Wibblr.Grufs.Storage
 
     public class SftpCredentials
     {
-        public string? Hostname { get; set; }
+        public string? Host { get; set; }
+        public int Port { get; set; }
         public string? Username { get; set; }
         public string? Password { get; set; }
+        public string? PrivateKey { get; set; }
     }
 }

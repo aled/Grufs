@@ -1,35 +1,41 @@
-﻿using System;
-using System.IO;
+﻿using static Wibblr.Grufs.Storage.FileStorageUtils;
+using Wibblr.Grufs.Logging;
 
 using Renci.SshNet;
 using Renci.SshNet.Common;
 using Renci.SshNet.Sftp;
+using System.Text;
 
-using Wibblr.Grufs.Logging;
-
-using static Wibblr.Grufs.Storage.FileStorageUtils;
-
-namespace Wibblr.Grufs.Storage
+namespace Wibblr.Grufs.Storage.Sftp
 {
     public class SftpStorage : IChunkStorage, IDisposable
     {
         public string BaseDir { get; init; }
-        public string Host { get; init; }
-        public string Username { get; init; }
-        public string Password { get; init; }
-        public int Port { get; init; }
+        public SftpCredentials Credentials { get; init; }
 
         private SftpClient _client;
 
-        public SftpStorage(string host, int port, string username, string password, string baseDir)
+        public SftpStorage(SftpCredentials credentials, string baseDir)
         {
-            Host = host;
-            Port = port;
-            Username = username;
-            Password = password;
+            Credentials = credentials;
+            var connectionInfo = new ConnectionInfo(credentials.Host, credentials.Port, credentials.Username, GetAuthenticationMethods(credentials).ToArray());
 
-            _client = new SftpClient(Host, Port, Username, Password);
+            _client = new SftpClient(connectionInfo);
             BaseDir = ToUnixPath(baseDir);
+        }
+
+        private IEnumerable<AuthenticationMethod> GetAuthenticationMethods(SftpCredentials credentials)
+        {
+            if (!string.IsNullOrEmpty(credentials.PrivateKey))
+            {
+                var stream = new MemoryStream(Encoding.ASCII.GetBytes(credentials.PrivateKey));
+                yield return new PrivateKeyAuthenticationMethod(credentials.Username, new PrivateKeyFile(stream));
+            }
+
+            if (!string.IsNullOrEmpty(credentials.Password))
+            {
+                yield return new PasswordAuthenticationMethod(credentials.Username, credentials.Password);
+            }
         }
 
         private string ToUnixPath(string path)
@@ -56,7 +62,7 @@ namespace Wibblr.Grufs.Storage
 
         private bool IsConnected() => _client.IsConnected;
 
-        public SftpStorage EnsureConnected(int maxTries = 10)
+        public SftpStorage EnsureConnected(int maxTries = 3)
         {
             var triesRemaining = maxTries;
 
@@ -66,10 +72,15 @@ namespace Wibblr.Grufs.Storage
                 {
                     _client.Connect();
                 }
-                catch (Exception)
+                catch (SshAuthenticationException sae)
                 {
-                    Thread.Sleep(1000);
-                    Log.WriteLine(0, $"Error connecting to host {Host}:{Port}; {--triesRemaining} try(s) remaining");
+                    Log.WriteLine(0, $"Authentication error connecting to host {Credentials.Host}:{Credentials.Port}; {sae.Message}");
+                    throw;
+                }
+                catch (Exception e)
+                {
+                    Thread.Sleep(500);
+                    Log.WriteLine(0, $"Error connecting to host {Credentials.Host}:{Credentials.Port}; {--triesRemaining} try(s) remaining");
                     if (triesRemaining <= 0)
                     {
                         throw new Exception();

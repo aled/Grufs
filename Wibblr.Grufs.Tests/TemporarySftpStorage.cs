@@ -2,6 +2,7 @@
 using System.Text.Json;
 
 using Wibblr.Grufs.Storage;
+using Wibblr.Grufs.Storage.Sftp;
 
 namespace Wibblr.Grufs.Tests
 {
@@ -33,12 +34,7 @@ namespace Wibblr.Grufs.Tests
 
             var sftpCredentials = JsonSerializer.Deserialize<SftpCredentials>(text, options) ?? throw new Exception("Error deserializing SFTP credentials");
 
-            _storage = (SftpStorage) new SftpStorage(
-                    sftpCredentials.Hostname ?? throw new Exception("Invalid SFTP hostname"),
-                    22,
-                    sftpCredentials.Username ?? throw new Exception("Invalid SFTP username"),
-                    sftpCredentials.Password ?? throw new Exception("Invalid SFTP password"),
-                    BaseDir);
+            _storage = new SftpStorage(sftpCredentials, BaseDir);
 
             _storage.Init();
         }

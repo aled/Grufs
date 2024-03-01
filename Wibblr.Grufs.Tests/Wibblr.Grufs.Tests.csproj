@@ -32,6 +32,7 @@
     <ProjectReference Include="..\Wibblr.Grufs.Cli\Wibblr.Grufs.Cli.csproj" />
     <ProjectReference Include="..\Wibblr.Grufs.Core\Wibblr.Grufs.Core.csproj" />
     <ProjectReference Include="..\Wibblr.Grufs.Filesystem\Wibblr.Grufs.Filesystem.csproj" />
+    <ProjectReference Include="..\Wibblr.Grufs.Storage.Sftp\Wibblr.Grufs.Storage.Sftp.csproj" />
     <ProjectReference Include="..\Wibblr.Grufs.Storage.Sqlite\Wibblr.Grufs.Storage.Sqlite.csproj" />
   </ItemGroup>
 

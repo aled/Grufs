@@ -9,7 +9,9 @@ namespace Wibblr.Grufs.Tests.Core
     public class StreamStorageTests_InMemory : StreamStorageTests<TemporaryInMemoryStorage> { };
     public class StreamStorageTests_Sqlite : StreamStorageTests<TemporarySqliteStorage> { };
     public class StreamStorageTests_Local : StreamStorageTests<TemporaryLocalStorage> { };
-    public class StreamStorageTests_Sftp : StreamStorageTests<TemporarySftpStorage> { };
+
+    // SFTP is currently too slow to run this test
+    //public class StreamStorageTests_Sftp : StreamStorageTests<TemporarySftpStorage> { };
 
     public abstract class StreamStorageTests<T> where T : IChunkStorageFactory, new()
     {

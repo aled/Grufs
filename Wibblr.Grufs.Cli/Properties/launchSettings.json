@@ -31,6 +31,10 @@
     "vfs ls -n temp-backups": {
       "commandName": "Project",
       "commandLineArgs": "vfs ls -n temp-backups vfs://"
+    },
+    " vfs sync -n repo1 -r -p -v -h c:\\users\\amorris\\Documents\\boom\\artist\\m\\ma vfs://Documents/boom/artist/m/ma": {
+      "commandName": "Project",
+      "commandLineArgs": " vfs sync -n repo1 -r -p -v -h c:\\users\\amorris\\Documents\\boom\\artist\\m\\ma vfs://Documents/boom/artist/m/ma"
     }
   }
 }

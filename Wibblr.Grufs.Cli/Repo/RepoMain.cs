@@ -3,6 +3,7 @@
 using Wibblr.Grufs.Core;
 using Wibblr.Grufs.Logging;
 using Wibblr.Grufs.Storage;
+using Wibblr.Grufs.Storage.Sftp;
 using Wibblr.Grufs.Storage.Sqlite;
 
 namespace Wibblr.Grufs.Cli
@@ -113,11 +114,14 @@ namespace Wibblr.Grufs.Cli
                             Path.Join(_repoArgs.BaseDir, _repoArgs.RepoName + ".sqlite")),
 
                 "sftp" => new SftpStorage(
-                            _repoArgs.Host ?? throw new UsageException("Host not specified"),
-                            _repoArgs.Port ?? 22,
-                            _repoArgs.Username ?? throw new UsageException("Username not specified"),
-                            _repoArgs.Password ?? throw new UsageException("Password not specified"),
-                            _repoArgs.BaseDir).EnsureConnected(),
+                    new SftpCredentials {
+                        Host = _repoArgs.Host ?? throw new UsageException("Host not specified"),
+                        Port = _repoArgs.Port ?? 22,
+                        Password = _repoArgs.Password ?? throw new UsageException("Password not specified"),
+                        Username = _repoArgs.Username ?? throw new UsageException("Username not specified"),
+                        PrivateKey = ""
+                    },
+                    _repoArgs.BaseDir).EnsureConnected(),
 
                 "directory" => new LocalStorage(_repoArgs.BaseDir),
 

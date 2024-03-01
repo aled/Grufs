@@ -2,6 +2,7 @@
 
 using Wibblr.Grufs.Core;
 using Wibblr.Grufs.Storage;
+using Wibblr.Grufs.Storage.Sftp;
 using Wibblr.Grufs.Storage.Sqlite;
 
 namespace Wibblr.Grufs.Cli
@@ -15,6 +16,7 @@ namespace Wibblr.Grufs.Cli
         public static readonly string Port = "port";
         public static readonly string Username = "username";
         public static readonly string Password = "password";
+        public static readonly string PrivateKeyFile = "";
         public static readonly string BaseDir = "baseDir";
 
         public string Serialize(Repository repo)
@@ -37,10 +39,11 @@ namespace Wibblr.Grufs.Cli
             else if (repo.ChunkStorage is SftpStorage sftpStorage)
             {
                 Add(Protocol, "sftp");
-                Add(Host, sftpStorage.Host);
-                Add(Port, sftpStorage.Port);
-                Add(Username, sftpStorage.Username);
-                Add(Password, sftpStorage.Password);
+                Add(Host, sftpStorage.Credentials.Host ?? "");
+                Add(Port, sftpStorage.Credentials.Port);
+                Add(Username, sftpStorage.Credentials.Username ?? "");
+                Add(Password, sftpStorage.Credentials.Password ?? "");
+                Add(PrivateKeyFile, sftpStorage.Credentials.PrivateKey ?? "");
                 Add(BaseDir, sftpStorage.BaseDir);
             }
             else if (repo.ChunkStorage is LocalStorage directoryStorage)
@@ -68,7 +71,15 @@ namespace Wibblr.Grufs.Cli
             IChunkStorage storage = GetString(Protocol) switch
             {
                 "sqlite" => new SqliteStorage(Path.Join(GetString(BaseDir), GetString(RepoName) + ".sqlite")),
-                "sftp" => new SftpStorage(GetString(Host), GetInt(Port), GetString(Username), GetString(Password), GetString(BaseDir)),
+                "sftp" => new SftpStorage(new SftpCredentials
+                {
+                    Host = GetString(Host),
+                    Port = GetInt(Port),
+                    Username = GetString(Username),
+                    Password = GetString(Password),
+                    PrivateKey = ""
+                },
+                GetString(BaseDir)),
                 "directory" => new LocalStorage(GetString(BaseDir)),
                 _ => throw new Exception()
             };
