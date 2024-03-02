@@ -15,19 +15,19 @@ namespace Wibblr.Grufs.Filesystem
 
         public required byte IndexLevel { get; init; }
 
-        public required Timestamp SnapshotTimestamp { get; init; }
+        public required Timestamp VfsLastModified { get; init; }
 
         public required Timestamp LastModifiedTimestamp { get; init; }
 
         public required long Size { get; init; }
 
         [SetsRequiredMembers]
-        public VfsFileMetadata(Filename name, Address address, byte indexLevel, Timestamp snapshotTimestamp, Timestamp lastModifiedTimestamp, long size)
+        public VfsFileMetadata(Filename name, Address address, byte indexLevel, Timestamp vfsLastModified, Timestamp lastModifiedTimestamp, long size)
         {
             Name = name;
             Address = address;
             IndexLevel = indexLevel;
-            SnapshotTimestamp = snapshotTimestamp;
+            VfsLastModified = vfsLastModified;
             LastModifiedTimestamp = lastModifiedTimestamp;
             Size = size;
         }
@@ -45,7 +45,7 @@ namespace Wibblr.Grufs.Filesystem
                         Name = new Filename(reader);
                         Address = reader.ReadAddress();
                         IndexLevel = reader.ReadByte();
-                        SnapshotTimestamp = reader.ReadTimestamp();
+                        VfsLastModified = reader.ReadTimestamp();
                         LastModifiedTimestamp = reader.ReadTimestamp();
                         Size = reader.ReadLong();
                     }
@@ -61,7 +61,7 @@ namespace Wibblr.Grufs.Filesystem
             Name.GetSerializedLength() +
             Address.Length +
             1 + // chunk type
-            SnapshotTimestamp.GetSerializedLength() +
+            VfsLastModified.GetSerializedLength() +
             LastModifiedTimestamp.GetSerializedLength() +
             new VarLong(Size).GetSerializedLength();
 
@@ -71,7 +71,7 @@ namespace Wibblr.Grufs.Filesystem
             Name.SerializeTo(builder);
             builder.AppendAddress(Address);
             builder.AppendByte(IndexLevel);
-            builder.AppendTimestamp(SnapshotTimestamp);
+            builder.AppendTimestamp(VfsLastModified);
             builder.AppendTimestamp(LastModifiedTimestamp);
             builder.AppendLong(Size);
         }

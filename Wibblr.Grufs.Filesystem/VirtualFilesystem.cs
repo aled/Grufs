@@ -77,7 +77,7 @@ namespace Wibblr.Grufs.Filesystem
             return (directory, version);
         }
 
-        private (VfsDirectoryMetadata, long version) EnsureDirectoryContains(DirectoryPath directoryPath, Filename childDirectoryName, long parentVersion, Timestamp snapshotTimestamp)
+        private (VfsDirectoryMetadata, long version) EnsureDirectoryContains(DirectoryPath directoryPath, Filename childDirectoryName, long parentVersion, Timestamp vfsLastModified)
         {
             var (virtualDirectory, version) = GetLatestVirtualDirectory(directoryPath);
 
@@ -90,19 +90,19 @@ namespace Wibblr.Grufs.Filesystem
                 }
 
                 return WriteVirtualDirectoryVersion(
-                    virtualDirectory with { Directories = virtualDirectory.Directories.Add(childDirectoryName), SnapshotTimestamp = snapshotTimestamp },
+                    virtualDirectory with { Directories = virtualDirectory.Directories.Add(childDirectoryName), VfsLastModified = vfsLastModified },
                     version + 1);
             }
 
             // directory does not exist, create.
             return WriteVirtualDirectoryVersion(
-                new VfsDirectoryMetadata(directoryPath, parentVersion, snapshotTimestamp, false, new VfsFileMetadata[0], new Filename[] { childDirectoryName }),
+                new VfsDirectoryMetadata(directoryPath, parentVersion, vfsLastModified, false, new VfsFileMetadata[0], new Filename[] { childDirectoryName }),
                 0);
         }
 
         public (VfsDirectoryMetadata, long version, StreamWriteStats stats) UploadDirectory(string localRootDirectoryPath, string vfsDirectoryPath, bool recursive = true)
         {
-            var snapshotTimestamp = new Timestamp(DateTime.UtcNow);
+            var vfsLastModified = new Timestamp(DateTime.UtcNow);
             var directoryPath = new DirectoryPath(vfsDirectoryPath.Substring(vfsPrefix.Length));
 
             (VfsDirectoryMetadata, long version, StreamWriteStats stats) UploadDirectory(string localDirectoryPath, DirectoryPath directoryPath, long parentVersion, bool recursive)
@@ -134,7 +134,7 @@ namespace Wibblr.Grufs.Filesystem
                             var (address, level, fileStats) = _streamStorage.Write(stream);
                             cumulativeStats.Add(fileStats);
 
-                            filesBuilder.Add(new VfsFileMetadata(new Filename(file.Name), address, level, snapshotTimestamp, new Timestamp(file.LastWriteTimeUtc), file.Length));
+                            filesBuilder.Add(new VfsFileMetadata(new Filename(file.Name), address, level, vfsLastModified, new Timestamp(file.LastWriteTimeUtc), file.Length));
                         }
                     }
                     catch (IOException)
@@ -158,7 +158,7 @@ namespace Wibblr.Grufs.Filesystem
 
                 if (vfsDirectory == null)
                 {
-                    ret = WriteVirtualDirectoryVersion(new VfsDirectoryMetadata(directoryPath, 0, snapshotTimestamp, false, filesBuilder.ToImmutableArray(), directoriesBuilder.ToImmutableArray()), 0);
+                    ret = WriteVirtualDirectoryVersion(new VfsDirectoryMetadata(directoryPath, 0, vfsLastModified, false, filesBuilder.ToImmutableArray(), directoriesBuilder.ToImmutableArray()), 0);
 
                     //Log.WriteLine(0, $"Write new virtual directory version: {directoryPath}, {version}");
                 }
@@ -175,11 +175,31 @@ namespace Wibblr.Grufs.Filesystem
                         directoriesBuilder.AddRange(preExistingDirectories);
                     }
 
+                    var existingFilesDict = vfsDirectory.Files.ToDictionary(x => x.Name.CanonicalName, x => x);
+
+                    // update the filesbuilder with the vfsLastUpdated timestamp for files that are otherwise identical
+                    for (int i = filesBuilder.Count - 1; i >= 0; i--)
+                    {
+                        // TODO: delete files/directories that are missing on the local, if option is set.
+
+                        // For existing files, use the existing metadata (in order to not modify vfsLastModified)
+                        if (existingFilesDict.TryGetValue(filesBuilder[i].Name.CanonicalName, out var existingFileMetadata))
+                        {
+                            if (existingFileMetadata.Address == filesBuilder[i].Address &&
+                                existingFileMetadata.IndexLevel == filesBuilder[i].IndexLevel &&
+                                existingFileMetadata.LastModifiedTimestamp == filesBuilder[i].LastModifiedTimestamp &&
+                                existingFileMetadata.Size == filesBuilder[i].Size)
+                            {
+                                filesBuilder[i] = existingFileMetadata;
+                            }
+                        }
+                    }
+
                     var updated = recursive
                         ? vfsDirectory with { Files = filesBuilder.OrderBy(x => x.Name.CanonicalName).ToImmutableArray(), Directories = directoriesBuilder.OrderBy(x => x.CanonicalName).ToImmutableArray() }
                         : vfsDirectory with { Files = filesBuilder.OrderBy(x => x.Name.CanonicalName).ToImmutableArray() };
 
-                    if (!updated.Equals(vfsDirectory))
+                    if (!updated.EqualsIgnoringFilesVfsLastModified(vfsDirectory))
                     {
                         ret = WriteVirtualDirectoryVersion(updated, version + 1);
                     }
@@ -214,7 +234,7 @@ namespace Wibblr.Grufs.Filesystem
             foreach (var (dirPath, childDirName) in directoryPath.PathHierarchy())
             {
                 // ensure that dir exists, and contains childDir
-                (_, parentVersion) = EnsureDirectoryContains(dirPath, childDirName, parentVersion, snapshotTimestamp);
+                (_, parentVersion) = EnsureDirectoryContains(dirPath, childDirName, parentVersion, vfsLastModified);
             }
 
             var ret = UploadDirectory(localRootDirectoryPath, directoryPath, parentVersion, recursive);
@@ -229,7 +249,7 @@ namespace Wibblr.Grufs.Filesystem
             var (metadata, version) = GetLatestVirtualDirectory(path);
 
             // while the directory snapshot timestamp is later than the given timestamp, get the next earlier version
-            while (version > 0 && metadata != null && metadata.SnapshotTimestamp > timestamp)
+            while (version > 0 && metadata != null && metadata.VfsLastModified > timestamp)
             {
                 version -= 1;
                 metadata = GetVirtualDirectory(path, version);
@@ -277,10 +297,10 @@ namespace Wibblr.Grufs.Filesystem
                 {
                     continue;
                 }
-                Log.WriteLine(0, directory.SnapshotTimestamp.ToString("yyyy-MM-dd HH:mm:ss") + " " + version.ToString("0000") + " " + directory.Path.NormalizedPath);
+                Log.WriteLine(0, directory.VfsLastModified.ToString("yyyy-MM-dd HH:mm:ss") + " " + version.ToString("0000") + " " + directory.Path.NormalizedPath);
                 foreach (var file in directory.Files)
                 {
-                    Log.WriteLine(0, directory.SnapshotTimestamp.ToString("yyyy-MM-dd HH:mm:ss") + "      " + directory.Path.NormalizedPath + "/" + file.Name.ToString());
+                    Log.WriteLine(0, directory.VfsLastModified.ToString("yyyy-MM-dd HH:mm:ss") + "      " + directory.Path.NormalizedPath + "/" + file.Name.ToString());
                 }
                 foreach (var subDir in directory.Directories)
                 {

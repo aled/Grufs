@@ -18,17 +18,17 @@ public record VfsDirectoryMetadata
 {
     public required DirectoryPath Path { get; init; }  // set to 
     public required long ParentVersion { get; init; }
-    public required Timestamp SnapshotTimestamp { get; init; }
+    public required Timestamp VfsLastModified { get; init; }
     public required bool IsDeleted { get; init; }
     public required ImmutableArray<VfsFileMetadata> Files { get; init; }
     public required ImmutableArray<Filename> Directories { get; init; }
 
     [SetsRequiredMembers]
-    public VfsDirectoryMetadata(DirectoryPath path, long parentVersion, Timestamp snapshotTimestamp, bool isDeleted, IEnumerable<VfsFileMetadata> files, IEnumerable<Filename> directories)
+    public VfsDirectoryMetadata(DirectoryPath path, long parentVersion, Timestamp vfsLastModified, bool isDeleted, IEnumerable<VfsFileMetadata> files, IEnumerable<Filename> directories)
     {
         Path = path;
         ParentVersion = parentVersion;
-        SnapshotTimestamp = snapshotTimestamp;
+        VfsLastModified = vfsLastModified;
         IsDeleted = isDeleted;
         Files = files.OrderBy(x => x.Name.CanonicalName).ToImmutableArray();
         Directories = directories.OrderBy(x => x.CanonicalName).ToImmutableArray();
@@ -44,7 +44,7 @@ public record VfsDirectoryMetadata
                 {
                     Path = reader.ReadDirectoryPath();
                     ParentVersion = reader.ReadLong();
-                    SnapshotTimestamp = reader.ReadTimestamp();
+                    VfsLastModified = reader.ReadTimestamp();
                     IsDeleted = reader.ReadByte() != 0;
 
                     // Limit number of files in a directory to 10000 to protect against invalid or malicious inputs
@@ -85,7 +85,7 @@ public record VfsDirectoryMetadata
         1 + // SerializationVersion
         Path.GetSerializedLength() +
         ParentVersion.GetSerializedLength() +
-        SnapshotTimestamp.GetSerializedLength() +
+        VfsLastModified.GetSerializedLength() +
         1 + // IsDeleted
         Files.Count().GetSerializedLength() +
         Files.Sum(x => x.GetSerializedLength()) +
@@ -97,7 +97,7 @@ public record VfsDirectoryMetadata
         builder.AppendByte(0);
         Path.SerializeTo(builder);
         builder.AppendLong(ParentVersion);
-        builder.AppendTimestamp(SnapshotTimestamp);
+        builder.AppendTimestamp(VfsLastModified);
         builder.AppendByte((byte)(IsDeleted ? 1 : 0));
         builder.AppendInt(Files.Count());
         foreach (var file in Files)
@@ -111,12 +111,23 @@ public record VfsDirectoryMetadata
         }
     }
 
+    public bool EqualsIgnoringFilesVfsLastModified(VfsDirectoryMetadata? other)
+    {
+        return other != null &&
+            Path == other.Path &&
+            ParentVersion == other.ParentVersion &&
+            VfsLastModified == other.VfsLastModified &&
+            IsDeleted == other.IsDeleted &&
+            Files.SequenceEqual(other.Files) &&
+            Directories.SequenceEqual(other.Directories);
+    }
+
     public virtual bool Equals(VfsDirectoryMetadata? other)
     {
         return other != null &&
             Path == other.Path &&
             ParentVersion == other.ParentVersion &&
-            SnapshotTimestamp == other.SnapshotTimestamp &&
+            VfsLastModified == other.VfsLastModified &&
             IsDeleted == other.IsDeleted &&
             Files.SequenceEqual(other.Files) &&
             Directories.SequenceEqual(other.Directories);
@@ -128,17 +139,17 @@ public record VfsDirectoryMetadata
 
         foreach (var file in Files)
         {
-            i = unchecked((i * 17) + Files[i].GetHashCode());
+            i = unchecked((i * 17) + file.GetHashCode());
         }
         foreach (var directory in Directories)
         {
-            i = unchecked((i * 17) + Files[i].GetHashCode());
+            i = unchecked((i * 17) + directory.GetHashCode());
         }
-        return HashCode.Combine(Path, ParentVersion, SnapshotTimestamp, IsDeleted, i);
+        return HashCode.Combine(Path, ParentVersion, VfsLastModified, IsDeleted, i);
     }
 
     public override string ToString()
     {
-        return $"Path={Path};ParentVersion={ParentVersion};SnapshotTimestamp{SnapshotTimestamp};IsDeleted{IsDeleted};Files={string.Join(",", Files.OrderBy(x => x.Name.CanonicalName))};Directories={string.Join(",", Directories.OrderBy(x => x.CanonicalName))}";
+        return $"Path={Path};ParentVersion={ParentVersion};VfsLastModified{VfsLastModified};IsDeleted{IsDeleted};Files={string.Join(",", Files.OrderBy(x => x.Name.CanonicalName))};Directories={string.Join(",", Directories.OrderBy(x => x.CanonicalName))}";
     }
 }
