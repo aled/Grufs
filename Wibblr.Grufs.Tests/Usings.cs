@@ -1,4 +1,4 @@
 global using System;
 global using Xunit;
-global using FluentAssertions;
+global using Shouldly;
 global using Wibblr.Grufs.Logging;

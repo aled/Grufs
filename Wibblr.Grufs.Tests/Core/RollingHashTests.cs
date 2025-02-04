@@ -7,7 +7,7 @@ namespace Wibblr.Grufs.Tests
         [Fact]
         public void ShouldThrowWhenInitalArrayIsNotWindowSize()
         {
-            new Action(() => new RollingHash(new byte[2])).Should().Throw<ArgumentException>();
+            Should.Throw<ArgumentException>(() => new RollingHash(new byte[2]));
         }
 
         [Fact]
@@ -23,7 +23,7 @@ namespace Wibblr.Grufs.Tests
             var values = new List<uint>();
             values.Add(hash.Value);
 
-            values[0].Should().Be(12717692u);
+            values[0].ShouldBe(12717692u);
 
             for (int i = RollingHash.WindowSize; i < bytes.Length; i++)
             {
@@ -32,7 +32,7 @@ namespace Wibblr.Grufs.Tests
                 Log.WriteLine(0, hash.Value.ToString());
             }
 
-            values[bytes.Length - RollingHash.WindowSize].Should().Be(6492841u);
+            values[bytes.Length - RollingHash.WindowSize].ShouldBe(6492841u);
         }
     }
 }

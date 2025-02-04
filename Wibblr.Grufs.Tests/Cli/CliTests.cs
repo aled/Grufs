@@ -20,7 +20,8 @@ namespace Wibblr.Grufs.Tests
                 new NamedArgDefinition('d', "zxcv", action),
             };
 
-            new Action(() => new ArgParser(definitions)).Should().Throw<Exception>().WithMessage("Duplicate argument definition(s): 'a',' qwer',' zxcv'");
+            Should.Throw<Exception>(() => new ArgParser(definitions))
+                .Message.ShouldBe("Duplicate argument definition(s): 'a',' qwer',' zxcv'");
         }
 
         [Fact]
@@ -35,14 +36,14 @@ namespace Wibblr.Grufs.Tests
 
                 new Program().Run(new[] { "repo", "init", "--config-dir", configDir, "--non-interactive", "--name", repoName, "--basedir", baseDir, "--encryption-password", encryptionPassword });
 
-                Directory.Exists(baseDir).Should().BeTrue();
+                Directory.Exists(baseDir).ShouldBeTrue();
 
                 // storage should be registered in config
                 var repoRegistration = File.ReadAllText(Path.Join(configDir, "repos", repoName));
-                repoRegistration.Should().Contain($"repoName:\"{repoName}\"");
-                repoRegistration.Should().Contain($"baseDir:\"{baseDir.Replace("\\", "\\\\")}\"");
-                repoRegistration.Should().Contain($"encryptionPassword:\"{encryptionPassword}\"");
-                repoRegistration.Should().Contain($"repoName:\"{repoName}\"");
+                repoRegistration.ShouldContain($"repoName:\"{repoName}\"");
+                repoRegistration.ShouldContain($"baseDir:\"{baseDir.Replace("\\", "\\\\")}\"");
+                repoRegistration.ShouldContain($"encryptionPassword:\"{encryptionPassword}\"");
+                repoRegistration.ShouldContain($"repoName:\"{repoName}\"");
             }
         }
 
@@ -75,10 +76,10 @@ namespace Wibblr.Grufs.Tests
 
                 //new Cli.Program().Run(new[] { "vfs", "sync", "-r", "--config-dir", configDir, "-n", repoName, "vfs://", downloadDir });
 
-                //File.ReadAllText(Path.Combine(downloadDir, "some", "subdir", "a.txt")).Should().Be(Utils.GetFileContent("a.txt"));
-                //File.ReadAllText(Path.Combine(downloadDir, "some", "subdir", "b", "c.txt")).Should().Be(Utils.GetFileContent("b/c.txt"));
-                //File.ReadAllText(Path.Combine(downloadDir, "some", "subdir", "b", "d.txt")).Should().Be(Utils.GetFileContent("b/d.txt"));
-                //File.ReadAllText(Path.Combine(downloadDir, "some", "subdir", "b", "e", "f.txt")).Should().Be(Utils.GetFileContent("b/e/f.txt"));
+                //File.ReadAllText(Path.Combine(downloadDir, "some", "subdir", "a.txt")).ShouldBe(Utils.GetFileContent("a.txt"));
+                //File.ReadAllText(Path.Combine(downloadDir, "some", "subdir", "b", "c.txt")).ShouldBe(Utils.GetFileContent("b/c.txt"));
+                //File.ReadAllText(Path.Combine(downloadDir, "some", "subdir", "b", "d.txt")).ShouldBe(Utils.GetFileContent("b/d.txt"));
+                //File.ReadAllText(Path.Combine(downloadDir, "some", "subdir", "b", "e", "f.txt")).ShouldBe(Utils.GetFileContent("b/e/f.txt"));
             }
         }
     }

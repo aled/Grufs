@@ -38,7 +38,7 @@ namespace Wibblr.Grufs.Tests.Core
 
                     var values = animalsStorage.Values().ToArray();
 
-                    values.Select(x => Encoding.UTF8.GetString(x.AsSpan())).Should().BeEquivalentTo(new[]
+                    values.Select(x => Encoding.UTF8.GetString(x.AsSpan())).ShouldBe(new[]
                     {
                         "colour:tortoiseshell",
                         "colour:ginger",
@@ -49,12 +49,11 @@ namespace Wibblr.Grufs.Tests.Core
                     animalsStorage.PrepareDelete(Encoding.UTF8.GetBytes("cat100"));
                     animalsStorage.WriteChanges(0);
 
-                    animalsStorage.Values().Select(x => Encoding.UTF8.GetString(x.AsSpan())).Should().BeEquivalentTo(new[]
-                    {
+                    animalsStorage.Values().Select(x => Encoding.UTF8.GetString(x.AsSpan())).ShouldBe([
                         "colour:tortoiseshell",
                         "colour:black",
                         "colour:spotty"
-                    });
+                    ]);
                 }
             }
             catch (TargetInvocationException e) when (e.InnerException is MissingSftpCredentialsException)

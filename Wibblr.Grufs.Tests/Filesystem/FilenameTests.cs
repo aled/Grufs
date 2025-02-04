@@ -8,17 +8,17 @@ namespace Wibblr.Grufs.Tests
         [Fact]
         public void InvalidFilenamesShouldThrow()
         {
-            new Action(() => new Filename("/")).Should().ThrowExactly<ArgumentException>();
-            new Action(() => new Filename(".")).Should().ThrowExactly<ArgumentException>();
-            new Action(() => new Filename("..")).Should().ThrowExactly<ArgumentException>();
+            Should.Throw<ArgumentException>(() => new Filename("/"));
+            Should.Throw<ArgumentException>(() => new Filename("."));
+            Should.Throw<ArgumentException>(() => new Filename(".."));
         }
 
         [Fact]
         public void NullFilenameConstructorArgShouldThrow()
         {
 #pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type.
-            new Action(() => new Filename((string?)null)).Should().ThrowExactly<ArgumentNullException>();
-            new Action(() => new Filename((BufferReader?)null)).Should().ThrowExactly<ArgumentNullException>();
+            Should.Throw<ArgumentNullException>(() => new Filename((string?)null));
+            Should.Throw<ArgumentNullException>(() => new Filename((BufferReader?)null));
 #pragma warning restore CS8625 // Cannot convert null literal to non-nullable reference type.
         }
 
@@ -27,18 +27,18 @@ namespace Wibblr.Grufs.Tests
         {
             var name = new Filename("ASDF");
 
-            name.ToString().Should().Be("ASDF");
-            name.OriginalName.Should().Be("ASDF");
-            name.CanonicalName.Should().Be("asdf");
-            name.GetSerializedLength().Should().Be(10); // length = 1 content = 4, so 5 for each of original and canonical
+            name.ToString().ShouldBe("ASDF");
+            name.OriginalName.ShouldBe("ASDF");
+            name.CanonicalName.ShouldBe("asdf");
+            name.GetSerializedLength().ShouldBe(10); // length = 1 content = 4, so 5 for each of original and canonical
 
             var builder = new BufferBuilder(name.GetSerializedLength());
             var buffer = builder.AppendFilename(name).ToBuffer();
-            buffer.AsSpan().ToArray().Should().BeEquivalentTo(new byte[] { 4, (byte)'A', (byte)'S', (byte)'D', (byte)'F', 4, (byte)'a', (byte)'s', (byte)'d', (byte)'f' });
+            buffer.AsSpan().ToArray().ShouldBeEquivalentTo(new byte[] { 4, (byte)'A', (byte)'S', (byte)'D', (byte)'F', 4, (byte)'a', (byte)'s', (byte)'d', (byte)'f' });
 
             var reader = new BufferReader(buffer);
             var name2 = reader.ReadFilename();
-            name2.Should().Be(name);
+            name2.ShouldBe(name);
         }
 
         [Theory]
@@ -53,7 +53,7 @@ namespace Wibblr.Grufs.Tests
             var reader = new BufferReader(buffer);
             var s2 = reader.ReadFilename();
 
-            ps.ToString().Should().Be(s2.ToString());
+            ps.ToString().ShouldBe(s2.ToString());
         }
     }
 }

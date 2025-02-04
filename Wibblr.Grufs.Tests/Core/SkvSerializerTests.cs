@@ -12,10 +12,10 @@ namespace Wibblr.Grufs.Tests
 
             var serialized = new SkvSerializer().Serialize(data);
 
-            serialized.Should().Be("a:\"a\"\n");
+            serialized.ShouldBe("a:\"a\"\n");
 
             var deserialized = new SkvSerializer().Deserialize(serialized);
-            deserialized.Should().BeEquivalentTo(data);
+            deserialized.ShouldBeEquivalentTo(data);
         }
 
         static char LiteralDoubleQuote = '\"';
@@ -31,10 +31,10 @@ namespace Wibblr.Grufs.Tests
 
             var serialized = new SkvSerializer().Serialize(data);
 
-            serialized.Should().Be("a:" + LiteralDoubleQuote + "a" + EscapedDoubleQuote + EscapedBackslash + LiteralDoubleQuote + "\n");
+            serialized.ShouldBe("a:" + LiteralDoubleQuote + "a" + EscapedDoubleQuote + EscapedBackslash + LiteralDoubleQuote + "\n");
 
             var deserialized = new SkvSerializer().Deserialize(serialized);
-            deserialized.Should().BeEquivalentTo(data);
+            deserialized.ShouldBeEquivalentTo(data);
         }
 
         [Fact]
@@ -45,10 +45,10 @@ namespace Wibblr.Grufs.Tests
 
             var serialized = new SkvSerializer().Serialize(data);
 
-            serialized.Should().Be("a:\"a\\r\\n\\t\"" + "\n");
+            serialized.ShouldBe("a:\"a\\r\\n\\t\"" + "\n");
 
             var deserialized = new SkvSerializer().Deserialize(serialized);
-            deserialized.Should().BeEquivalentTo(data);
+            deserialized.ShouldBeEquivalentTo(data);
         }
 
         [Fact]
@@ -59,10 +59,10 @@ namespace Wibblr.Grufs.Tests
 
             var serialized = new SkvSerializer().Serialize(data);
 
-            serialized.Should().Be("a:\"a\\x00\\x01\"" + "\n");
+            serialized.ShouldBe("a:\"a\\x00\\x01\"" + "\n");
 
             var deserialized = new SkvSerializer().Deserialize(serialized);
-            deserialized.Should().BeEquivalentTo(data);
+            deserialized.ShouldBeEquivalentTo(data);
         }
 
         [Fact]
@@ -73,10 +73,10 @@ namespace Wibblr.Grufs.Tests
 
             var serialized = new SkvSerializer().Serialize(data);
 
-            serialized.Should().Be("a:\"a\\u1234\\u5678\"" + "\n");
+            serialized.ShouldBe("a:\"a\\u1234\\u5678\"" + "\n");
 
             var deserialized = new SkvSerializer().Deserialize(serialized);
-            deserialized.Should().BeEquivalentTo(data);
+            deserialized.ShouldBeEquivalentTo(data);
         }
 
         [Fact]
@@ -93,7 +93,7 @@ namespace Wibblr.Grufs.Tests
 
             var serialized = new SkvSerializer().Serialize(data);
 
-            serialized.Should().Be(
+            serialized.ShouldBe(
                   "a:2000-01-01T00:00:00.0000000" + "\n" 
                 + "a:true" + "\n" 
                 + "a:false" + "\n"
@@ -103,7 +103,8 @@ namespace Wibblr.Grufs.Tests
             );
 
             var deserialized = new SkvSerializer().Deserialize(serialized);
-            deserialized.Should().BeEquivalentTo(data);
+
+            deserialized.ToString().ShouldBe(data.ToString());
         }
     }
 }

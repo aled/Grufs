@@ -32,9 +32,9 @@ namespace Wibblr.Grufs.Tests
 
             var expectedChunkSizes = new List<int> { 32205, 4451, 24151, 16975, 12126, 1942, 2391, 20775, 34712, 1942, 2391, 10482, 46947, 2391, 10482, 37291, 6090, 1244, 15195, 13597 };
 
-            chunkSizes.Should().BeEquivalentTo(expectedChunkSizes);
+            chunkSizes.ShouldBeEquivalentTo(expectedChunkSizes);
 
-            chunkSizes.Sum().Should().Be(bytes.Length);
+            chunkSizes.Sum().ShouldBe(bytes.Length);
         }
     }
 }

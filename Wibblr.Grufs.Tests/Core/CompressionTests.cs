@@ -49,7 +49,7 @@ namespace Wibblr.Grufs.Tests
                     var repository = new InMemoryChunkStorage();
                     var (address, level, stats) = streamStorage.Write(stream);
 
-                    stats.PlaintextLength.Should().Be(plaintextBytes.LongLength);
+                    stats.PlaintextLength.ShouldBe(plaintextBytes.LongLength);
 
                     var decryptedStream = new MemoryStream();
 
@@ -60,7 +60,7 @@ namespace Wibblr.Grufs.Tests
 
                     var decryptedText = Encoding.UTF8.GetString(decryptedStream.ToArray());
 
-                    decryptedText.Should().Be(plaintext);
+                    decryptedText.ShouldBe(plaintext);
 
                     Log.WriteLine(0, "Dedup ratio: " + repository.DeduplicationCompressionRatio());
                 }

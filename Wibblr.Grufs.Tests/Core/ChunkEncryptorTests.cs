@@ -31,7 +31,7 @@ namespace Wibblr.Grufs.Tests
             Log.WriteLine(0, $"address:   {chunk.Address}");
             Log.WriteLine(0, $"content:   {Convert.ToHexString(chunk.Content)}");
 
-            decryptedCiphertext.Should().Be(plaintext);
+            decryptedCiphertext.ShouldBe(plaintext);
         }
 
         // encrypt chunk from partially filled Buffer
@@ -58,7 +58,7 @@ namespace Wibblr.Grufs.Tests
             Log.WriteLine(0, $"address:   0x{chunk.Address}");
             Log.WriteLine(0, $"content:   0x{Convert.ToHexString(chunk.Content)}");
 
-            decryptedCiphertext.Should().Be(plaintext);
+            decryptedCiphertext.ShouldBe(plaintext);
         }
     }
 }

@@ -38,7 +38,7 @@ namespace Wibblr.Grufs.Tests.Core
 
                     var (address, level, stats) = streamStorage.Write(stream);
 
-                    storage.Count().Should().Be(1);
+                    storage.Count().ShouldBe(1);
 
                     var decryptedStream = new MemoryStream();
                     foreach (var decryptedBuffer in streamStorage.Read(level, address))
@@ -48,7 +48,7 @@ namespace Wibblr.Grufs.Tests.Core
 
                     var decryptedText = Encoding.UTF8.GetString(decryptedStream.ToArray());
 
-                    decryptedText.Should().Be(plaintext);
+                    decryptedText.ShouldBe(plaintext);
                 }
             }
             catch (TargetInvocationException e) when (e.InnerException is MissingSftpCredentialsException)
@@ -80,7 +80,7 @@ namespace Wibblr.Grufs.Tests.Core
 
                     var (address, level, stats) = streamStorage.Write(stream);
 
-                    storage.Count().Should().Be(1);
+                    storage.Count().ShouldBe(1);
 
                     var decryptedStream = new MemoryStream();
                     foreach (var decryptedBuffer in streamStorage.Read(level, address))
@@ -90,7 +90,7 @@ namespace Wibblr.Grufs.Tests.Core
 
                     var decryptedText = Encoding.UTF8.GetString(decryptedStream.ToArray());
 
-                    decryptedText.Should().Be(plaintext);
+                    decryptedText.ShouldBe(plaintext);
                 }
             }
             catch (TargetInvocationException e) when (e.InnerException is MissingSftpCredentialsException)
@@ -134,7 +134,7 @@ namespace Wibblr.Grufs.Tests.Core
 
                     var stream = new MemoryStream(plaintextBytes);
                     var (address, level, stats) = streamStorage.Write(stream);
-                    storage.Count().Should().BeGreaterThan(1);
+                    storage.Count().ShouldBeGreaterThan(1);
 
                     var decryptedStream = new MemoryStream();
 
@@ -145,7 +145,7 @@ namespace Wibblr.Grufs.Tests.Core
 
                     var decryptedText = Encoding.UTF8.GetString(decryptedStream.ToArray());
 
-                    decryptedText.Should().Be(plaintext);
+                    decryptedText.ShouldBe(plaintext);
 
                     //Log.WriteLine(0, "Dedup ratio: " + storage.DeduplicationCompressionRatio());
                     Log.WriteLine(0, $"Stored {storage.Count()} chunks");
@@ -168,7 +168,7 @@ namespace Wibblr.Grufs.Tests.Core
 
                     decryptedText = Encoding.UTF8.GetString(decryptedStream.ToArray());
 
-                    decryptedText.Should().Be(plaintext);
+                    decryptedText.ShouldBe(plaintext);
 
                     //Log.WriteLine(0, "Dedup ratio: " + storage.DeduplicationCompressionRatio());
 

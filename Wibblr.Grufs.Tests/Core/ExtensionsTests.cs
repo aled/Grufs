@@ -7,13 +7,13 @@ namespace Wibblr.Grufs.Tests.Core
         [Fact]
         public void SplitLast()
         {
-            "".SplitLast('/').Should().Be(("", ""));
-            "/".SplitLast('/').Should().Be(("", ""));
-            "/a".SplitLast('/').Should().Be(("", "a"));
-            "a/".SplitLast('/').Should().Be(("a", ""));
-            "a/b".SplitLast('/').Should().Be(("a", "b"));
-            "/a/b".SplitLast('/').Should().Be(("/a", "b"));
-            "/a/b/c".SplitLast('/').Should().Be(("/a/b", "c"));
+            "".SplitLast('/').ShouldBe(("", ""));
+            "/".SplitLast('/').ShouldBe(("", ""));
+            "/a".SplitLast('/').ShouldBe(("", "a"));
+            "a/".SplitLast('/').ShouldBe(("a", ""));
+            "a/b".SplitLast('/').ShouldBe(("a", "b"));
+            "/a/b".SplitLast('/').ShouldBe(("/a", "b"));
+            "/a/b/c".SplitLast('/').ShouldBe(("/a/b", "c"));
         }
     }
 }

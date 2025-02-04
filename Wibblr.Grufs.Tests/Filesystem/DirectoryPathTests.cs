@@ -10,22 +10,22 @@ namespace Wibblr.Grufs.Tests
         public void NullPathConstructorArgShouldThrow()
         {
 #pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type.
-            new Action(() => new DirectoryPath((string?)null)).Should().ThrowExactly<ArgumentNullException>();
-            new Action(() => new DirectoryPath((BufferReader?)null)).Should().ThrowExactly<ArgumentNullException>();
+            Should.Throw<ArgumentNullException>(() => new DirectoryPath((string?)null));
+            Should.Throw<ArgumentNullException>(() => new DirectoryPath((BufferReader?)null));
 #pragma warning restore CS8625 // Cannot convert null literal to non-nullable reference type.
         }
 
         [Fact]
         public void InvalidPathShouldThrow()
         {
-            new Action(() => new DirectoryPath(".")).Should().ThrowExactly<ArgumentException>();
-            new Action(() => new DirectoryPath("..")).Should().ThrowExactly<ArgumentException>();
-            new Action(() => new DirectoryPath("./")).Should().ThrowExactly<ArgumentException>();
-            new Action(() => new DirectoryPath("../")).Should().ThrowExactly<ArgumentException>();
-            new Action(() => new DirectoryPath("/.")).Should().ThrowExactly<ArgumentException>();
-            new Action(() => new DirectoryPath("/..")).Should().ThrowExactly<ArgumentException>();
-            new Action(() => new DirectoryPath("/./")).Should().ThrowExactly<ArgumentException>();
-            new Action(() => new DirectoryPath("/../")).Should().ThrowExactly<ArgumentException>();
+            Should.Throw<ArgumentException>(() => new DirectoryPath("."));
+            Should.Throw<ArgumentException>(() => new DirectoryPath(".."));
+            Should.Throw<ArgumentException>(() => new DirectoryPath("./"));
+            Should.Throw<ArgumentException>(() => new DirectoryPath("../"));
+            Should.Throw<ArgumentException>(() => new DirectoryPath("/."));
+            Should.Throw<ArgumentException>(() => new DirectoryPath("/.."));
+            Should.Throw<ArgumentException>(() => new DirectoryPath("/./"));
+            Should.Throw<ArgumentException>(() => new DirectoryPath("/../"));
         }
 
         [Theory]
@@ -40,8 +40,8 @@ namespace Wibblr.Grufs.Tests
             var reader = new BufferReader(buffer);
             var p2 = reader.ReadDirectoryPath();
 
-            p.Should().Be(p2); // has implicit conversion to string
-            p.ToString().Should().Be(p2.ToString());
+            p.ShouldBe(p2); // has implicit conversion to string
+            p.ToString().ShouldBe(p2.ToString());
         }
 
         [Fact]
@@ -61,7 +61,7 @@ namespace Wibblr.Grufs.Tests
 
             var file2 = reader.ReadFileMetadata();
 
-            file.Should().Be(file2);
+            file.ShouldBe(file2);
         }
 
         [Fact]
@@ -104,7 +104,7 @@ namespace Wibblr.Grufs.Tests
 
             var directory2 = reader.ReadVirtualDirectory();
 
-            directory.Should().Be(directory2);
+            directory.ShouldBe(directory2);
         }
 
 
@@ -112,67 +112,67 @@ namespace Wibblr.Grufs.Tests
         public void NormalizedPathShouldRemoveLeadingSlash()
         {
             var p = new DirectoryPath("/a/b/c");
-            p.NormalizedPath.Should().Be("a/b/c");
+            p.NormalizedPath.ShouldBe("a/b/c");
         }
 
         [Fact]
         public void NormalizedPathShouldRemoveTrailingSlash()
         {
             var p = new DirectoryPath("/a/b/c/");
-            p.NormalizedPath.Should().Be("a/b/c");
+            p.NormalizedPath.ShouldBe("a/b/c");
         }
 
         [Fact]
         public void NormalizedPathShouldRemoveDuplicateSlashOrBackslash()
         {
             var p = new DirectoryPath(@"//a\\b/\c/\");
-            p.NormalizedPath.Should().Be("a/b/c");
+            p.NormalizedPath.ShouldBe("a/b/c");
         }
 
         [Fact]
         public void CanonicalPathShouldBeLowercase()
         {
             var p = new DirectoryPath(@"/A\B/c\");
-            p.CanonicalPath.Should().Be("a/b/c");
+            p.CanonicalPath.ShouldBe("a/b/c");
         }
 
         [Fact]
         public void ParentPathShouldBeCalculated()
         {
             var p = new DirectoryPath(@"/");
-            p.Parent().NormalizedPath.Should().Be("");
+            p.Parent().NormalizedPath.ShouldBe("");
 
             p = new DirectoryPath(@"/a\");
-            p.Parent().NormalizedPath.Should().Be("");
+            p.Parent().NormalizedPath.ShouldBe("");
 
             p = new DirectoryPath(@"/a\b");
-            p.Parent().NormalizedPath.Should().Be("a");
+            p.Parent().NormalizedPath.ShouldBe("a");
 
             p = new DirectoryPath(@"/a\b/c\");
-            p.Parent().NormalizedPath.Should().Be("a/b");
+            p.Parent().NormalizedPath.ShouldBe("a/b");
         }
 
         [Fact]
         public void PathHierarchShouldBeCorrect()
         {
             var p = new DirectoryPath(@"");
-            p.PathHierarchy().Should().HaveCount(0);
+            p.PathHierarchy().Count().ShouldBe(0);
 
             p = new DirectoryPath(@"/a");
-            p.PathHierarchy().Should().BeEquivalentTo(new[]
+            p.PathHierarchy().ShouldBe(new[]
             {
                 (new DirectoryPath(""), new Filename("a"))
             });
 
             p = new DirectoryPath(@"/a\b/");
-            p.PathHierarchy().Should().BeEquivalentTo(new[]
+            p.PathHierarchy().ShouldBe(new[]
             {
                 (new DirectoryPath(""), new Filename("a")),
                 (new DirectoryPath("a"), new Filename("b")),
             });
 
             p = new DirectoryPath(@"/a\b/c\");
-            p.PathHierarchy().Should().BeEquivalentTo(new[]
+            p.PathHierarchy().ShouldBe(new[]
             {
                 (new DirectoryPath(""), new Filename("a")),
                 (new DirectoryPath("a"), new Filename("b")),

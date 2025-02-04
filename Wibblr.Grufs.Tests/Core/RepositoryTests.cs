@@ -24,7 +24,7 @@ namespace Wibblr.Grufs.Tests.Core
 
                     var r2 = new Repository("myrepo", storage, "hello");
                     r2.Open();
-                    r1.MasterKey.ToString().Should().Be(r2.MasterKey.ToString());
+                    r1.MasterKey.ToString().ShouldBe(r2.MasterKey.ToString());
                 }
             }
             catch (TargetInvocationException e) when (e.InnerException is MissingSftpCredentialsException)

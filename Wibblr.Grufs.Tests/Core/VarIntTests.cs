@@ -26,13 +26,13 @@ namespace Wibblr.Grufs.Tests.Core
             var vi = new VarInt(i);
             var length = vi.GetSerializedLength();
 
-            length.Should().Be(serializedLength);
+            length.ShouldBe(serializedLength);
             var builder = new BufferBuilder(length);
             var buffer = builder.AppendInt(i).ToBuffer();
             var reader = new BufferReader(buffer);
             var i2 = reader.ReadInt();
 
-            i.Should().Be(i2);
+            i.ShouldBe(i2);
         }
 
         [Fact]
@@ -42,7 +42,7 @@ namespace Wibblr.Grufs.Tests.Core
             var buffer = builder.AppendByte(0xFF).ToBuffer();
             var reader = new BufferReader(buffer);
 
-            new Action(() => reader.ReadInt()).Should().Throw<Exception>();
+            Should.Throw<Exception>(() => reader.ReadInt());
         }
 
         [Fact]
@@ -54,38 +54,38 @@ namespace Wibblr.Grufs.Tests.Core
             //    >= 11 leading zeros -> 3 byte varint
             //    >= 4  leading zeros -> 4 byte varint
             //    else                -> 5 byte varint
-            new VarInt(0b00000000_00000000_00000000_00000000).GetSerializedLength().Should().Be(1);
-            new VarInt(0b00000000_00000000_00000000_00000001).GetSerializedLength().Should().Be(1);
-            new VarInt(0b00000000_00000000_00000000_00000011).GetSerializedLength().Should().Be(1);
-            new VarInt(0b00000000_00000000_00000000_00000111).GetSerializedLength().Should().Be(1);
-            new VarInt(0b00000000_00000000_00000000_00011111).GetSerializedLength().Should().Be(1);
-            new VarInt(0b00000000_00000000_00000000_00111111).GetSerializedLength().Should().Be(1);
-            new VarInt(0b00000000_00000000_00000000_01111111).GetSerializedLength().Should().Be(1);
-            new VarInt(0b00000000_00000000_00000000_11111111).GetSerializedLength().Should().Be(2);
-            new VarInt(0b00000000_00000000_00000001_11111111).GetSerializedLength().Should().Be(2);
-            new VarInt(0b00000000_00000000_00000011_11111111).GetSerializedLength().Should().Be(2);
-            new VarInt(0b00000000_00000000_00000111_11111111).GetSerializedLength().Should().Be(2);
-            new VarInt(0b00000000_00000000_00001111_11111111).GetSerializedLength().Should().Be(2);
-            new VarInt(0b00000000_00000000_00011111_11111111).GetSerializedLength().Should().Be(2);
-            new VarInt(0b00000000_00000000_00111111_11111111).GetSerializedLength().Should().Be(2);
-            new VarInt(0b00000000_00000000_01111111_11111111).GetSerializedLength().Should().Be(3);
-            new VarInt(0b00000000_00000000_11111111_11111111).GetSerializedLength().Should().Be(3);
-            new VarInt(0b00000000_00000001_11111111_11111111).GetSerializedLength().Should().Be(3);
-            new VarInt(0b00000000_00000011_11111111_11111111).GetSerializedLength().Should().Be(3);
-            new VarInt(0b00000000_00000111_11111111_11111111).GetSerializedLength().Should().Be(3);
-            new VarInt(0b00000000_00001111_11111111_11111111).GetSerializedLength().Should().Be(3);
-            new VarInt(0b00000000_00011111_11111111_11111111).GetSerializedLength().Should().Be(3);
-            new VarInt(0b00000000_00111111_11111111_11111111).GetSerializedLength().Should().Be(4);
-            new VarInt(0b00000000_01111111_11111111_11111111).GetSerializedLength().Should().Be(4);
-            new VarInt(0b00000000_11111111_11111111_11111111).GetSerializedLength().Should().Be(4);
-            new VarInt(0b00000001_11111111_11111111_11111111).GetSerializedLength().Should().Be(4);
-            new VarInt(0b00000011_11111111_11111111_11111111).GetSerializedLength().Should().Be(4);
-            new VarInt(0b00000111_11111111_11111111_11111111).GetSerializedLength().Should().Be(4);
-            new VarInt(0b00001111_11111111_11111111_11111111).GetSerializedLength().Should().Be(4);
-            new VarInt(0b00011111_11111111_11111111_11111111).GetSerializedLength().Should().Be(5);
-            new VarInt(0b00111111_11111111_11111111_11111111).GetSerializedLength().Should().Be(5);
-            new VarInt(0b01111111_11111111_11111111_11111111).GetSerializedLength().Should().Be(5);
-            new VarInt(unchecked((int)0b11111111_11111111_11111111_11111111)).GetSerializedLength().Should().Be(5);
+            new VarInt(0b00000000_00000000_00000000_00000000).GetSerializedLength().ShouldBe(1);
+            new VarInt(0b00000000_00000000_00000000_00000001).GetSerializedLength().ShouldBe(1);
+            new VarInt(0b00000000_00000000_00000000_00000011).GetSerializedLength().ShouldBe(1);
+            new VarInt(0b00000000_00000000_00000000_00000111).GetSerializedLength().ShouldBe(1);
+            new VarInt(0b00000000_00000000_00000000_00011111).GetSerializedLength().ShouldBe(1);
+            new VarInt(0b00000000_00000000_00000000_00111111).GetSerializedLength().ShouldBe(1);
+            new VarInt(0b00000000_00000000_00000000_01111111).GetSerializedLength().ShouldBe(1);
+            new VarInt(0b00000000_00000000_00000000_11111111).GetSerializedLength().ShouldBe(2);
+            new VarInt(0b00000000_00000000_00000001_11111111).GetSerializedLength().ShouldBe(2);
+            new VarInt(0b00000000_00000000_00000011_11111111).GetSerializedLength().ShouldBe(2);
+            new VarInt(0b00000000_00000000_00000111_11111111).GetSerializedLength().ShouldBe(2);
+            new VarInt(0b00000000_00000000_00001111_11111111).GetSerializedLength().ShouldBe(2);
+            new VarInt(0b00000000_00000000_00011111_11111111).GetSerializedLength().ShouldBe(2);
+            new VarInt(0b00000000_00000000_00111111_11111111).GetSerializedLength().ShouldBe(2);
+            new VarInt(0b00000000_00000000_01111111_11111111).GetSerializedLength().ShouldBe(3);
+            new VarInt(0b00000000_00000000_11111111_11111111).GetSerializedLength().ShouldBe(3);
+            new VarInt(0b00000000_00000001_11111111_11111111).GetSerializedLength().ShouldBe(3);
+            new VarInt(0b00000000_00000011_11111111_11111111).GetSerializedLength().ShouldBe(3);
+            new VarInt(0b00000000_00000111_11111111_11111111).GetSerializedLength().ShouldBe(3);
+            new VarInt(0b00000000_00001111_11111111_11111111).GetSerializedLength().ShouldBe(3);
+            new VarInt(0b00000000_00011111_11111111_11111111).GetSerializedLength().ShouldBe(3);
+            new VarInt(0b00000000_00111111_11111111_11111111).GetSerializedLength().ShouldBe(4);
+            new VarInt(0b00000000_01111111_11111111_11111111).GetSerializedLength().ShouldBe(4);
+            new VarInt(0b00000000_11111111_11111111_11111111).GetSerializedLength().ShouldBe(4);
+            new VarInt(0b00000001_11111111_11111111_11111111).GetSerializedLength().ShouldBe(4);
+            new VarInt(0b00000011_11111111_11111111_11111111).GetSerializedLength().ShouldBe(4);
+            new VarInt(0b00000111_11111111_11111111_11111111).GetSerializedLength().ShouldBe(4);
+            new VarInt(0b00001111_11111111_11111111_11111111).GetSerializedLength().ShouldBe(4);
+            new VarInt(0b00011111_11111111_11111111_11111111).GetSerializedLength().ShouldBe(5);
+            new VarInt(0b00111111_11111111_11111111_11111111).GetSerializedLength().ShouldBe(5);
+            new VarInt(0b01111111_11111111_11111111_11111111).GetSerializedLength().ShouldBe(5);
+            new VarInt(unchecked((int)0b11111111_11111111_11111111_11111111)).GetSerializedLength().ShouldBe(5);
         }
     }
 }
