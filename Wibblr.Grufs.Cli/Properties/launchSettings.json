@@ -4,21 +4,13 @@
       "commandName": "WSL2",
       "distributionName": ""
     },
-    "storage init sftp": {
-      "commandName": "Project",
-      "commandLineArgs": "storage init --name mystorage --protocol sftp"
-    },
-    "storage init directory": {
-      "commandName": "Project",
-      "commandLineArgs": "repo --init --name testrepo1 --basedir g:\\temp\\grufs-testing\\testrepo1 -e correct-horse-battery-staple"
-    },
     "repo init sqlite": {
       "commandName": "Project",
-      "commandLineArgs": "repo --init -n repo1 -p sqlite --basedir c:\\temp\\grufs -e correct-horse-battery-staple"
+      "commandLineArgs": "repo init -n repo1 -p sqlite --basedir c:\\temp\\grufs -e correct-horse-battery-staple"
     },
     "vfs sync -n test1 g:\\temp\\roslyn vfs://roslyn": {
       "commandName": "Project",
-      "commandLineArgs": "vfs sync -hvprn test1 g:\\temp\\roslyn vfs://roslyn"
+      "commandLineArgs": "vfs sync -hvprn repos c:\\temp\\F7 vfs://F7"
     },
     "vfs sync -hvprn test1 vfs://roslyn h:\\temp\\roslyn-download": {
       "commandName": "Project",
@@ -30,11 +22,19 @@
     },
     "vfs ls -n temp-backups": {
       "commandName": "Project",
-      "commandLineArgs": "vfs ls -n temp-backups vfs://"
+      "commandLineArgs": "vfs ls -n repos vfs://"
     },
     " vfs sync -n repo1 -r -p -v -h c:\\users\\amorris\\Documents\\boom\\artist\\m\\ma vfs://Documents/boom/artist/m/ma": {
       "commandName": "Project",
       "commandLineArgs": " vfs sync -n repo1 -r -p -v -h c:\\users\\amorris\\Documents\\boom\\artist\\m\\ma vfs://Documents/boom/artist/m/ma"
+    },
+    "repo init directory": {
+      "commandName": "Project",
+      "commandLineArgs": "repo --init --name testrepo1 --basedir g:\\temp\\grufs-testing\\testrepo1 -e correct-horse-battery-staple"
+    },
+    "repo init sftp": {
+      "commandName": "Project",
+      "commandLineArgs": "repo init --name mystorage --protocol sftp"
     }
   }
 }

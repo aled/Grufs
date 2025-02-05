@@ -1,0 +1,6 @@
+@Wibblr.Grufs.Server_HostAddress = http://localhost:5294
+
+GET {{Wibblr.Grufs.Server_HostAddress}}/chunk/
+Accept: application/octet-stream
+
+###
