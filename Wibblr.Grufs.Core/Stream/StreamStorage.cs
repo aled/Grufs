@@ -24,7 +24,7 @@ namespace Wibblr.Grufs.Core
             _chunkEncryptor = chunkEncryptor;
         }
 
-        public StreamWriteResult Write(Stream stream)
+        public async Task<StreamWriteResult> WriteAsync(Stream stream, CancellationToken token)
         {
             var byteSource = new StreamByteSource(stream);
             var chunkSource = _chunkSourceFactory.Create(byteSource);
@@ -33,12 +33,12 @@ namespace Wibblr.Grufs.Core
             var stats = new StreamWriteStats();
             var statusUpdateTime = DateTime.UtcNow - TimeSpan.FromMinutes(1);
 
-            var (address, level) = Write(chunkSource, level: 0);
+            var (address, level) = await WriteAsync(chunkSource, level: 0, token);
 
             //Log.WriteLine(1, stats.ToString(Log.HumanFormatting));
             return new StreamWriteResult(address, level, stats);
 
-            (Address, byte) Write(IChunkSource chunkSource, byte level)
+            async Task<(Address, byte)> WriteAsync(IChunkSource chunkSource, byte level, CancellationToken token)
             {
                 // When writing chunks, write to an index containing the addresses of all the chunks.
                 // (The index will itself be recursively indexed, if it is more than one chunk in length)
@@ -61,15 +61,14 @@ namespace Wibblr.Grufs.Core
                         ? chunkSource.Next() 
                         : (new byte[0], 0, 0);
 
-                    var bytes = buf.AsSpan(0, len);
-                    var encryptedChunk = _chunkEncryptor.EncryptContentAddressedChunk(bytes);
+                    var encryptedChunk = _chunkEncryptor.EncryptContentAddressedChunk(buf.AsSpan(0, len));
                     
-                    switch (_chunkStorage.Put(encryptedChunk, OverwriteStrategy.Deny))
+                    switch (await _chunkStorage.PutAsync(encryptedChunk, OverwriteStrategy.Deny, token))
                     {
                         case PutStatus.Success:
                             if (level == 0)
                             {
-                                stats.PlaintextLength += bytes.Length;
+                                stats.PlaintextLength += len;
                                 stats.TransferredContentChunks++;
                                 stats.TransferredContentBytes += encryptedChunk.Content.LongLength;
                                 stats.TotalContentChunks++;
@@ -131,7 +130,7 @@ namespace Wibblr.Grufs.Core
 
                     if (indexChunkSource.Available())
                     {
-                        (indexAddress, returnLevel) = Write(indexChunkSource, indexLevel);
+                        (indexAddress, returnLevel) = await WriteAsync(indexChunkSource, indexLevel, token);
                     }
                 } while (chunkSource.Available());
 
@@ -142,7 +141,7 @@ namespace Wibblr.Grufs.Core
                     // only write the address chunk if there was more than one address written to it.
                     if (indexChunkSource.Available() && index.TotalAddressCount > 1)
                     {
-                        (indexAddress, returnLevel) = Write(indexChunkSource, indexLevel);
+                        (indexAddress, returnLevel) = await WriteAsync(indexChunkSource, indexLevel, token);
                     }
 
                     Log.WriteStatusLine(0, "  " + stats.ToString(Log.HumanFormatting));
@@ -163,14 +162,15 @@ namespace Wibblr.Grufs.Core
         /// <param name="address"></param>
         /// <returns></returns>
         /// <exception cref="Exception"></exception>
-        public IEnumerable<ArrayBuffer> Read(int level, Address address)
+        public IAsyncEnumerable<ArrayBuffer> ReadAsync(int level, Address address, CancellationToken token)
         {
-            return Read(level, address, new BufferBuilder[level]);
+            return ReadAsync(level, address, new BufferBuilder[level], token);
         }
 
-        private IEnumerable<ArrayBuffer> Read(int level, Address address, BufferBuilder[] indexBuilders)
+        private async IAsyncEnumerable<ArrayBuffer> ReadAsync(int level, Address address, BufferBuilder[] indexBuilders, [EnumeratorCancellation] CancellationToken token)
         {
-            if (!_chunkStorage.TryGet(address, out var chunk))
+
+            if (await _chunkStorage.GetAsync(address, token) is not EncryptedChunk chunk)
             {
                 throw new Exception($"Address {address} not found in repository");
             }
@@ -212,13 +212,13 @@ namespace Wibblr.Grufs.Core
                     indexBuilder.AppendByte(reader.ReadByte());
 
                     // need to fill the indexBuilder with the address and a varint.
-                    var span = indexBuilder.ToSpan();
-                    if (span.Length > Address.Length)
+                    var indexBuffer = indexBuilder.ToBuffer();
+                    if (indexBuffer.Length > Address.Length)
                     {
-                        var b0 = span[Address.Length];
+                        var b0 = indexBuffer.AsSpan()[Address.Length];
                         var leadingOnes = BitOperations.LeadingZeroCount(unchecked((uint)~(b0 << 24)));
 
-                        if (span.Length == Address.Length + 1 + leadingOnes)
+                        if (indexBuffer.Length == Address.Length + 1 + leadingOnes)
                         {
                             var indexBuilderReader = new BufferReader(indexBuilder.ToBuffer());
                             var subAddress = indexBuilderReader.ReadAddress();
@@ -230,7 +230,7 @@ namespace Wibblr.Grufs.Core
 
                             //Log.WriteLine(0, $"  Read subchunk addresses for level {subchunkLevel}: {subAddress}, chunkLength {chunkLength}");
 
-                            foreach (var subBuffer in Read(subchunkLevel, subAddress, indexBuilders))
+                            await foreach (var subBuffer in ReadAsync(subchunkLevel, subAddress, indexBuilders, token))
                             {
                                 yield return subBuffer;
                             }

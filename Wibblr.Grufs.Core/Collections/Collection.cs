@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace Wibblr.Grufs.Core
@@ -24,12 +26,12 @@ namespace Wibblr.Grufs.Core
             _changes = new Dictionary<byte[], byte[]?>(new ByteArrayEqualityComparer());
         }
 
-        public IEnumerable<byte[]> Values()
+        public async Task<IEnumerable<byte[]>> ValuesAsync(CancellationToken token)
         {
             var dict = new Dictionary<byte[], byte[]>(new ByteArrayEqualityComparer());
 
             // Each buffer here represents a number of changesets
-            foreach (var buffer in _storage.Values(_name).Select(x => x.value))
+            await foreach (var buffer in _storage.ValuesAsync(_name, token).Select(x => x.value))
             {
                 var reader = new BufferReader(buffer);
 
@@ -105,11 +107,11 @@ namespace Wibblr.Grufs.Core
                 GetSerializedLengths().Sum();
         }
 
-        public long WriteChanges(long previousVersion)
+        public async Task<long> WriteChangesAsync(long previousVersion, CancellationToken token)
         {
             // Optimistic concurrency - caller must specify the previous version
             // to ensure the collection has not been updated concurrently.
-            var nextVersion = _storage.GetNextSequenceNumber(_name, previousVersion);
+            var nextVersion = await _storage.GetNextSequenceNumberAsync(_name, previousVersion, default);
 
             if (previousVersion > 0 && nextVersion != previousVersion + 1) 
             {
@@ -150,7 +152,7 @@ namespace Wibblr.Grufs.Core
 
             // This may fail if there is a concurrent update
             // TODO: handle this case
-            if (_storage.TryPutValue(_name, nextVersion, builder.ToSpan()))
+            if (await _storage.PutValueAsync(_name, nextVersion, builder.ToBuffer(), token))
             {
                 return nextVersion;
             }

@@ -29,9 +29,9 @@ namespace Wibblr.Grufs.Filesystem
             _streamStorage = repository.StreamStorage;
         }
 
-        private ReadOnlySpan<byte> GetDirectoryLookupKey(string path) => Encoding.UTF8.GetBytes(path);
+        private byte[] GetDirectoryLookupKey(string path) => Encoding.UTF8.GetBytes(path);
 
-        private VfsDirectoryMetadata? GetVirtualDirectory(DirectoryPath path, long version)
+        private async Task<VfsDirectoryMetadata?> GetVirtualDirectoryAsync(DirectoryPath path, long version, CancellationToken token)
         {
             if (version < 0)
             {
@@ -40,18 +40,18 @@ namespace Wibblr.Grufs.Filesystem
 
             var directoryLookupKey = GetDirectoryLookupKey(path.CanonicalPath);
 
-            if (_dictionaryStorage.TryGetValue(directoryLookupKey, version, out var buffer))
+            if ((await _dictionaryStorage.GetValueAsync(directoryLookupKey, version, token)) is ArrayBuffer buffer)
             {
                 return new VfsDirectoryMetadata(new BufferReader(buffer));
             }
             return null;
         }
 
-        private (VfsDirectoryMetadata?, long version) GetLatestVirtualDirectory(DirectoryPath path, long hintVersion = 0)
+        private async Task<(VfsDirectoryMetadata?, long version)> GetLatestVirtualDirectoryAsync(DirectoryPath path, CancellationToken token, long hintVersion = 0)
         {
             var directoryLookupKey = GetDirectoryLookupKey(path.CanonicalPath);
 
-            var nextVersion = _dictionaryStorage.GetNextSequenceNumber(directoryLookupKey, hintVersion);
+            var nextVersion = await _dictionaryStorage.GetNextSequenceNumberAsync(directoryLookupKey, hintVersion, token);
 
             if (nextVersion == 0)
             {
@@ -59,7 +59,9 @@ namespace Wibblr.Grufs.Filesystem
             }
 
             var currentVersion = nextVersion - 1;
-            if (_dictionaryStorage.TryGetValue(directoryLookupKey, currentVersion, out var buffer))
+            var buffer = await _dictionaryStorage.GetValueAsync(directoryLookupKey, currentVersion, token);
+
+            if (buffer != ArrayBuffer.Empty)
             {
                 return (new VfsDirectoryMetadata(new BufferReader(buffer)), currentVersion);
             }
@@ -68,18 +70,18 @@ namespace Wibblr.Grufs.Filesystem
         }
 
         // TODO: return stats
-        private (VfsDirectoryMetadata, long version) WriteVirtualDirectoryVersion(VfsDirectoryMetadata directory, long version)
+        private async Task<(VfsDirectoryMetadata, long version)> WriteVirtualDirectoryVersionAsync(VfsDirectoryMetadata directory, long version, CancellationToken token)
         {
             var serialized = new BufferBuilder(directory.GetSerializedLength()).AppendVirtualDirectory(directory).ToBuffer();
             var lookupKey = GetDirectoryLookupKey(directory.Path.CanonicalPath);
             //TODO return status as enum
-            _dictionaryStorage.TryPutValue(lookupKey, version, serialized.AsSpan());
+            await _dictionaryStorage.PutValueAsync(lookupKey, version, serialized, token);
             return (directory, version);
         }
 
-        private (VfsDirectoryMetadata, long version) EnsureDirectoryContains(DirectoryPath directoryPath, Filename childDirectoryName, long parentVersion, Timestamp vfsLastModified)
+        private async Task<(VfsDirectoryMetadata, long version)> EnsureDirectoryContainsAsync(DirectoryPath directoryPath, Filename childDirectoryName, long parentVersion, Timestamp vfsLastModified, CancellationToken token)
         {
-            var (virtualDirectory, version) = GetLatestVirtualDirectory(directoryPath);
+            var (virtualDirectory, version) = await GetLatestVirtualDirectoryAsync(directoryPath, token);
 
             // If directory exists but the latest version does not contain the child directory, then update directory to contain the new child 
             if (virtualDirectory != null)
@@ -89,23 +91,25 @@ namespace Wibblr.Grufs.Filesystem
                     return (virtualDirectory, version);
                 }
 
-                return WriteVirtualDirectoryVersion(
+                return await WriteVirtualDirectoryVersionAsync(
                     virtualDirectory with { Directories = virtualDirectory.Directories.Add(childDirectoryName), VfsLastModified = vfsLastModified },
-                    version + 1);
+                    version + 1,
+                    token);
             }
 
             // directory does not exist, create.
-            return WriteVirtualDirectoryVersion(
+            return await WriteVirtualDirectoryVersionAsync(
                 new VfsDirectoryMetadata(directoryPath, parentVersion, vfsLastModified, false, new VfsFileMetadata[0], new Filename[] { childDirectoryName }),
-                0);
+                0,
+                token);
         }
 
-        public (VfsDirectoryMetadata, long version, StreamWriteStats stats) UploadDirectory(string localRootDirectoryPath, string vfsDirectoryPath, bool recursive = true)
+        public async Task<(VfsDirectoryMetadata, long version, StreamWriteStats stats)> UploadDirectoryAsync(string localRootDirectoryPath, string vfsDirectoryPath, bool recursive = true, CancellationToken token = default)
         {
             var vfsLastModified = new Timestamp(DateTime.UtcNow);
             var directoryPath = new DirectoryPath(vfsDirectoryPath.Substring(vfsPrefix.Length));
 
-            (VfsDirectoryMetadata, long version, StreamWriteStats stats) UploadDirectory(string localDirectoryPath, DirectoryPath directoryPath, long parentVersion, bool recursive)
+            async Task<(VfsDirectoryMetadata, long version, StreamWriteStats stats)> UploadDirectoryAsync(string localDirectoryPath, DirectoryPath directoryPath, long parentVersion, bool recursive)
             {
                 //Log.WriteLine(0, $"In UploadDirectoryRecursive: {localDirectoryPath}");
                 var cumulativeStats = new StreamWriteStats();
@@ -131,7 +135,7 @@ namespace Wibblr.Grufs.Filesystem
 
                             //Log.WriteLine(1, $" {fileStats.ToString(Log.HumanFormatting)}");
 
-                            var (address, level, fileStats) = _streamStorage.Write(stream);
+                            var (address, level, fileStats) = await _streamStorage.WriteAsync(stream, token);
                             cumulativeStats.Add(fileStats);
 
                             filesBuilder.Add(new VfsFileMetadata(new Filename(file.Name), address, level, vfsLastModified, new Timestamp(file.LastWriteTimeUtc), file.Length));
@@ -153,12 +157,12 @@ namespace Wibblr.Grufs.Filesystem
                 }
 
                 // upload this directory
-                var (vfsDirectory, version) = GetLatestVirtualDirectory(directoryPath);
+                var (vfsDirectory, version) = await GetLatestVirtualDirectoryAsync(directoryPath, token);
                 (VfsDirectoryMetadata directory, long version) ret;
 
                 if (vfsDirectory == null)
                 {
-                    ret = WriteVirtualDirectoryVersion(new VfsDirectoryMetadata(directoryPath, 0, vfsLastModified, false, filesBuilder.ToImmutableArray(), directoriesBuilder.ToImmutableArray()), 0);
+                    ret = await WriteVirtualDirectoryVersionAsync(new VfsDirectoryMetadata(directoryPath, 0, vfsLastModified, false, filesBuilder.ToImmutableArray(), directoriesBuilder.ToImmutableArray()), 0, token);
 
                     //Log.WriteLine(0, $"Write new virtual directory version: {directoryPath}, {version}");
                 }
@@ -201,7 +205,7 @@ namespace Wibblr.Grufs.Filesystem
 
                     if (!updated.EqualsIgnoringFilesVfsLastModified(vfsDirectory))
                     {
-                        ret = WriteVirtualDirectoryVersion(updated, version + 1);
+                        ret = await WriteVirtualDirectoryVersionAsync(updated, version + 1, token);
                     }
                     else
                     {
@@ -214,7 +218,7 @@ namespace Wibblr.Grufs.Filesystem
                 {
                     foreach (var d in directoriesBuilder)
                     {
-                        var (_, _, stats) = UploadDirectory(Path.Join(di.FullName, d), new DirectoryPath(directoryPath + "/" + d), version + 1, recursive);
+                        var (_, _, stats) = await UploadDirectoryAsync(Path.Join(di.FullName, d), new DirectoryPath(directoryPath + "/" + d), version + 1, recursive);
                         cumulativeStats.Add(stats);
                     }
                 }
@@ -234,33 +238,33 @@ namespace Wibblr.Grufs.Filesystem
             foreach (var (dirPath, childDirName) in directoryPath.PathHierarchy())
             {
                 // ensure that dir exists, and contains childDir
-                (_, parentVersion) = EnsureDirectoryContains(dirPath, childDirName, parentVersion, vfsLastModified);
+                (_, parentVersion) = await EnsureDirectoryContainsAsync(dirPath, childDirName, parentVersion, vfsLastModified, token);
             }
 
-            var ret = UploadDirectory(localRootDirectoryPath, directoryPath, parentVersion, recursive);
+            var ret = await UploadDirectoryAsync(localRootDirectoryPath, directoryPath, parentVersion, recursive);
             _chunkStorage.Flush();
             return ret;
         }
 
-        public (VfsDirectoryMetadata?, long) GetDirectory(DirectoryPath path, Timestamp timestamp)
+        public async Task<(VfsDirectoryMetadata?, long)> GetDirectoryAsync(DirectoryPath path, Timestamp timestamp, CancellationToken token)
         {
             // TODO: lookup using a binary search instead of linear.
 
-            var (metadata, version) = GetLatestVirtualDirectory(path);
+            var (metadata, version) = await GetLatestVirtualDirectoryAsync(path, token);
 
             // while the directory snapshot timestamp is later than the given timestamp, get the next earlier version
             while (version > 0 && metadata != null && metadata.VfsLastModified > timestamp)
             {
                 version -= 1;
-                metadata = GetVirtualDirectory(path, version);
+                metadata = await GetVirtualDirectoryAsync(path, version, token);
             }
 
             return (metadata, version);
         }
 
-        public (VfsDirectoryMetadata?, long) GetDirectory(string path, Timestamp timestamp)
+        public async Task<(VfsDirectoryMetadata?, long)> GetDirectoryAsync(string path, Timestamp timestamp, CancellationToken token)
         {
-            var (isVfs, exists, isDirectory) = AnalyzePath(path);
+            var (isVfs, exists, isDirectory) = await AnalyzePathAsync(path, token);
 
             if (!isVfs)
             {
@@ -281,17 +285,17 @@ namespace Wibblr.Grufs.Filesystem
             }
 
             var directoryPath = new DirectoryPath(path.Substring(vfsPrefix.Length));
-            return GetDirectory(directoryPath, timestamp);
+            return await GetDirectoryAsync(directoryPath, timestamp, token);
         }
 
-        public void ListDirectoryRecursive(DirectoryPath path)
+        public async Task ListDirectoryRecursiveAsync(DirectoryPath path, CancellationToken token)
         {
             var stack = new Stack<DirectoryPath>();
             stack.Push(path);
 
             while (stack.Any())
             {
-                var (directory, version) = GetLatestVirtualDirectory(stack.Pop());
+                var (directory, version) = await GetLatestVirtualDirectoryAsync(stack.Pop(), token);
 
                 if (directory == null)
                 {
@@ -309,11 +313,11 @@ namespace Wibblr.Grufs.Filesystem
             }
         }
 
-        private void DownloadDirectory(string vfsDirectoryPath, string localDirectoryPath, bool recursive)
+        private async Task DownloadDirectoryAsync(string vfsDirectoryPath, string localDirectoryPath, bool recursive, CancellationToken token)
         {
             var directoryPath = new DirectoryPath(vfsDirectoryPath.Substring(vfsPrefix.Length));
 
-            var (directory, version) = GetLatestVirtualDirectory(directoryPath);
+            var (directory, version) = await GetLatestVirtualDirectoryAsync(directoryPath, token);
 
             if (directory == null)
             {
@@ -327,13 +331,13 @@ namespace Wibblr.Grufs.Filesystem
                 var level = file.IndexLevel;
                 var address = file.Address;
 
-                var buffers = _streamStorage.Read(level, address);
+                var buffers = _streamStorage.ReadAsync(level, address, token);
                 var localPath = Path.Join(localDirectoryPath, file.Name.OriginalName);
                 using (var stream = new FileStream(localPath, FileMode.Create))
                 {
                     var bytesWritten = 0;
 
-                    foreach (var buffer in buffers)
+                    await foreach (var buffer in buffers)
                     {
                         stream.Write(buffer.AsSpan());
                         bytesWritten += buffer.AsSpan().Length;
@@ -346,7 +350,11 @@ namespace Wibblr.Grufs.Filesystem
             {
                 foreach (var subdir in directory.Directories)
                 {
-                    DownloadDirectory(vfsPrefix + directoryPath.ToString() + "/" + subdir, Path.Join(localDirectoryPath, subdir.OriginalName), true);
+                    await DownloadDirectoryAsync(
+                        vfsPrefix + directoryPath.ToString() + "/" + subdir, 
+                        Path.Join(localDirectoryPath, subdir.OriginalName), 
+                        recursive: true,
+                        token);
                 }
             }
         }
@@ -356,7 +364,7 @@ namespace Wibblr.Grufs.Filesystem
 
         }
 
-        internal (bool isVfs, bool exists, bool isDirectory) AnalyzePath(string path)
+        internal async Task<(bool isVfs, bool exists, bool isDirectory)> AnalyzePathAsync(string path, CancellationToken token)
         {
             var isVfs = path.StartsWith(vfsPrefix);
 
@@ -365,11 +373,11 @@ namespace Wibblr.Grufs.Filesystem
                 path = path.Substring(vfsPrefix.Length);
             }
 
-            Func<string, bool> VfsDirectoryExists = path =>
+            Func<string, Task<bool>> VfsDirectoryExists = async path =>
             {
                 try
                 {
-                    var (virtualDirectory, version) = GetLatestVirtualDirectory(new DirectoryPath(path));
+                    var (virtualDirectory, version) = await GetLatestVirtualDirectoryAsync(new DirectoryPath(path), token);
                     return virtualDirectory != null;
                 }
                 catch (Exception)
@@ -378,12 +386,12 @@ namespace Wibblr.Grufs.Filesystem
                 }
             };
 
-            Func<string, bool> VfsFileExists = path =>
+            Func<string, Task<bool>> VfsFileExists = async path =>
             {
                 var (parent, file) = path.SplitLast('/');
                 try
                 {
-                    var (virtualDirectory, version) = GetLatestVirtualDirectory(new DirectoryPath(parent));
+                    var (virtualDirectory, version) = await GetLatestVirtualDirectoryAsync(new DirectoryPath(parent), token);
                     return virtualDirectory?.Files.Any(x => x.Name == new Filename(file)) ?? false;
                 }
                 catch (Exception)
@@ -393,8 +401,7 @@ namespace Wibblr.Grufs.Filesystem
             };
 
             // Check if it is a directory
-            var DirectoryExists = isVfs ? VfsDirectoryExists : Directory.Exists;
-            if (DirectoryExists(path))
+            if ((isVfs && await VfsDirectoryExists(path)) || Directory.Exists(path))
             {
                 return (isVfs, true, true);
             }
@@ -405,8 +412,7 @@ namespace Wibblr.Grufs.Filesystem
                 return (isVfs, false, true);
             }
 
-            var FileExists = isVfs ? VfsFileExists : File.Exists;
-            if (FileExists(path))
+            if ((isVfs && await VfsFileExists(path)) || File.Exists(path))
             {
                 return (isVfs, true, false);
             }
@@ -422,16 +428,16 @@ namespace Wibblr.Grufs.Filesystem
         /// <param name="recursive"></param>
         /// <returns></returns>
         /// <exception cref="Exception"></exception>
-        public int Sync(string sourcePath, string destinationPath, bool recursive = true)
+        public async Task<int> SyncAsync(string sourcePath, string destinationPath, bool recursive, CancellationToken token)
         {
             if (destinationPath.StartsWith(vfsPrefix))
             {
-                var (_, _, stats) = UploadDirectory(sourcePath, destinationPath, recursive);
+                var (_, _, stats) = await UploadDirectoryAsync(sourcePath, destinationPath, recursive);
                 Log.WriteLine(0, stats.ToString(Log.HumanFormatting));
             }
             else if (sourcePath.StartsWith(vfsPrefix))
             {
-                DownloadDirectory(sourcePath, destinationPath, recursive);
+                await DownloadDirectoryAsync(sourcePath, destinationPath, recursive, token);
             }
 
             return 0;

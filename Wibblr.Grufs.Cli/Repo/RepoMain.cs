@@ -12,12 +12,12 @@ namespace Wibblr.Grufs.Cli
     {
         private RepoArgs _repoArgs = new RepoArgs();
 
-        public static void Main(string[] args)
+        public static async Task Main(string[] args)
         {
-            Environment.Exit(new RepoMain().Run(args));
+            Environment.Exit(await new RepoMain().RunAsync(args, CancellationToken.None));
         }
 
-        public int Run(string[] args)
+        public async Task<int> RunAsync(string[] args, CancellationToken token)
         {
             var argDefinitions = new ArgDefinition[]
             {
@@ -67,8 +67,8 @@ namespace Wibblr.Grufs.Cli
             {
                 // TODO:
                 // Sanitize the repo name
-                RepoArgs.OperationEnum.Init => Init(repoRegistrationPath),
-                RepoArgs.OperationEnum.Register => Register(repoRegistrationPath),
+                RepoArgs.OperationEnum.Init => await InitAsync(repoRegistrationPath, CancellationToken.None),
+                RepoArgs.OperationEnum.Register => await RegisterAsync(repoRegistrationPath, CancellationToken.None),
                 RepoArgs.OperationEnum.Unregister => Unregister(repoRegistrationPath),
                 RepoArgs.OperationEnum.List => ListRepos(repoRegistrationDirectory),
                 RepoArgs.OperationEnum.Scrub => Scrub(repoRegistrationPath),
@@ -121,7 +121,7 @@ namespace Wibblr.Grufs.Cli
                         Username = _repoArgs.Username ?? throw new UsageException("Username not specified"),
                         PrivateKey = ""
                     },
-                    _repoArgs.BaseDir).EnsureConnected(),
+                    _repoArgs.BaseDir),
 
                 "directory" => new LocalStorage(_repoArgs.BaseDir),
 
@@ -131,10 +131,10 @@ namespace Wibblr.Grufs.Cli
             return new Repository(_repoArgs.RepoName, storage, _repoArgs.EncryptionPassword);
         }
 
-        private int Init(string repoRegistrationPath) 
+        private async Task<int> InitAsync(string repoRegistrationPath, CancellationToken token)
         {
             var repo = CreateRepositoryFromRegistration(repoRegistrationPath);
-            var (status, message) = repo.Initialize();
+            var (status, message) = await repo.InitializeAsync(token);
             
             switch(status)
             {
@@ -152,10 +152,10 @@ namespace Wibblr.Grufs.Cli
             }
         }
 
-        private int Register(string repoRegistrationPath)
+        private async Task<int> RegisterAsync(string repoRegistrationPath, CancellationToken token)
         {
             var repo = CreateRepositoryFromRegistration(repoRegistrationPath);
-            var (status, message) = repo.Open();
+            var (status, message) = await repo.OpenAsync(token);
 
             switch (status)
             {

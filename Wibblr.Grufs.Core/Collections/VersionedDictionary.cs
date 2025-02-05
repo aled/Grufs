@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 
 using Wibblr.Grufs.Storage;
 
@@ -22,7 +24,7 @@ namespace Wibblr.Grufs.Core
             _chunkEncryptor = chunkEncryptor;
         }
 
-        private ReadOnlySpan<byte> GenerateStructuredLookupKey(ReadOnlySpan<byte> lookupKey, long sequenceNumber)
+        private ArrayBuffer GenerateStructuredLookupKey(ReadOnlySpan<byte> lookupKey, long sequenceNumber)
         {
             var structuredLookupKeyLength =
                 1 + // serialization version
@@ -35,50 +37,59 @@ namespace Wibblr.Grufs.Core
                 .AppendSpan(_keyNamespace)
                 .AppendSpan(lookupKey)
                 .AppendLong(sequenceNumber)
-                .ToSpan();
+                .ToBuffer();
         }
 
-        public bool TryPutValue(ReadOnlySpan<byte> lookupKey, long sequenceNumber, ReadOnlySpan<byte> value)
+        public async Task<bool> PutValueAsync(byte[] lookupKey, long sequenceNumber, ArrayBuffer value, CancellationToken token)
         {
-            var structuredLookupKey = GenerateStructuredLookupKey(lookupKey, sequenceNumber);
-            var encryptedChunk = _chunkEncryptor.EncryptKeyAddressedChunk(structuredLookupKey, value);
+            var structuredLookupKey = GenerateStructuredLookupKey(lookupKey.AsSpan(), sequenceNumber);
+            var encryptedChunk = _chunkEncryptor.EncryptKeyAddressedChunk(structuredLookupKey.AsSpan(), value.AsSpan());
 
-            return _chunkStorage.Put(encryptedChunk, OverwriteStrategy.Deny) == PutStatus.Success;
+            return await _chunkStorage.PutAsync(encryptedChunk, OverwriteStrategy.Deny, token) == PutStatus.Success;
         }
 
-        public bool TryGetValue(ReadOnlySpan<byte> lookupKey, long sequenceNumber, out ArrayBuffer value)
+        public async Task<ArrayBuffer> GetValueAsync(byte[] lookupKey, long sequenceNumber, CancellationToken token)
         {
-            var structuredLookupKey = GenerateStructuredLookupKey(lookupKey, sequenceNumber);
-            var address =_chunkEncryptor.GetLookupKeyAddress(structuredLookupKey);
+            var structuredLookupKey = GenerateStructuredLookupKey(lookupKey.AsSpan(), sequenceNumber);
+            var address =_chunkEncryptor.GetLookupKeyAddress(structuredLookupKey.AsSpan());
 
-            if (!_chunkStorage.TryGet(address, out var chunk))
+            if (await _chunkStorage.GetAsync(address, token) is EncryptedChunk c)
             {
-                value = ArrayBuffer.Empty;
-                return false;
+                return _chunkEncryptor.DecryptBytes(c.Content);
             }
 
-            value = _chunkEncryptor.DecryptBytes(chunk.Content);
-            return true;
+            return ArrayBuffer.Empty;
         }
 
-        public IEnumerable<(long sequenceNumber, ArrayBuffer value)> Values(byte[] lookupKey)
+        public async IAsyncEnumerable<(long sequenceNumber, ArrayBuffer value)> ValuesAsync(byte[] lookupKey, [EnumeratorCancellation] CancellationToken token)
         {
             long i = 0;
-            while (TryGetValue(lookupKey, i, out ArrayBuffer value))
+
+            ArrayBuffer buffer;
+            while ((buffer = await GetValueAsync(lookupKey, i, token)) != ArrayBuffer.Empty)
             {
-                yield return (i, value);
+                yield return (i, buffer);
                 i++;
             }
         }
 
-        private bool SequenceNumberExists(long sequenceNumber, ReadOnlySpan<byte> lookupKey, ref int lookupCount)
+        private async Task<bool> SequenceNumberExistsAsync(long sequenceNumber, byte[] lookupKey, Counter? lookupCounter, CancellationToken token)
         {
-            var structuredLookupKey = GenerateStructuredLookupKey(lookupKey, sequenceNumber);
-            var address = _chunkEncryptor.GetLookupKeyAddress(structuredLookupKey);
-            var exists = _chunkStorage.Exists(address);
-            lookupCount++;
+            var structuredLookupKey = GenerateStructuredLookupKey(lookupKey.AsSpan(), sequenceNumber);
+            var address = _chunkEncryptor.GetLookupKeyAddress(structuredLookupKey.AsSpan());
+            var exists = await _chunkStorage.ExistsAsync(address, token);
+            lookupCounter?.Increment();
             //Log.WriteLine(0, $"Searching for seq# {sequenceNumber} - {(exists ? "found" : "missing")}");
             return exists;
+        }
+
+        public class Counter
+        {
+            private int _i;
+
+            public void Increment() => Interlocked.Increment(ref _i);
+
+            public int Value => _i;
         }
 
         /// <summary>
@@ -94,15 +105,13 @@ namespace Wibblr.Grufs.Core
         /// <param name="hintSequenceNumber"></param>
         /// <returns></returns>
         /// <exception cref="Exception"></exception>
-        public long GetNextSequenceNumber(ReadOnlySpan<byte> lookupKey, long hintSequenceNumber)
+        public Task<long> GetNextSequenceNumberAsync(byte[] lookupKey, long hintSequenceNumber, CancellationToken token)
         {
-            return GetNextSequenceNumber(lookupKey, hintSequenceNumber, out _);
+            return GetNextSequenceNumberAsync(lookupKey, hintSequenceNumber, null, token);
         }
 
-        public long GetNextSequenceNumber(ReadOnlySpan<byte> lookupKey, long hintSequenceNumber, out int lookupCount)
+        public async Task<long> GetNextSequenceNumberAsync(byte[] lookupKey, long hintSequenceNumber, Counter? lookupCounter, CancellationToken token)
         {
-            lookupCount = 0;
-
             // Query repeatedly in a kind of binary search to see which versions exist.
             if (hintSequenceNumber < 0)
             {
@@ -112,7 +121,7 @@ namespace Wibblr.Grufs.Core
             // Caller has hinted that some sequence number exists. Verify if true or not.
             long highestExisting = hintSequenceNumber;
             long lowestMissing = long.MaxValue;
-            while (!SequenceNumberExists(highestExisting, lookupKey, ref lookupCount))
+            while (!await SequenceNumberExistsAsync(highestExisting, lookupKey, lookupCounter, token))
             {
                 if (highestExisting == 0)
                 {
@@ -132,7 +141,7 @@ namespace Wibblr.Grufs.Core
                 var increment = 1L;
                 lowestMissing = (long)Math.Min((ulong)originalHighestExisting + (ulong)increment, long.MaxValue); // this cannot overflow as originalHighestExisting and increment are signed
 
-                while (SequenceNumberExists(lowestMissing, lookupKey, ref lookupCount))
+                while (await SequenceNumberExistsAsync(lowestMissing, lookupKey, lookupCounter, token))
                 {
                     if (lowestMissing == long.MaxValue)
                     {
@@ -154,7 +163,7 @@ namespace Wibblr.Grufs.Core
 
                 //Log.WriteLine(0, $"Searching for sequence higher than {highestExisting} and less-than-or-equal to {lowestMissing}; trying {candidate}");
 
-                if (SequenceNumberExists(candidate, lookupKey, ref lookupCount))
+                if (await SequenceNumberExistsAsync(candidate, lookupKey, lookupCounter, token))
                 {
                     highestExisting = candidate;
                 }

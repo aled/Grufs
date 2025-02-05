@@ -17,15 +17,18 @@ namespace Wibblr.Grufs.Tests.Core
     public abstract class CollectionTests<T> where T : IChunkStorageFactory, new()
     {
         [Fact]
-        public void TestCollectionStorage()
+        public async Task TestCollectionStorage()
         {
+            var token = CancellationToken.None;
             try
             {
                 using (T temporaryStorage = new())
                 {
                     var storage = temporaryStorage.GetChunkStorage();
+                    await storage.InitAsync(token);
+
                     var repository = new Repository("myrepo", storage, "asdf");
-                    repository.Initialize(compressor: new Compressor(CompressionAlgorithm.Brotli, CompressionLevel.Optimal));
+                    await repository.InitializeAsync(compressor: new Compressor(CompressionAlgorithm.Brotli, CompressionLevel.Optimal), token);
 
                     var animalsStorage = repository.GetCollectionStorage("animals"); ;
 
@@ -34,9 +37,9 @@ namespace Wibblr.Grufs.Tests.Core
                     animalsStorage.PrepareUpdate(Encoding.UTF8.GetBytes("cat10000"), Encoding.UTF8.GetBytes("colour:black"));
                     animalsStorage.PrepareUpdate(Encoding.UTF8.GetBytes("cat1000000"), Encoding.UTF8.GetBytes("colour:spotty"));
 
-                    animalsStorage.WriteChanges(0);
+                    await animalsStorage.WriteChangesAsync(0, token);
 
-                    var values = animalsStorage.Values().ToArray();
+                    var values = (await animalsStorage.ValuesAsync(token)).ToArray();
 
                     values.Select(x => Encoding.UTF8.GetString(x.AsSpan())).ShouldBe(new[]
                     {
@@ -47,9 +50,9 @@ namespace Wibblr.Grufs.Tests.Core
                     });
 
                     animalsStorage.PrepareDelete(Encoding.UTF8.GetBytes("cat100"));
-                    animalsStorage.WriteChanges(0);
+                    await animalsStorage.WriteChangesAsync(0, token);
 
-                    animalsStorage.Values().Select(x => Encoding.UTF8.GetString(x.AsSpan())).ShouldBe([
+                    (await animalsStorage.ValuesAsync(token)).Select(x => Encoding.UTF8.GetString(x.AsSpan())).ShouldBe([
                         "colour:tortoiseshell",
                         "colour:black",
                         "colour:spotty"

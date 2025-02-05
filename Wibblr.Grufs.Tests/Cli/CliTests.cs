@@ -5,6 +5,8 @@ namespace Wibblr.Grufs.Tests
 {
     public class CliTests
     {
+        static CancellationToken token = CancellationToken.None;
+
         [Fact]
         public void ArgParserShouldDetectDuplicateDefinitions()
         {
@@ -25,7 +27,7 @@ namespace Wibblr.Grufs.Tests
         }
 
         [Fact]
-        public void RepoInitShouldCreateRegistration()
+        public async Task RepoInitShouldCreateRegistration()
         {
             using (var autoDeleteDirectory = new AutoDeleteDirectory())
             {
@@ -34,7 +36,7 @@ namespace Wibblr.Grufs.Tests
                 var repoName = "TestRepo";
                 var encryptionPassword = "correct-horse-battery-staple";
 
-                new Program().Run(new[] { "repo", "init", "--config-dir", configDir, "--non-interactive", "--name", repoName, "--basedir", baseDir, "--encryption-password", encryptionPassword });
+                await new Program().RunAsync(["repo", "init", "--config-dir", configDir, "--non-interactive", "--name", repoName, "--basedir", baseDir, "--encryption-password", encryptionPassword], token);
 
                 Directory.Exists(baseDir).ShouldBeTrue();
 
@@ -51,7 +53,7 @@ namespace Wibblr.Grufs.Tests
         // TODO: error if passwords not set and non-interactive is set
 
         [Fact]
-        public void SyncDirectory()
+        public async Task SyncDirectory()
         {
             using (var autoDeleteDirectory = new AutoDeleteDirectory())
             {
@@ -62,15 +64,15 @@ namespace Wibblr.Grufs.Tests
                 var repoName = "TestRepo";
                 var encryptionPassword = "correct-horse-battery-staple";
 
-                new Cli.Program().Run(new[] { "repo", "init", "--config-dir", configDir, "--name", repoName, "--basedir", baseDir, "--encryption-password", encryptionPassword });
+                await new Cli.Program().RunAsync(new[] { "repo", "init", "--config-dir", configDir, "--name", repoName, "--basedir", baseDir, "--encryption-password", encryptionPassword }, token);
 
                 Utils.CreateDirectoryTree(contentDir, "a.txt", "b/c.txt", "b/d.txt", "b/e/f.txt");
 
-                new Cli.Program().Run(new[] { "vfs", "sync", "-rc", configDir, "--repo-name", repoName, contentDir, "vfs://some/subdir" });
+                await new Cli.Program().RunAsync(new[] { "vfs", "sync", "-rc", configDir, "--repo-name", repoName, contentDir, "vfs://some/subdir" }, token);
 
                 Log.WriteLine(0, "Listing repo");
 
-                new Cli.Program().Run(new[] { "vfs", "ls", "-rc", configDir, "--repo-name", repoName, "vfs://" });
+                await new Cli.Program().RunAsync(new[] { "vfs", "ls", "-rc", configDir, "--repo-name", repoName, "vfs://" }, token);
 
                 var downloadDir = Path.Join(autoDeleteDirectory.Path, "download");
 

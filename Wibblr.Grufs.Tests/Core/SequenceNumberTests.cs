@@ -1,5 +1,10 @@
-﻿using System.Reflection;
+﻿using System.Collections.Immutable;
+using System.Reflection;
 using System.Text;
+
+using Newtonsoft.Json.Linq;
+
+using Shouldly;
 
 using Wibblr.Grufs.Core;
 using Wibblr.Grufs.Encryption;
@@ -22,9 +27,11 @@ namespace Wibblr.Grufs.Tests
         public SequenceNumberTests_Local(SequenceNumberTestsFixture<TemporaryLocalStorage> fixture) : base(fixture) { }
     };
 
-    public class SequenceNumberTestsFixture<T> : IDisposable where T : IChunkStorageFactory, new()
+    public class SequenceNumberTestsFixture<T> : IAsyncLifetime, IDisposable where T : IChunkStorageFactory, new()
     {
-        private T temporaryStorage;
+        private static CancellationToken token = CancellationToken.None;
+
+        private T temporaryStorage = new();
         private IChunkStorage _storage;
         private VersionedDictionary _dictionary;
         private KeyEncryptionKey _keyEncryptionKey = new KeyEncryptionKey(Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000000000"));
@@ -33,12 +40,15 @@ namespace Wibblr.Grufs.Tests
 
         public SequenceNumberTestsFixture()
         {
-            temporaryStorage = new();
             _storage = temporaryStorage.GetChunkStorage();
-            _storage.Init();
-
             var chunkEncryptor = new ChunkEncryptor(_keyEncryptionKey, _addressKey, Compressor.None);
             _dictionary = new VersionedDictionary(_keyNamespace, _storage, chunkEncryptor);
+        }
+
+        public async Task InitializeAsync()
+        {
+            var token = CancellationToken.None;
+            await _storage.InitAsync(token);
 
             // Add a bunch of values into the dictionary storage. For each of these IDs, insert that many versions of the value
             foreach (var lookupKeyId in new[] { 0, 1, 2, 10, 100, 1000 })
@@ -47,30 +57,36 @@ namespace Wibblr.Grufs.Tests
                 for (long sequence = 0; sequence < lookupKeyId; sequence++)
                 {
                     var lookupKey = Encoding.ASCII.GetBytes($"lookupkey-{lookupKeyId}");
-                    var value = Encoding.ASCII.GetBytes($"value-{lookupKeyId}-sequence-{sequence}");
-                    _dictionary.TryPutValue(lookupKey, sequence, value).ShouldBeTrue();
+                    var value = new ArrayBuffer(Encoding.ASCII.GetBytes($"value-{lookupKeyId}-sequence-{sequence}"));
+                    (await _dictionary.PutValueAsync(lookupKey, sequence, value, token)).ShouldBeTrue();
                 }
                 Log.WriteLine(0, $"Created test fixture for lookup key id {lookupKeyId} in {((DateTime.Now.Ticks - start.Ticks) / 10000)} ms");
             }
         }
 
-        public long GetNextSequenceNumber(long lookupKeyId, long sequenceNumberHint)
+        public async Task<long> GetNextSequenceNumber(long lookupKeyId, long sequenceNumberHint)
         {
             var lookupKey = Encoding.ASCII.GetBytes($"lookupkey-{lookupKeyId}");
-            var sequenceNumber = _dictionary.GetNextSequenceNumber(lookupKey, sequenceNumberHint);
+            var sequenceNumber = await _dictionary.GetNextSequenceNumberAsync(lookupKey, sequenceNumberHint, CancellationToken.None);
             return sequenceNumber;
         }
 
-        public (long sequenceNumber, int lookupCount) GetNextSequenceNumberAndLookupCount(long lookupKeyId, long sequenceNumberHint)
+        public async Task<(long, int)> GetNextSequenceNumberAndLookupCount(long lookupKeyId, long sequenceNumberHint)
         {
             var lookupKey = Encoding.ASCII.GetBytes($"lookupkey-{lookupKeyId}");
-            var sequenceNumber = _dictionary.GetNextSequenceNumber(lookupKey, sequenceNumberHint, out var lookupCount);
-            return (sequenceNumber, lookupCount);
+            var lookupCounter = new VersionedDictionary.Counter();
+            var sequenceNumber = await _dictionary.GetNextSequenceNumberAsync(lookupKey, sequenceNumberHint, lookupCounter, token);
+            return (sequenceNumber, lookupCounter.Value);
         }
 
         public void Dispose()
         {
             temporaryStorage.Dispose();
+        }
+
+        public Task DisposeAsync()
+        {
+            throw new NotImplementedException();
         }
     }
 
@@ -85,88 +101,88 @@ namespace Wibblr.Grufs.Tests
         }
 
         [Fact]
-        public void ShouldReturnSequenceNumberZeroForMissingKey()
+        public async Task ShouldReturnSequenceNumberZeroForMissingKey()
         {
-            _fixture.GetNextSequenceNumber(0, 0).ShouldBe(0);
-            _fixture.GetNextSequenceNumber(0, 1).ShouldBe(0);
-            _fixture.GetNextSequenceNumber(0, 2).ShouldBe(0);
-            _fixture.GetNextSequenceNumber(0, long.MaxValue).ShouldBe(0);
-            _fixture.GetNextSequenceNumber(0, long.MinValue).ShouldBe(0);
+            (await _fixture.GetNextSequenceNumber(0, 0)).ShouldBe(0);
+            (await _fixture.GetNextSequenceNumber(0, 1)).ShouldBe(0);
+            (await _fixture.GetNextSequenceNumber(0, 2)).ShouldBe(0);
+            (await _fixture.GetNextSequenceNumber(0, long.MaxValue)).ShouldBe(0);
+            (await _fixture.GetNextSequenceNumber(0, long.MinValue)).ShouldBe(0);
         }
 
         [Fact]
-        public void ShouldHaveTwoLookupsWhenHintIsHighestExisting()
+        public async Task ShouldHaveTwoLookupsWhenHintIsHighestExisting()
         {
-            _fixture.GetNextSequenceNumberAndLookupCount(1, 0).ShouldBe((1, 2));
-            _fixture.GetNextSequenceNumberAndLookupCount(2, 1).ShouldBe((2, 2));
-            _fixture.GetNextSequenceNumberAndLookupCount(10, 9).ShouldBe((10, 2));
-            _fixture.GetNextSequenceNumberAndLookupCount(100, 99).ShouldBe((100, 2));
-            _fixture.GetNextSequenceNumberAndLookupCount(1000, 999).ShouldBe((1000, 2));
+            (await _fixture.GetNextSequenceNumberAndLookupCount(1, 0)).ShouldBe((1, 2));
+            (await _fixture.GetNextSequenceNumberAndLookupCount(2, 1)).ShouldBe((2, 2));
+            (await _fixture.GetNextSequenceNumberAndLookupCount(10, 9)).ShouldBe((10, 2));
+            (await _fixture.GetNextSequenceNumberAndLookupCount(100, 99)).ShouldBe((100, 2));
+            (await _fixture.GetNextSequenceNumberAndLookupCount(1000, 999)).ShouldBe((1000, 2));
         }
 
         [Fact]
-        public void ShouldHaveThreeLookupsWhenHintIsOneLessThanHighestExisting()
+        public async Task ShouldHaveThreeLookupsWhenHintIsOneLessThanHighestExisting()
         {
-            _fixture.GetNextSequenceNumberAndLookupCount(2, 0).ShouldBe((2, 3));
-            _fixture.GetNextSequenceNumberAndLookupCount(10, 8).ShouldBe((10, 3));
-            _fixture.GetNextSequenceNumberAndLookupCount(100, 98).ShouldBe((100, 3));
-            _fixture.GetNextSequenceNumberAndLookupCount(1000, 998).ShouldBe((1000, 3));
+            (await _fixture.GetNextSequenceNumberAndLookupCount(2, 0)).ShouldBe((2, 3));
+            (await _fixture.GetNextSequenceNumberAndLookupCount(10, 8)).ShouldBe((10, 3));
+            (await _fixture.GetNextSequenceNumberAndLookupCount(100, 98)).ShouldBe((100, 3));
+            (await _fixture.GetNextSequenceNumberAndLookupCount(1000, 998)).ShouldBe((1000, 3));
         }
 
         [Fact]
-        public void ShouldHaveFiveLookupsWhenHintIsTwoLessThanHighestExisting()
+        public async Task ShouldHaveFiveLookupsWhenHintIsTwoLessThanHighestExisting()
         {
-            _fixture.GetNextSequenceNumberAndLookupCount(10, 7).ShouldBe((10, 5));
-            _fixture.GetNextSequenceNumberAndLookupCount(100, 97).ShouldBe((100, 5));
-            _fixture.GetNextSequenceNumberAndLookupCount(1000, 997).ShouldBe((1000, 5));
+            (await _fixture.GetNextSequenceNumberAndLookupCount(10, 7)).ShouldBe((10, 5));
+            (await _fixture.GetNextSequenceNumberAndLookupCount(100, 97)).ShouldBe((100, 5));
+            (await _fixture.GetNextSequenceNumberAndLookupCount(1000, 997)).ShouldBe((1000, 5));
         }
 
         [Fact]
-        public void ShouldHaveFiveLookupsWhenHintIsThreeLessThanHighestExisting()
+        public async Task ShouldHaveFiveLookupsWhenHintIsThreeLessThanHighestExisting()
         {
-            _fixture.GetNextSequenceNumberAndLookupCount(10, 6).ShouldBe((10, 5));
-            _fixture.GetNextSequenceNumberAndLookupCount(100, 96).ShouldBe((100, 5));
-            _fixture.GetNextSequenceNumberAndLookupCount(1000, 996).ShouldBe((1000, 5));
+            (await _fixture.GetNextSequenceNumberAndLookupCount(10, 6)).ShouldBe((10, 5));
+            (await _fixture.GetNextSequenceNumberAndLookupCount(100, 96)).ShouldBe((100, 5));
+            (await _fixture.GetNextSequenceNumberAndLookupCount(1000, 996)).ShouldBe((1000, 5));
         }
 
         [Fact]
-        public void ShouldWorkWhenHintIsTooHigh()
+        public async Task ShouldWorkWhenHintIsTooHigh()
         {
-            _fixture.GetNextSequenceNumber(0, 1).ShouldBe(0);
-            _fixture.GetNextSequenceNumber(0, 2).ShouldBe(0);
-            _fixture.GetNextSequenceNumber(0, 3).ShouldBe(0);
-            _fixture.GetNextSequenceNumber(0, long.MaxValue).ShouldBe(0);
+            (await _fixture.GetNextSequenceNumber(0, 1)).ShouldBe(0);
+            (await _fixture.GetNextSequenceNumber(0, 2)).ShouldBe(0);
+            (await _fixture.GetNextSequenceNumber(0, 3)).ShouldBe(0);
+            (await _fixture.GetNextSequenceNumber(0, long.MaxValue)).ShouldBe(0);
 
-            _fixture.GetNextSequenceNumber(1, 2).ShouldBe(1);
-            _fixture.GetNextSequenceNumber(1, 3).ShouldBe(1);
-            _fixture.GetNextSequenceNumber(1, 4).ShouldBe(1);
-            _fixture.GetNextSequenceNumber(1, long.MaxValue).ShouldBe(1);
+            (await _fixture.GetNextSequenceNumber(1, 2)).ShouldBe(1);
+            (await _fixture.GetNextSequenceNumber(1, 3)).ShouldBe(1);
+            (await _fixture.GetNextSequenceNumber(1, 4)).ShouldBe(1);
+            (await _fixture.GetNextSequenceNumber(1, long.MaxValue)).ShouldBe(1);
 
-            _fixture.GetNextSequenceNumber(2, 3).ShouldBe(2);
-            _fixture.GetNextSequenceNumber(2, 4).ShouldBe(2);
-            _fixture.GetNextSequenceNumber(2, 5).ShouldBe(2);
-            _fixture.GetNextSequenceNumber(2, long.MaxValue).ShouldBe(2);
+            (await _fixture.GetNextSequenceNumber(2, 3)).ShouldBe(2);
+            (await _fixture.GetNextSequenceNumber(2, 4)).ShouldBe(2);
+            (await _fixture.GetNextSequenceNumber(2, 5)).ShouldBe(2);
+            (await _fixture.GetNextSequenceNumber(2, long.MaxValue)).ShouldBe(2);
 
-            _fixture.GetNextSequenceNumber(10, 11).ShouldBe(10);
-            _fixture.GetNextSequenceNumber(10, 12).ShouldBe(10);
-            _fixture.GetNextSequenceNumber(10, 13).ShouldBe(10);
-            _fixture.GetNextSequenceNumber(10, long.MaxValue).ShouldBe(10);
+            (await _fixture.GetNextSequenceNumber(10, 11)).ShouldBe(10);
+            (await _fixture.GetNextSequenceNumber(10, 12)).ShouldBe(10);
+            (await _fixture.GetNextSequenceNumber(10, 13)).ShouldBe(10);
+            (await _fixture.GetNextSequenceNumber(10, long.MaxValue)).ShouldBe(10);
 
-            _fixture.GetNextSequenceNumber(100, 101).ShouldBe(100);
-            _fixture.GetNextSequenceNumber(100, 102).ShouldBe(100);
-            _fixture.GetNextSequenceNumber(100, 103).ShouldBe(100);
-            _fixture.GetNextSequenceNumber(100, long.MaxValue).ShouldBe(100);
+            (await _fixture.GetNextSequenceNumber(100, 101)).ShouldBe(100);
+            (await _fixture.GetNextSequenceNumber(100, 102)).ShouldBe(100);
+            (await _fixture.GetNextSequenceNumber(100, 103)).ShouldBe(100);
+            (await _fixture.GetNextSequenceNumber(100, long.MaxValue)).ShouldBe(100);
 
-            _fixture.GetNextSequenceNumber(1000, 1001).ShouldBe(1000);
-            _fixture.GetNextSequenceNumber(1000, 1002).ShouldBe(1000);
-            _fixture.GetNextSequenceNumber(1000, 1003).ShouldBe(1000);
-            _fixture.GetNextSequenceNumber(1000, long.MaxValue).ShouldBe(1000);
+            (await _fixture.GetNextSequenceNumber(1000, 1001)).ShouldBe(1000);
+            (await _fixture.GetNextSequenceNumber(1000, 1002)).ShouldBe(1000);
+            (await _fixture.GetNextSequenceNumber(1000, 1003)).ShouldBe(1000);
+            (await _fixture.GetNextSequenceNumber(1000, long.MaxValue)).ShouldBe(1000);
         }
 
         [Fact]
-        public void ShouldThrowWhenMaxSequenceReached()
+        public async Task ShouldThrowWhenMaxSequenceReached()
         {
-            Func<long, byte[]> GetValue = i => Encoding.ASCII.GetBytes($"The quick brown fox-{i}");
+            Func<long, ArrayBuffer> GetValue = i => new ArrayBuffer(Encoding.ASCII.GetBytes($"The quick brown fox-{i}"));
 
             var keyEncryptionKey = new KeyEncryptionKey(Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000000000"));
             var addressKey = new HmacKey(Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000000000"));
@@ -179,14 +195,14 @@ namespace Wibblr.Grufs.Tests
 
             // Should be exactly one 'exists' call on the storage layer if this key does not exist
             var i = long.MaxValue;
-            dictionaryStorage.TryPutValue(lookupKeyBytes, i, GetValue(i)).ShouldBeTrue();
+            (await dictionaryStorage.PutValueAsync(lookupKeyBytes, i, GetValue(i), CancellationToken.None)).ShouldBeTrue();
 
             // Should be exactly two 'exists' calls when the actual highest used sequence number is given as a hint
             Log.WriteLine(0, "hint is optimal");
             storage.ResetStats();
             var hint = long.MaxValue; // highest existing sequence number
 
-            Should.Throw<Exception>(() => dictionaryStorage.GetNextSequenceNumber(lookupKeyBytes, hint));
+            Should.Throw<Exception>(async () => await dictionaryStorage.GetNextSequenceNumberAsync(lookupKeyBytes, hint, CancellationToken.None));
             storage.TotalExistsCalls.ShouldBe(2);
         }
     }

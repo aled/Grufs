@@ -1,5 +1,7 @@
 ﻿using System.Reflection;
 
+using Newtonsoft.Json.Linq;
+
 using Wibblr.Grufs.Core;
 
 namespace Wibblr.Grufs.Tests.Core
@@ -12,18 +14,21 @@ namespace Wibblr.Grufs.Tests.Core
     public abstract class RepositoryTests<T> where T : IChunkStorageFactory, new()
     {
         [Fact]
-        public void RepositoryInitAndOpen()
+        public async Task RepositoryInitAndOpen()
         {
+            var token = CancellationToken.None;
             try
             { 
                 using (T temporaryStorage = new())
                 {
                     var storage = temporaryStorage.GetChunkStorage();
+                    await storage.InitAsync(token);
+
                     var r1 = new Repository("myrepo", storage, "hello");
-                    r1.Initialize();
+                    await r1.InitializeAsync(token);
 
                     var r2 = new Repository("myrepo", storage, "hello");
-                    r2.Open();
+                    await r2.OpenAsync(token);
                     r1.MasterKey.ToString().ShouldBe(r2.MasterKey.ToString());
                 }
             }

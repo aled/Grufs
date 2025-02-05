@@ -7,8 +7,10 @@ namespace Wibblr.Grufs.Tests
 {
     public class VirtualFilesystemTests
     {
+        static CancellationToken token = CancellationToken.None;
+
         [Fact]
-        public void SyncDirectory()
+        public async Task SyncDirectory()
         {
             using (var autoDeleteDirectory = new AutoDeleteDirectory())
             {
@@ -25,16 +27,16 @@ namespace Wibblr.Grufs.Tests
                     var encryptionPassword = "correct-horse-battery-staple";
                     var repo = new Repository(repoName, storage, encryptionPassword);
 
-                    repo.Initialize().Status.ShouldBe(InitRepositoryStatus.Success);
+                    (await repo.InitializeAsync(token)).Status.ShouldBe(InitRepositoryStatus.Success);
 
                     var vfsName = "TestVfs";
                     var vfs = new VirtualFilesystem(repo, vfsName);
 
-                    vfs.Sync(Path.Join(contentDir), "vfs://some/dir");
+                    await vfs.SyncAsync(Path.Join(contentDir), "vfs://some/dir", recursive: true, token);
 
-                    vfs.ListDirectoryRecursive(new DirectoryPath("/"));
+                    await vfs.ListDirectoryRecursiveAsync(new DirectoryPath("/"), token);
 
-                    vfs.Sync("vfs://some/dir", downloadDir);
+                    await vfs.SyncAsync("vfs://some/dir", downloadDir, recursive: true, token);
 
                     File.Exists(Path.Join(downloadDir, "a.txt")).ShouldBeTrue();
                     Directory.Exists(Path.Join(downloadDir, "b")).ShouldBeTrue();
@@ -49,7 +51,7 @@ namespace Wibblr.Grufs.Tests
         // Syncing a file in a directory should cause that directory's version to increase, but all parents
         // of that directory should be unchanged.
         [Fact]
-        public void UploadedVersionNumbersShouldBeCorrect()
+        public async Task UploadedVersionNumbersShouldBeCorrect()
         {
             using (var autoDeleteDirectory = new AutoDeleteDirectory())
             {
@@ -66,28 +68,28 @@ namespace Wibblr.Grufs.Tests
                     var encryptionPassword = "correct-horse-battery-staple";
                     var repo = new Repository(repoName, storage, encryptionPassword);
 
-                    repo.Initialize().Status.ShouldBe(InitRepositoryStatus.Success);
+                    (await repo.InitializeAsync(token)).Status.ShouldBe(InitRepositoryStatus.Success);
 
                     var vfsName = "TestVfs";
                     var vfs = new VirtualFilesystem(repo, vfsName);
 
-                    vfs.Sync(Path.Join(contentDir), "vfs://some/dir");
-                    var (metadata, version) = vfs.GetDirectory("vfs://some", new Timestamp(DateTime.MaxValue));
+                    await vfs.SyncAsync(Path.Join(contentDir), "vfs://some/dir", recursive: true, token);
+                    var (metadata, version) = await vfs.GetDirectoryAsync("vfs://some", new Timestamp(DateTime.MaxValue), token);
                     version.ShouldBe(0);
                     metadata!.Path.ToString().ShouldBe("some");
 
 
-                    vfs.Sync(Path.Join(contentDir), "vfs://some/dir2");
+                    await vfs.SyncAsync(Path.Join(contentDir), "vfs://some/dir2", recursive: true, token);
                     
-                    (metadata, version) = vfs.GetDirectory("vfs://", new Timestamp(DateTime.MaxValue));
+                    (metadata, version) = await vfs.GetDirectoryAsync("vfs://", new Timestamp(DateTime.MaxValue), token);
                     version.ShouldBe(0);
                     metadata!.Path.ToString().ShouldBe("");
 
-                    (metadata, version) = vfs.GetDirectory("vfs://some", new Timestamp(DateTime.MaxValue));
+                    (metadata, version) = await vfs.GetDirectoryAsync("vfs://some", new Timestamp(DateTime.MaxValue), token);
                     version.ShouldBe(1);
                     metadata!.Path.ToString().ShouldBe("some");
 
-                    vfs.ListDirectoryRecursive(new DirectoryPath("/"));
+                    await vfs.ListDirectoryRecursiveAsync(new DirectoryPath("/"), token);
                 }
             }
         }

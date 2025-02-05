@@ -73,39 +73,39 @@ namespace Wibblr.Grufs.Storage.Sqlite
             _commitTransactionCommand.CommandText = "COMMIT;";
         }
 
-        public void Init()
+        public async Task InitAsync(CancellationToken token)
         {
             using (var cmd = _connection.CreateCommand())
             {
                 cmd.CommandText = "CREATE TABLE IF NOT EXISTS Chunk (Address BLOB NOT NULL PRIMARY KEY, Content BLOB NOT NULL) WITHOUT ROWID;";
-                cmd.ExecuteNonQuery();
+                await cmd.ExecuteNonQueryAsync(token);
             }
         }
 
-        public long Count()
+        public async Task<long> CountAsync(CancellationToken token)
         {
             using (var cmd = _connection.CreateCommand())
             {
                 cmd.CommandText = "SELECT Count(*) FROM Chunk;";
-                return Convert.ToInt64(cmd.ExecuteScalar());
+                return Convert.ToInt64(await cmd.ExecuteScalarAsync(token));
             }
         }
 
-        public bool Exists(Address address)
+        public async Task<bool> ExistsAsync(Address address, CancellationToken token)
         {
             var cmd = _existsCommand;
             cmd.Parameters[0].Value = address.ToSpan().ToArray();
-            return Convert.ToBoolean(cmd.ExecuteScalar());
+            return Convert.ToBoolean(await cmd.ExecuteScalarAsync());
         }
 
-        public IEnumerable<Address> ListAddresses()
+        public IAsyncEnumerable<Address> ListAddressesAsync(CancellationToken token)
         {
             throw new NotImplementedException();
         }
 
         int rowsInTransaction = 0;
 
-        public PutStatus Put(EncryptedChunk chunk, OverwriteStrategy overwriteStrategy)
+        public async Task<PutStatus> PutAsync(EncryptedChunk chunk, OverwriteStrategy overwriteStrategy, CancellationToken token)
         {
             if (rowsInTransaction == 100)
             {
@@ -114,7 +114,7 @@ namespace Wibblr.Grufs.Storage.Sqlite
 
             if (rowsInTransaction == 0)
             {
-                _beginTransactionCommand.ExecuteNonQuery();
+                await _beginTransactionCommand.ExecuteNonQueryAsync(token);
             }
 
             try
@@ -138,33 +138,41 @@ namespace Wibblr.Grufs.Storage.Sqlite
                     _ => PutStatus.Unknown
                 };
             }
-            catch (Exception ex)
+            catch
             {
                 return PutStatus.Error;
             }
         }
 
-        public bool TryGet(Address address, out EncryptedChunk chunk)
+        public async Task<EncryptedChunk?> GetAsync(Address address, CancellationToken token)
         {
             Flush();
 
             var cmd = _selectCommand;
             cmd.Parameters[0].Value = address.ToSpan().ToArray();
-            using (var reader = cmd.ExecuteReader())
+            using (var reader = await cmd.ExecuteReaderAsync())
             {
                 if (reader.Read())
                 {
                     var content = ((MemoryStream)reader.GetStream(reader.GetOrdinal("Content"))).ToArray();
-                    chunk = new EncryptedChunk(address, content);
-                    return true;
+                    return new EncryptedChunk(address, content);
                 }
             }
-            chunk = default;
-            return false;
+            return null;
+        }
+
+        private async Task FlushAsync()
+        {
+            if (rowsInTransaction > 0)
+            {
+                await _commitTransactionCommand.ExecuteNonQueryAsync();
+                rowsInTransaction = 0;
+            }
         }
 
         public void Flush()
         {
+            // TODO: Make async. Need to implement IAsyncDisposable?
             if (rowsInTransaction > 0)
             {
                 _commitTransactionCommand.ExecuteNonQuery();

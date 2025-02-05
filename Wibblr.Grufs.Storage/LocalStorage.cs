@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 
 using Wibblr.Grufs.Logging;
 
@@ -8,38 +10,38 @@ namespace Wibblr.Grufs.Storage
 {
     public class LocalStorage : IChunkStorage
     {
-        public string BaseDir { get; }
+        public string BaseDir { get; init; }
 
         public LocalStorage(string baseDir)
         {
             BaseDir = Path.TrimEndingDirectorySeparator(baseDir);
         }
 
-        public void Init()
+        public Task InitAsync(CancellationToken token)
         {
             try
             {
                 Directory.CreateDirectory(BaseDir);
-                return;
+                return Task.CompletedTask;
             }
             catch (Exception)
             {
                 if (Directory.Exists(BaseDir))
                 {
-                    return;
+                    return Task.CompletedTask;
                 }
                 throw new Exception("Error creating basedir");
             }
         }
 
-        public long Count()
+        public Task<long> CountAsync(CancellationToken token)
         {
-            return ListChunkFiles().Count();
+            return Task.FromResult((long)ListChunkFiles().Count());
         }
 
-        public bool Exists(Address address)
+        public Task<bool> ExistsAsync(Address address, CancellationToken token)
         {
-            return File.Exists(Path.Join(BaseDir, GeneratePath(address)));
+            return Task.FromResult(File.Exists(Path.Join(BaseDir, GeneratePath(address))));
         }
 
         public void Flush()
@@ -47,7 +49,9 @@ namespace Wibblr.Grufs.Storage
             // no op
         }
 
-        public IEnumerable<Address> ListAddresses()
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
+        public async IAsyncEnumerable<Address> ListAddressesAsync([EnumeratorCancellation] CancellationToken token)
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         {
             foreach (var file in ListChunkFiles())
             {
@@ -55,13 +59,16 @@ namespace Wibblr.Grufs.Storage
             }
         }
 
-        private void CreateParentsAndWriteAllBytes(string path, byte[] content)
+        private async Task CreateParentsAndWriteAllBytesAsync(string path, byte[] content, CancellationToken token)
         {
             ArgumentException.ThrowIfNullOrEmpty(path);
 
             try
             {
-                File.WriteAllBytes(path, content);
+                var partFileName = path + ".part";
+                using var partFile = File.OpenWrite(partFileName);
+
+                await File.WriteAllBytesAsync(path, content);
             }
             catch (DirectoryNotFoundException)
             {
@@ -69,19 +76,19 @@ namespace Wibblr.Grufs.Storage
                 if (parent != null)
                 {
                     Directory.CreateDirectory(parent);
-                    File.WriteAllBytes(path, content);
+                    await File.WriteAllBytesAsync(path, content);
                 }
             }
         }
 
-        public PutStatus Put(EncryptedChunk chunk, OverwriteStrategy overwriteStrategy)
+        public async Task<PutStatus> PutAsync(EncryptedChunk chunk, OverwriteStrategy overwriteStrategy, CancellationToken token)
         {
             var path = Path.Join(BaseDir, GeneratePath(chunk.Address));
 
             switch (overwriteStrategy)
             {
                 case OverwriteStrategy.Allow:
-                    CreateParentsAndWriteAllBytes(path, chunk.Content);
+                    await CreateParentsAndWriteAllBytesAsync(path, chunk.Content, token);
                     return PutStatus.Success;
 
                 case OverwriteStrategy.Deny:
@@ -90,7 +97,7 @@ namespace Wibblr.Grufs.Storage
                         return PutStatus.OverwriteDenied;
                     }
 
-                    CreateParentsAndWriteAllBytes(path, chunk.Content);
+                    await CreateParentsAndWriteAllBytesAsync(path, chunk.Content, token);
                     return PutStatus.Success;
 
                 default:
@@ -98,23 +105,19 @@ namespace Wibblr.Grufs.Storage
             }
         }
 
-        public bool TryGet(Address address, out EncryptedChunk chunk)
+        public async Task<EncryptedChunk?> GetAsync(Address address, CancellationToken token)
         {
             var path = Path.Join(BaseDir, GeneratePath(address));
 
             try
             {
-                chunk = new EncryptedChunk(address, File.ReadAllBytes(path));
+                var content = await File.ReadAllBytesAsync(path, token);
+                return new EncryptedChunk(address, content);
             }
-            catch (Exception e)
+            catch
             {
-                //TODO: error handling
-                Log.WriteLine(0, e.Message);
-                chunk = default;
-                return false;
+                return null;
             }
-
-            return true;
         }
 
         private IEnumerable<FileInfo> ListChunkFiles()

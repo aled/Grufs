@@ -1,4 +1,5 @@
-﻿namespace Wibblr.Grufs.Storage
+﻿
+namespace Wibblr.Grufs.Storage
 {
     public enum PutStatus
     {
@@ -10,12 +11,12 @@
 
     public interface IChunkStorage
     {
-        public void Init();
-        public PutStatus Put(EncryptedChunk chunk, OverwriteStrategy overwriteStrategy);
-        public bool TryGet(Address address, out EncryptedChunk chunk);
-        public long Count();
-        public bool Exists(Address address);
-        public IEnumerable<Address> ListAddresses();
+        public Task InitAsync(CancellationToken token);
+        public Task<PutStatus> PutAsync(EncryptedChunk chunk, OverwriteStrategy overwriteStrategy, CancellationToken token);
+        public Task<EncryptedChunk?> GetAsync(Address address, CancellationToken token);
+        public Task<long> CountAsync(CancellationToken token);
+        public Task<bool> ExistsAsync(Address address, CancellationToken token);
+        public IAsyncEnumerable<Address> ListAddressesAsync(CancellationToken token);
         public void Flush();
     }
 }

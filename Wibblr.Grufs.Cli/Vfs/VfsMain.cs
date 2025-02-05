@@ -15,12 +15,12 @@ namespace Wibblr.Grufs.Cli
     {
         private VfsArgs _args = new VfsArgs();
 
-        public static void Main(string[] args)
+        public static async Task Main(string[] args)
         {
-            Environment.Exit(new VfsMain().Run(args));
+            Environment.Exit(await new VfsMain().RunAsync(args, CancellationToken.None));
         }
 
-        public int Run(string[] args)
+        public async Task<int> RunAsync(string[] args, CancellationToken token)
         {
             var startTime = DateTime.UtcNow;
 
@@ -68,7 +68,7 @@ namespace Wibblr.Grufs.Cli
 
             var repo = new RepositorySerializer().Deserialize(serialized);
 
-            var result = repo.Open();
+            var result = await repo.OpenAsync(token);
 
             switch (result.Status)
             {
@@ -86,11 +86,11 @@ namespace Wibblr.Grufs.Cli
             {
                 if (_args.Operation == VfsArgs.OperationEnum.Sync)
                 {
-                    return Sync(repo);
+                    return await SyncAsync(repo, token);
                 }
                 if (_args.Operation == VfsArgs.OperationEnum.List)
                 {
-                    return List(repo, new Timestamp(DateTime.MinValue), new Timestamp(DateTime.MaxValue));
+                    return await ListAsync(repo, new Timestamp(DateTime.MinValue), new Timestamp(DateTime.MaxValue), token);
                 }
             }
             finally
@@ -102,7 +102,7 @@ namespace Wibblr.Grufs.Cli
             throw new UsageException("Operation not specified (--sync or --ls)");
         }
 
-        public int Sync(Repository repo)
+        public async Task<int> SyncAsync(Repository repo, CancellationToken token)
         {
             if (_args.Source == null)
             {
@@ -117,7 +117,7 @@ namespace Wibblr.Grufs.Cli
 
             try
             {
-                return vfs.Sync(_args.Source, _args.Destination, _args.Recursive);
+                return await vfs.SyncAsync(_args.Source, _args.Destination, _args.Recursive, token);
             }
             catch (Exception) 
             {
@@ -125,7 +125,7 @@ namespace Wibblr.Grufs.Cli
             }
         }
 
-        public int List(Repository repo, Timestamp from, Timestamp to)
+        public async Task<int> ListAsync(Repository repo, Timestamp from, Timestamp to, CancellationToken token)
         {
             if (_args.Destination == null)
             {
@@ -134,7 +134,7 @@ namespace Wibblr.Grufs.Cli
 
             var vfs = new VirtualFilesystem(repo, "[default]");
 
-            vfs.ListDirectoryRecursive(new DirectoryPath(_args.Destination));
+            await vfs.ListDirectoryRecursiveAsync(new DirectoryPath(_args.Destination), token);
             return 0;
         }
     }

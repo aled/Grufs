@@ -15,15 +15,17 @@ namespace Wibblr.Grufs.Tests.Core
 
     public abstract class StreamStorageTests<T> where T : IChunkStorageFactory, new()
     {
+        static CancellationToken token = CancellationToken.None;
+
         [Fact]
-        public void EncryptZeroLengthStream()
+        public async Task EncryptZeroLengthStream()
         {
             try
             {
                 using (T temporaryStorage = new())
                 {
                     var storage = temporaryStorage.GetChunkStorage();
-                    storage.Init();
+                    await storage.InitAsync(token);
 
                     var keyEncryptionKey = new KeyEncryptionKey("0000000000000000000000000000000000000000000000000000000000000000".ToBytes());
                     var hmacKey = new HmacKey("0000000000000000000000000000000000000000000000000000000000000000".ToBytes());
@@ -36,12 +38,12 @@ namespace Wibblr.Grufs.Tests.Core
                     var plaintextBytes = Encoding.UTF8.GetBytes(plaintext);
                     var stream = new MemoryStream(plaintextBytes);
 
-                    var (address, level, stats) = streamStorage.Write(stream);
+                    var (address, level, stats) = await streamStorage.WriteAsync(stream, token);
 
-                    storage.Count().ShouldBe(1);
+                    (await storage.CountAsync(token)).ShouldBe(1);
 
                     var decryptedStream = new MemoryStream();
-                    foreach (var decryptedBuffer in streamStorage.Read(level, address))
+                    await foreach (var decryptedBuffer in streamStorage.ReadAsync(level, address, token))
                     {
                         decryptedStream.Write(decryptedBuffer.AsSpan());
                     }
@@ -59,14 +61,14 @@ namespace Wibblr.Grufs.Tests.Core
 
         // encrypt stream (single chunk)
         [Fact]
-        public void EncryptStreamWithSingleChunk()
+        public async Task EncryptStreamWithSingleChunk()
         {
             try
             {
                 using (T temporaryStorage = new())
                 {
                     var storage = temporaryStorage.GetChunkStorage(); var keyEncryptionKey = new KeyEncryptionKey("0000000000000000000000000000000000000000000000000000000000000000".ToBytes());
-                    storage.Init();
+                    await storage.InitAsync(token);
 
                     var hmacKey = new HmacKey("0000000000000000000000000000000000000000000000000000000000000000".ToBytes());
                     var compressor = new Compressor(CompressionAlgorithm.None);
@@ -78,12 +80,12 @@ namespace Wibblr.Grufs.Tests.Core
                     var plaintextBytes = Encoding.UTF8.GetBytes(plaintext);
                     var stream = new MemoryStream(plaintextBytes);
 
-                    var (address, level, stats) = streamStorage.Write(stream);
+                    var (address, level, stats) = await streamStorage.WriteAsync(stream, token);
 
-                    storage.Count().ShouldBe(1);
+                    (await storage.CountAsync(token)).ShouldBe(1);
 
                     var decryptedStream = new MemoryStream();
-                    foreach (var decryptedBuffer in streamStorage.Read(level, address))
+                    await foreach (var decryptedBuffer in streamStorage.ReadAsync(level, address, token))
                     {
                         decryptedStream.Write(decryptedBuffer.AsSpan());
                     }
@@ -104,7 +106,7 @@ namespace Wibblr.Grufs.Tests.Core
         [InlineData("fixed", 256)]
         [InlineData("cdc", 6)]
         [InlineData("cdc", 7)]
-        public void EncryptStreamMultipleLevelsOfTree(string factoryType, int parameter)
+        public async Task EncryptStreamMultipleLevelsOfTree(string factoryType, int parameter)
         {
             IChunkSourceFactory chunkSourceFactory = factoryType == "fixed"
                 ? new FixedSizeChunkSourceFactory(parameter)
@@ -127,18 +129,18 @@ namespace Wibblr.Grufs.Tests.Core
                 using (T temporaryStorage = new())
                 {
                     var storage = temporaryStorage.GetChunkStorage();
-                    storage.Init();
+                    await storage.InitAsync(token);
 
                     var chunkEncryptor = new ChunkEncryptor(keyEncryptionKey, hmacKey, compressor);
                     var streamStorage = new StreamStorage(storage, chunkSourceFactory, chunkEncryptor);
 
                     var stream = new MemoryStream(plaintextBytes);
-                    var (address, level, stats) = streamStorage.Write(stream);
-                    storage.Count().ShouldBeGreaterThan(1);
+                    var (address, level, stats) = await streamStorage.WriteAsync(stream, token);
+                    (await storage.CountAsync(token)).ShouldBeGreaterThan(1);
 
                     var decryptedStream = new MemoryStream();
 
-                    foreach (var decryptedBuffer in streamStorage.Read(level, address))
+                    await foreach (var decryptedBuffer in streamStorage.ReadAsync(level, address, token))
                     {
                         decryptedStream.Write(decryptedBuffer.AsSpan());
                     }
@@ -148,7 +150,7 @@ namespace Wibblr.Grufs.Tests.Core
                     decryptedText.ShouldBe(plaintext);
 
                     //Log.WriteLine(0, "Dedup ratio: " + storage.DeduplicationCompressionRatio());
-                    Log.WriteLine(0, $"Stored {storage.Count()} chunks");
+                    Log.WriteLine(0, $"Stored {await storage.CountAsync(token)} chunks");
 
                     plaintext = "";
                     for (int i = 10; i < 1099; i++)
@@ -157,11 +159,11 @@ namespace Wibblr.Grufs.Tests.Core
                     }
                     plaintextBytes = Encoding.UTF8.GetBytes(plaintext);
                     stream = new MemoryStream(plaintextBytes);
-                    (address, level, stats) = streamStorage.Write(stream);
+                    (address, level, stats) = await streamStorage.WriteAsync(stream, token);
 
                     decryptedStream = new MemoryStream();
 
-                    foreach (var decryptedBuffer in streamStorage.Read(level, address))
+                    await foreach (var decryptedBuffer in streamStorage.ReadAsync(level, address, token))
                     {
                         decryptedStream.Write(decryptedBuffer.AsSpan());
                     }

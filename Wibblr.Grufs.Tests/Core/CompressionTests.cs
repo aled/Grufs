@@ -22,14 +22,15 @@ namespace Wibblr.Grufs.Tests
         [InlineData(CompressionAlgorithm.Gzip)]
         [InlineData(CompressionAlgorithm.Brotli)]
         [InlineData(CompressionAlgorithm.Zlib)]
-        public void EncryptStreamWithCompression(CompressionAlgorithm compressionAlgorithm)
+        public async Task EncryptStreamWithCompression(CompressionAlgorithm compressionAlgorithm)
         {
+            CancellationToken token = CancellationToken.None;
             try
             {
                 using (T temporaryStorage = new())
                 {
                     var storage = temporaryStorage.GetChunkStorage();
-                    storage.Init();
+                    await storage.InitAsync(token);
 
                     var keyEncryptionKey = new KeyEncryptionKey("0000000000000000000000000000000000000000000000000000000000000000".ToBytes());
                     var hmacKey = new HmacKey("0000000000000000000000000000000000000000000000000000000000000000".ToBytes());
@@ -47,13 +48,13 @@ namespace Wibblr.Grufs.Tests
                     var stream = new MemoryStream(plaintextBytes);
 
                     var repository = new InMemoryChunkStorage();
-                    var (address, level, stats) = streamStorage.Write(stream);
+                    var (address, level, stats) = await streamStorage.WriteAsync(stream, token);
 
                     stats.PlaintextLength.ShouldBe(plaintextBytes.LongLength);
 
                     var decryptedStream = new MemoryStream();
 
-                    foreach (var decryptedBuffer in streamStorage.Read(level, address))
+                    await foreach (var decryptedBuffer in streamStorage.ReadAsync(level, address, token))
                     {
                         decryptedStream.Write(decryptedBuffer.AsSpan());
                     }

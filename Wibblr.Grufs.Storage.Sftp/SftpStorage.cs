@@ -5,15 +5,20 @@ using Renci.SshNet;
 using Renci.SshNet.Common;
 using Renci.SshNet.Sftp;
 using System.Text;
+using System.Runtime.CompilerServices;
+using System.Runtime.Intrinsics.X86;
 
 namespace Wibblr.Grufs.Storage.Sftp
 {
     public class SftpStorage : IChunkStorage, IDisposable
     {
         public string BaseDir { get; init; }
+
         public SftpCredentials Credentials { get; init; }
 
         private SftpClient _client;
+
+        private int _connectionRetryCount = 3;
 
         public SftpStorage(SftpCredentials credentials, string baseDir)
         {
@@ -62,22 +67,22 @@ namespace Wibblr.Grufs.Storage.Sftp
 
         private bool IsConnected() => _client.IsConnected;
 
-        public SftpStorage EnsureConnected(int maxTries = 3)
+        public async Task<SftpStorage> EnsureConnectedAsync(CancellationToken token)
         {
-            var triesRemaining = maxTries;
+            var triesRemaining = _connectionRetryCount;
 
             while (!_client.IsConnected)
             {
                 try
                 {
-                    _client.Connect();
+                    await _client.ConnectAsync(token);
                 }
                 catch (SshAuthenticationException sae)
                 {
                     Log.WriteLine(0, $"Authentication error connecting to host {Credentials.Host}:{Credentials.Port}; {sae.Message}");
                     throw;
                 }
-                catch (Exception e)
+                catch
                 {
                     Thread.Sleep(500);
                     Log.WriteLine(0, $"Error connecting to host {Credentials.Host}:{Credentials.Port}; {--triesRemaining} try(s) remaining");
@@ -90,11 +95,11 @@ namespace Wibblr.Grufs.Storage.Sftp
             return this;
         }
 
-        public void Init()
+        public async Task InitAsync(CancellationToken token)
         {
-            CreateDirectory(BaseDir);
+            await CreateDirectoryAsync(BaseDir, token);
 
-            var info = _client.Get(BaseDir);
+            var info = await _client.GetAsync(BaseDir, token);
 
             if (!info.IsDirectory)
             {
@@ -107,15 +112,15 @@ namespace Wibblr.Grufs.Storage.Sftp
         /// </summary>
         /// <param name="path"></param>
         /// <returns></returns>
-        private bool CreateDirectory(string path)
+        private async Task<bool> CreateDirectoryAsync(string path, CancellationToken token)
         {
             ArgumentException.ThrowIfNullOrEmpty(path);
 
-            EnsureConnected();
+            await EnsureConnectedAsync(token);
 
             try
             {
-                _client.CreateDirectory(path);
+                await _client.CreateDirectoryAsync(path);
                 return true;
             }
             catch (SshConnectionException sce)
@@ -125,6 +130,7 @@ namespace Wibblr.Grufs.Storage.Sftp
             }
             catch (SftpPermissionDeniedException spde)
             {
+                Log.WriteLine(0, spde.Message);
                 return false;
             }
             catch (Exception e)
@@ -139,7 +145,7 @@ namespace Wibblr.Grufs.Storage.Sftp
             // either directory already existed, or a parent did not exist, or a file with the same name exists
             try
             {
-                var info = _client.Get(path);
+                var info = await _client.GetAsync(path, token);
 
                 if (!info.IsDirectory)
                 {
@@ -161,9 +167,9 @@ namespace Wibblr.Grufs.Storage.Sftp
 
             if (!string.IsNullOrEmpty(parent))
             {
-                if (CreateDirectory(parent))
+                if (await CreateDirectoryAsync(parent, token))
                 {
-                    _client.CreateDirectory(path);
+                    await _client.CreateDirectoryAsync(path, token);
                     return true;
                 }
                 return false;
@@ -179,13 +185,13 @@ namespace Wibblr.Grufs.Storage.Sftp
         /// <param name="content"></param>
         /// <exception cref=""></exception>
         /// <exception cref="Exception"></exception>
-        private void WriteAllBytes(string path, byte[] content)
+        private async Task WriteAllBytesAsync(string path, byte[] content, CancellationToken token)
         {
             try
             {
                 using (var stream = _client.OpenWrite(path.ToString()))
                 {
-                    stream.Write(content, 0, content.Length);
+                    await stream.WriteAsync(content, 0, content.Length, token);
                     //Log.WriteLine(0, $"Wrote {path}");
                 }
             }
@@ -204,13 +210,13 @@ namespace Wibblr.Grufs.Storage.Sftp
         /// </summary>
         /// <param name="path"></param>
         /// <returns></returns>
-        public bool Exists(string path)
+        public async Task<bool> ExistsAsync(string path, CancellationToken token)
         {
-            EnsureConnected();
+            await EnsureConnectedAsync(token);
 
             try
             {
-                return _client.Exists(path);
+                return await _client.ExistsAsync(path);
             }
             catch (Exception)
             {
@@ -218,13 +224,13 @@ namespace Wibblr.Grufs.Storage.Sftp
             }
         }
 
-        private void CreateParentsAndWriteAllBytes(string path, byte[] content)
+        private async Task CreateParentsAndWriteAllBytesAsync(string path, byte[] content, CancellationToken token)
         {
             ArgumentException.ThrowIfNullOrEmpty(path);
 
             try
             {
-                WriteAllBytes(path, content);
+                await WriteAllBytesAsync(path, content, token);
             }
             catch (DirectoryNotFoundException)
             {
@@ -232,31 +238,31 @@ namespace Wibblr.Grufs.Storage.Sftp
 
                 if (parent != null)
                 {
-                    CreateDirectory(parent);
-                    WriteAllBytes(path, content);
+                    await CreateDirectoryAsync(parent, token);
+                    await WriteAllBytesAsync(path, content, token);
                 }
             }
         }
 
-        public PutStatus Put(EncryptedChunk chunk, OverwriteStrategy overwriteStrategy)
+        public async Task<PutStatus> PutAsync(EncryptedChunk chunk, OverwriteStrategy overwriteStrategy, CancellationToken token)
         {
             var path = ToUnixPath(Path.Join(BaseDir, GeneratePath(chunk.Address)));
 
-            EnsureConnected();
+            await EnsureConnectedAsync(token);
 
             switch (overwriteStrategy)
             {
                 case OverwriteStrategy.Allow:
-                    CreateParentsAndWriteAllBytes(path, chunk.Content);
+                    await CreateParentsAndWriteAllBytesAsync(path, chunk.Content, token);
                     return PutStatus.Success;
 
                 case OverwriteStrategy.Deny:
-                    if (Exists(path))
+                    if (await ExistsAsync(path, token))
                     {
                         return PutStatus.OverwriteDenied;
                     }
 
-                    CreateParentsAndWriteAllBytes(path, chunk.Content);
+                    await CreateParentsAndWriteAllBytesAsync(path, chunk.Content, token);
                     return PutStatus.Success;
 
                 default:
@@ -264,45 +270,41 @@ namespace Wibblr.Grufs.Storage.Sftp
             }
         }
 
-        public bool TryGet(Address address, out EncryptedChunk chunk)
+        public async Task<EncryptedChunk?> GetAsync(Address address, CancellationToken token)
         {
             var path = ToUnixPath(Path.Join(BaseDir, GeneratePath(address)));
 
-            EnsureConnected();
+            await EnsureConnectedAsync(token);
 
             try
             {
-                chunk = new EncryptedChunk(address, _client.ReadAllBytes(path));
-                return true;
+                return new EncryptedChunk(address, _client.ReadAllBytes(path));
             }
             catch (SftpPathNotFoundException)
             {
-                chunk = default;
-                return false;
+                return null;
             }
             catch (SshConnectionException)
             {
-                chunk = default;
-                return false;
+                return null;
             }
             catch (Exception)
             {
-                chunk = default;
-                return false;
+                return null;
             }
         }
 
-        private IEnumerable<string> ListChunkFiles()
+        private async IAsyncEnumerable<string> ListChunkFilesAsync([EnumeratorCancellation] CancellationToken token)
         {
-            foreach (var grandparent in _client.ListDirectory(BaseDir))
+            await foreach (var grandparent in _client.ListDirectoryAsync(BaseDir, token))
             {
                 if (grandparent.IsDirectory && grandparent.Name.Length == 2 && IsHexString(grandparent.Name))
                 {
-                    foreach (var parent in _client.ListDirectory(grandparent.FullName))
+                    await foreach (var parent in _client.ListDirectoryAsync(grandparent.FullName, token))
                     {
                         if (parent.IsDirectory && parent.Name.Length == 2 && IsHexString(parent.Name))
                         {
-                            foreach (var address in _client.ListDirectory(parent.FullName))
+                            await foreach (var address in _client.ListDirectoryAsync(parent.FullName, token))
                             {
                                 if (address.IsRegularFile && address.Name.Length == Address.Length * 2 && IsHexString(address.Name))
                                 {
@@ -315,19 +317,19 @@ namespace Wibblr.Grufs.Storage.Sftp
             }
         }
        
-        public long Count()
+        public async Task<long> CountAsync(CancellationToken token)
         {
-            return ListChunkFiles().Count();
+            return await ListChunkFilesAsync(token).CountAsync();
         }
 
-        public bool Exists(Address address)
+        public Task<bool> ExistsAsync(Address address, CancellationToken token)
         {
-            return Exists(ToUnixPath(Path.Join(BaseDir, GeneratePath(address))));
+            return ExistsAsync(ToUnixPath(Path.Join(BaseDir, GeneratePath(address))), token);
         }
 
-        public IEnumerable<Address> ListAddresses()
+        public async IAsyncEnumerable<Address> ListAddressesAsync([EnumeratorCancellation] CancellationToken token)
         {
-            foreach (var file in ListChunkFiles())
+            await foreach (var file in ListChunkFilesAsync(token))
             {
                 yield return new Address(Convert.FromHexString(file));
             }
@@ -338,39 +340,39 @@ namespace Wibblr.Grufs.Storage.Sftp
             // no op
         }
 
-        public void DeleteDirectory(string relativePath)
+        public async Task DeleteDirectory(string relativePath, CancellationToken token)
         {
             var path = ToUnixPath(Path.Join(BaseDir, relativePath));
-            EnsureConnected();
+            await EnsureConnectedAsync(token);
 
             try
             {
-                DeleteDirectory(_client.Get(path));
+                await DeleteDirectoryAsync(_client.Get(path), token);
             }
             catch (Exception ex)
             {
                 Log.WriteLine(0, ex.Message);
             }
 
-            void DeleteDirectory(ISftpFile directory)
+            async Task DeleteDirectoryAsync(ISftpFile directory, CancellationToken token)
             {
                 if (directory.IsDirectory)
                 {
-                    foreach (var entry in _client.ListDirectory(directory.FullName))
+                    await foreach (var entry in _client.ListDirectoryAsync(directory.FullName, token))
                     {
                         if ((entry.Name != ".") && (entry.Name != ".."))
                         {
                             if (entry.IsDirectory)
                             {
-                                DeleteDirectory(entry);
+                                await DeleteDirectoryAsync(entry, token);
                             }
                             else
                             {
-                                _client.DeleteFile(entry.FullName);
+                                await _client.DeleteFileAsync(entry.FullName, token);
                             }
                         }
                     }
-                    _client.DeleteDirectory(directory.FullName);
+                    await _client.DeleteDirectoryAsync(directory.FullName, token);
                 }
             }
         }

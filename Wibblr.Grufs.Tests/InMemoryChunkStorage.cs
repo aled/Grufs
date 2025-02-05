@@ -15,24 +15,25 @@ namespace Wibblr.Grufs.Tests
             TotalExistsCalls = 0;
         }
 
-        public void Init()
+        public Task InitAsync(CancellationToken token)
         {
             // no op
+            return Task.CompletedTask;
         }
 
-        public bool TryGet(Address address, out EncryptedChunk chunk)
+        public Task<EncryptedChunk?> GetAsync(Address address, CancellationToken token)
         {
+            EncryptedChunk? chunk = null;
+
             if (_dict.ContainsKey(address))
             {
-                chunk = _dict[address];
-                return true;
+                chunk =_dict[address];
             }
 
-            chunk = default;
-            return false;
+            return Task.FromResult(chunk);
         }
 
-        public PutStatus Put(EncryptedChunk chunk, OverwriteStrategy overwrite)
+        public Task<PutStatus> PutAsync(EncryptedChunk chunk, OverwriteStrategy overwrite, CancellationToken token)
         {
             TotalPutCalls++;
 
@@ -45,28 +46,28 @@ namespace Wibblr.Grufs.Tests
                         break;
 
                     case OverwriteStrategy.Deny:
-                        return PutStatus.OverwriteDenied;
+                        return Task.FromResult(PutStatus.OverwriteDenied);
                 }
             }
 
             _dict[chunk.Address] = chunk;
-            return PutStatus.Success;
+            return Task.FromResult(PutStatus.Success);
         }
 
-        public bool Exists(Address address)
+        public Task<bool> ExistsAsync(Address address, CancellationToken token)
         {
             TotalExistsCalls++;
-            return _dict.ContainsKey(address);
+            return Task.FromResult(_dict.ContainsKey(address));
         }
 
-        public long Count()
+        public Task<long> CountAsync(CancellationToken token)
         {
-            return _dict.Count();
+            return Task.FromResult((long)_dict.Count());
         }
 
-        public IEnumerable<Address> ListAddresses()
+        public IAsyncEnumerable<Address> ListAddressesAsync(CancellationToken token)
         {
-            return _dict.Keys.ToArray();
+            return _dict.Keys.ToAsyncEnumerable();
         }
 
         public float DeduplicationCompressionRatio() =>

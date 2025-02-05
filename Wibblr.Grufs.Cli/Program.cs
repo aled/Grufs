@@ -57,12 +57,12 @@ namespace Wibblr.Grufs.Cli
     /// </summary>
     public class Program
     {
-        public static void Main(string[] args)
+        public static async Task Main(string[] args)
         {
             try
             {
                 Log.StdOutIsConsole = true;
-                Environment.Exit(new Program().Run(args));
+                Environment.Exit(await new Program().RunAsync(args, CancellationToken.None));
             }
             catch (UsageException ue)
             {
@@ -71,14 +71,14 @@ namespace Wibblr.Grufs.Cli
             }
         }
 
-        public int Run(string[] args)
+        public async Task<int> RunAsync(string[] args, CancellationToken token)
         {
             return args switch
             {
-                ["repo", .. var remainingArgs] => new RepoMain().Run(remainingArgs),
+                ["repo", .. var remainingArgs] => await new RepoMain().RunAsync(remainingArgs, token),
                 ["backup", .. var remainingArgs] => throw new NotImplementedException(),
                 ["restore", .. var remainingArgs] => throw new NotImplementedException(),
-                ["vfs", .. var remainingArgs] => new VfsMain().Run(remainingArgs),
+                ["vfs", .. var remainingArgs] => await new VfsMain().RunAsync(remainingArgs, token),
                 _ => throw new UsageException("No subcommand specified; must be one of 'repo', 'backup', 'restore', 'vfs'")
             };
             

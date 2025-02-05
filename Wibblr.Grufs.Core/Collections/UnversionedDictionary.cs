@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Immutable;
 
 using Wibblr.Grufs.Storage;
 
@@ -17,7 +18,7 @@ namespace Wibblr.Grufs.Core
             _chunkEncryptor = chunkEncryptor;
         }
 
-        private ReadOnlySpan<byte> GenerateStructuredLookupKey(ReadOnlySpan<byte> lookupKey)
+        private ArrayBuffer GenerateStructuredLookupKey(ReadOnlySpan<byte> lookupKey)
         {
             var bufferLength =
                 1 + // serialization version
@@ -26,30 +27,28 @@ namespace Wibblr.Grufs.Core
             return new BufferBuilder(bufferLength)
                 .AppendByte(serializationVersion)
                 .AppendSpan(lookupKey)
-                .ToSpan();
+                .ToBuffer();
         }
 
-        public PutStatus TryPutValue(ReadOnlySpan<byte> lookupKey, ReadOnlySpan<byte> value, OverwriteStrategy overwrite)
+        public async Task<PutStatus> PutValueAsync(ImmutableArray<byte> lookupKey, ArrayBuffer value, OverwriteStrategy overwrite, CancellationToken token)
         {
-            var structuredLookupKey = GenerateStructuredLookupKey(lookupKey);
-            var encryptedChunk = _chunkEncryptor.EncryptKeyAddressedChunk(structuredLookupKey, value);
+            var structuredLookupKey = GenerateStructuredLookupKey(lookupKey.AsSpan());
+            var encryptedChunk = _chunkEncryptor.EncryptKeyAddressedChunk(structuredLookupKey.AsSpan(), value.AsSpan());
 
-            return _chunkStorage.Put(encryptedChunk, overwrite);
+            return await _chunkStorage.PutAsync(encryptedChunk, overwrite, token);
         }
 
-        public bool TryGetValue(ReadOnlySpan<byte> lookupKey, out ArrayBuffer value)
+        public async Task<ArrayBuffer> GetValueAsync(ImmutableArray<byte> lookupKey, CancellationToken token)
         {
-            var structuredLookupKey = GenerateStructuredLookupKey(lookupKey);
-            var address = _chunkEncryptor.GetLookupKeyAddress(structuredLookupKey);
+            var structuredLookupKey = GenerateStructuredLookupKey(lookupKey.AsSpan());
+            var address = _chunkEncryptor.GetLookupKeyAddress(structuredLookupKey.AsSpan());
+            var chunk = await _chunkStorage.GetAsync(address, token);
 
-            if (!_chunkStorage.TryGet(address, out var chunk))
+            if (chunk is EncryptedChunk c)
             {
-                value = ArrayBuffer.Empty;
-                return false;
+                return _chunkEncryptor.DecryptBytes(c.Content);
             }
-
-            value = _chunkEncryptor.DecryptBytes(chunk.Content);
-            return true;
+            return ArrayBuffer.Empty;
         }
     }
 }

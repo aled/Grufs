@@ -37,7 +37,7 @@ namespace Wibblr.Grufs.Core
             }
         }
 
-        public ReadOnlySpan<byte> Serialize()
+        public ArrayBuffer Serialize()
         {
             if (EncryptedMasterKeys.Length > 255)
             {
@@ -59,7 +59,7 @@ namespace Wibblr.Grufs.Core
                 .AppendSpan(EncryptedMasterKeys)
                 .ToBuffer();
 
-            return buffer.AsSpan();
+            return buffer;
         }
     }
 }

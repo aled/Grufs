@@ -102,9 +102,14 @@ namespace Wibblr.Grufs.Core
         /// </summary>
         /// <param name="compressor">Object that defines the compression algorithm and level. Defaults to Brotli.</param>
         /// <returns></returns>
-        public InitRepositoryResult Initialize(Compressor? compressor = null)
+        public Task<InitRepositoryResult> InitializeAsync(CancellationToken token)
         {
-            _compressor = compressor ?? new Compressor(CompressionAlgorithm.Brotli, CompressionLevel.Optimal);
+            return InitializeAsync(new Compressor(CompressionAlgorithm.Brotli, CompressionLevel.Optimal), token);
+        }
+
+        public async Task<InitRepositoryResult> InitializeAsync(Compressor compressor, CancellationToken token)
+        {
+            _compressor = compressor;
 
             // The master keys required. Each chunk is encrypted with a random key, which is wrapped using the masterKey.
             // Additionally the address of chunks is computed using the addressKey (which is the same for all chunks)
@@ -123,7 +128,7 @@ namespace Wibblr.Grufs.Core
                 .AppendHmacKey(contentAddressKey)
                 .AppendHmacKey(versionedDictionaryAddressKey)
                 .AppendHmacKey(unversionedDictionaryAddressKey)
-                .ToSpan();
+                .ToBuffer();
 
             var normalizedPassword = Encoding.UTF8.GetBytes(EncryptionPassword.Normalize(NormalizationForm.FormC));
             var salt = Salt.Random();
@@ -132,7 +137,7 @@ namespace Wibblr.Grufs.Core
 
             var encryptor = new Encryptor();
             var masterKeysInitializationVector = InitializationVector.Random();
-            var encryptedMasterKeys = encryptor.Encrypt(masterKeys, masterKeysInitializationVector, masterKeysKey);
+            var encryptedMasterKeys = encryptor.Encrypt(masterKeys.AsSpan(), masterKeysInitializationVector, masterKeysKey);
 
             var repositoryMetadata = new RepositoryMetadata(masterKeysInitializationVector, salt, iterations, encryptedMasterKeys);
 
@@ -145,9 +150,9 @@ namespace Wibblr.Grufs.Core
             var metadataAddressKey = new HmacKey(new Rfc2898DeriveBytes(normalizedMetadataPassword, wellKnownSalt1.ToSpan().ToArray(), iterations, HashAlgorithmName.SHA256).GetBytes(KeyEncryptionKey.Length));
             var metadataChunkEncryptor = new ChunkEncryptor(metadataKeyEncryptionKey, metadataAddressKey, Compressor.None);
 
-            ChunkStorage.Init();
+            await ChunkStorage.InitAsync(token);
 
-            var putResult = new UnversionedDictionary(ChunkStorage, metadataChunkEncryptor).TryPutValue(_metadataLookupKey.AsSpan(), repositoryMetadata.Serialize(), OverwriteStrategy.Deny);
+            var putResult = await new UnversionedDictionary(ChunkStorage, metadataChunkEncryptor).PutValueAsync(_metadataLookupKey, repositoryMetadata.Serialize(), OverwriteStrategy.Deny, token);
             if (putResult == PutStatus.OverwriteDenied)
             {
                 return new InitRepositoryResult(InitRepositoryStatus.AlreadyExists, "Repository already exists");
@@ -169,7 +174,7 @@ namespace Wibblr.Grufs.Core
             return new InitRepositoryResult(InitRepositoryStatus.Success, "OK");
         }
 
-        public OpenRepositoryResult Open()
+        public async Task<OpenRepositoryResult> OpenAsync(CancellationToken token)
         {
             // Get the serialized metadata from the dictionary storage. Note the encryption used for this is weak as it uses well known salts and probably a well known password.
             // The keys embedded in the metadata are wrapped with another layer of (strong) encryption.
@@ -179,7 +184,10 @@ namespace Wibblr.Grufs.Core
             var metadataKeyEncryptionKey = new KeyEncryptionKey(new Rfc2898DeriveBytes(normalizedMetadataPassword, wellKnownSalt0.ToSpan().ToArray(), iterations, HashAlgorithmName.SHA256).GetBytes(KeyEncryptionKey.Length));
             var metadataChunkEncryptor = new ChunkEncryptor(metadataKeyEncryptionKey, metadataAddressKey, Compressor.None);
 
-            if (!new UnversionedDictionary(ChunkStorage, metadataChunkEncryptor).TryGetValue(_metadataLookupKey.AsSpan(), out var serialized))
+            var unversionedDictionary = new UnversionedDictionary(ChunkStorage, metadataChunkEncryptor);
+
+            var serialized = await unversionedDictionary.GetValueAsync(_metadataLookupKey, token);
+            if (serialized == null)
             {
                 return new OpenRepositoryResult(OpenRepositoryStatus.MissingMetadata, $"Unable to find metadata '{_defaultMetadataPassword}' in storage");
             }
@@ -235,7 +243,7 @@ namespace Wibblr.Grufs.Core
         /// A list of all immutable filesystems is stored in the repository using the versioned dictionary storage with a random address key. Each 
         /// </summary>
         /// <returns></returns>
-        public List<string> ListBackupSets()
+        public async Task<List<string>> ListBackupSetsAsync(CancellationToken token)
         {
             // Each version of the value in the dictionary is a changeset that needs to be applied to get the total list.
             var chunkEncryptor = new ChunkEncryptor(MasterKey, VersionedDictionaryAddressKey, Compressor.None);
@@ -243,7 +251,7 @@ namespace Wibblr.Grufs.Core
             var lookupKey = Encoding.UTF8.GetBytes("backupSets:");
 
             var sequenceNumber = 0L;
-            while (dict.TryGetValue(lookupKey, sequenceNumber++, out var buffer))
+            while (await dict.GetValueAsync(lookupKey, sequenceNumber++, token) != null)
             {
                 // Buffer contains lines of the form:
                 // CREATE:client:clientdir:name:timestamp
