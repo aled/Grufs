@@ -22,7 +22,7 @@ namespace Wibblr.Grufs.Storage
 
             if (value.Length != Length)
             {
-                throw new ArgumentException($"Invalid address length (expected {Length}, was {value.Length}");
+                throw new ArgumentException($"Invalid address length (expected {Length}, was {value.Length})");
             }
 
             Value = value.ToImmutableArray();

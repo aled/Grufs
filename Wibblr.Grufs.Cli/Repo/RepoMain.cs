@@ -205,8 +205,6 @@ namespace Wibblr.Grufs.Cli
                 var content = File.ReadAllText(f);
 
                 var repo = new RepositorySerializer().Deserialize(content);
-
-                Log.WriteLine(0, new FileInfo(f).Name);
             }
             return 0;
         }
