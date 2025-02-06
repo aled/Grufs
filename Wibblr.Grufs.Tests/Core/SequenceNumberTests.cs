@@ -86,7 +86,7 @@ namespace Wibblr.Grufs.Tests
 
         public Task DisposeAsync()
         {
-            throw new NotImplementedException();
+            return Task.CompletedTask;
         }
     }
 
