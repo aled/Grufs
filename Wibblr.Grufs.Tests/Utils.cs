@@ -1,7 +1,14 @@
-﻿namespace Wibblr.Grufs.Tests
+﻿using System.Security.Cryptography;
+
+namespace Wibblr.Grufs.Tests
 {
     public static class Utils
     {
+        public static string GetUniquifier()
+        {
+            return $"{DateTime.UtcNow.ToString("yyyyMMdd-HHmmss")}-{Convert.ToHexString(RandomNumberGenerator.GetBytes(8))}";
+        }
+
         public static string GetFileContent(string path)
         {
             return $"This is the content of file {path}";

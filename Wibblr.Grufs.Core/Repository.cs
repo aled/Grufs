@@ -25,6 +25,7 @@ namespace Wibblr.Grufs.Core
         Unknown = 0,
         Success = 1,
         AlreadyExists = 2,
+        Error = 3,
     }
 
     public record struct OpenRepositoryResult(OpenRepositoryStatus Status, string Message);
@@ -156,6 +157,10 @@ namespace Wibblr.Grufs.Core
             if (putResult == PutStatus.OverwriteDenied)
             {
                 return new InitRepositoryResult(InitRepositoryStatus.AlreadyExists, "Repository already exists");
+            }
+            if (putResult == PutStatus.Error)
+            {
+                return new InitRepositoryResult(InitRepositoryStatus.Error, "Error");
             }
 
             MasterKey = masterKey;

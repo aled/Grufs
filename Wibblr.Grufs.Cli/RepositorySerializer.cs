@@ -2,6 +2,7 @@
 
 using Wibblr.Grufs.Core;
 using Wibblr.Grufs.Storage;
+using Wibblr.Grufs.Storage.Server;
 using Wibblr.Grufs.Storage.Sftp;
 using Wibblr.Grufs.Storage.Sqlite;
 
@@ -51,9 +52,16 @@ namespace Wibblr.Grufs.Cli
                 Add(Protocol, "directory");
                 Add(BaseDir, directoryStorage.BaseDir);
             }
+            else if (repo.ChunkStorage is ServerStorage serverStorage)
+            {
+                Add(Protocol, "server"); 
+                Add(Host, serverStorage.Host);
+                Add(Port, serverStorage.Port);
+                Add(BaseDir, serverStorage.BaseDir);
+            }
             else
             {
-                throw new Exception();
+                throw new Exception("Unknown storage type");
             }
 
             return new SkvSerializer().Serialize(items);
@@ -72,16 +80,21 @@ namespace Wibblr.Grufs.Cli
             IChunkStorage storage = GetString(Protocol) switch
             {
                 "sqlite" => new SqliteStorage(Path.Join(GetString(BaseDir), GetString(RepoName) + ".sqlite")),
+
                 "sftp" => new SftpStorage(new SftpCredentials
-                {
-                    Host = GetString(Host),
-                    Port = GetInt(Port),
-                    Username = GetString(Username),
-                    Password = GetString(Password),
-                    PrivateKey = ""
-                },
-                GetString(BaseDir)),
+                    {
+                        Host = GetString(Host),
+                        Port = GetInt(Port),
+                        Username = GetString(Username),
+                        Password = GetString(Password),
+                        PrivateKey = ""
+                    },
+                    GetString(BaseDir)),
+
                 "directory" => new LocalStorage(GetString(BaseDir)),
+
+                "server" => new ServerStorage(GetString(Host), GetInt(Port), GetString(BaseDir)),
+
                 _ => throw new Exception()
             };
 

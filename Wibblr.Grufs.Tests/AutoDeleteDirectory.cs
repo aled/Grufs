@@ -11,8 +11,7 @@ namespace Wibblr.Grufs.Tests
         public AutoDeleteDirectory()
         {
             var tempDirectory = Directory.Exists(_ramdiskTempPath) ? _ramdiskTempPath : System.IO.Path.GetTempPath();
-            var uniquifier = $"{DateTime.UtcNow.ToString("yyyyMMdd-HHmmss")}-{Convert.ToHexString(RandomNumberGenerator.GetBytes(8))}";
-            Path = System.IO.Path.Join(tempDirectory, "grufs", uniquifier);
+            Path = System.IO.Path.Join(tempDirectory, "grufs", Utils.GetUniquifier());
             Directory.CreateDirectory(Path);
         }
 

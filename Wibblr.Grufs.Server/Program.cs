@@ -13,8 +13,6 @@ namespace Wibblr.Grufs.Server
         // address MUST be 64 hex characters, upper case only.
         private static SearchValues<char> validAddressChars = SearchValues.Create("0123456789ABCDEF");
 
-        private static LocalStorage _chunkStorage = new LocalStorage("grufs-repo");
-
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
@@ -37,13 +35,16 @@ namespace Wibblr.Grufs.Server
 
             app.UseAuthorization();
 
-            app.MapGet("/chunk/{address}", async Task<Results<Ok<byte[]>, NotFound>> (HttpContext context, CancellationToken token, string address) =>
+            app.MapGet("{basedir}/chunk/{address}", async Task<Results<FileContentHttpResult, NotFound>> (HttpContext context, CancellationToken token, string baseDir, string address) =>
             {
-                var chunk = await _chunkStorage.GetAsync(new Address(Convert.FromHexString(address)), token);
+                var chunkStorage = new LocalStorage(Path.Join("grufs-repo", baseDir));
+                await chunkStorage.InitAsync(token);
+
+                var chunk = await chunkStorage.GetAsync(new Address(Convert.FromHexString(address)), token);
 
                 if (chunk is EncryptedChunk c)
                 {
-                    return TypedResults.Ok(c.Content);
+                    return TypedResults.File(c.Content, "application/octet-stream", address);
                 }
 
                 return TypedResults.NotFound();
@@ -90,7 +91,7 @@ namespace Wibblr.Grufs.Server
             .WithName("ListChunksByPrefix")
             .WithOpenApi();
 
-            app.MapPut("/chunk/{address}", async Task<Results<Ok, Conflict, BadRequest>> (HttpContext context, CancellationToken token, string address, [FromQuery] bool verifyChecksum = true) =>
+            app.MapPut("{basedir}/chunk/{address}", async Task<Results<Ok, Conflict, BadRequest>> (HttpContext context, CancellationToken token, string baseDir, string address, [FromQuery] bool verifyChecksum = true) =>
             {
                 if (address.Length != 64)
                 {
@@ -104,38 +105,46 @@ namespace Wibblr.Grufs.Server
 
                 using var contentStream = context.Request.Body;
 
-                if (context.Request.GetTypedHeaders().ContentLength > 100 * 1024 * 1024)
+                var contentLength = context.Request.GetTypedHeaders().ContentLength switch
+                {
+                    long l when l <= 100 * 1024 * 1024 => (int) l,
+                    _ => 0,
+                };;
+
+                if (contentLength == 0)
                 {
                     return TypedResults.BadRequest();
                 }
+             
 
-                if (File.Exists(address))
+                var chunkStorage = new LocalStorage(Path.Join("grufs-repo", baseDir));
+                await chunkStorage.InitAsync(token);
+
+                var content = new byte[contentLength];
+                await context.Request.Body.ReadExactlyAsync(content, token);
+
+                var addressObj = new Address(Convert.FromHexString(address));
+
+                var putStatus = await chunkStorage.PutAsync(new EncryptedChunk(addressObj, content), OverwriteStrategy.Deny, token);
+
+                if (putStatus == PutStatus.Success)
+                {
+                    if (verifyChecksum)
+                    {
+                        if (!await VerifyChunkAsync(chunkStorage, addressObj, token))
+                        {
+                            throw new Exception("Checksum validation failure");
+                        }
+                    }
+
+                    return TypedResults.Ok();
+                }
+                else if (putStatus == PutStatus.OverwriteDenied)
                 {
                     return TypedResults.Conflict();
                 }
 
-                // TODO: use LocalStorage
-                var partFileName = address + ".part";
-                using var partFile = File.OpenWrite(partFileName);
-                if (partFile.Length != 0)
-                {
-                    partFile.SetLength(0);
-                }
-
-                await context.Request.Body.CopyToAsync(partFile);
-                partFile.Close();
-
-                if (verifyChecksum)
-                {
-                    if (!await VerifyChunkAsync(partFileName))
-                    {
-                        throw new Exception("Checksum validation failure");
-                    }
-                }
-
-                File.Move(partFileName, address, overwrite: false);
-
-                return TypedResults.Ok();
+                throw new Exception("Error");
             })
             .WithName("PutChunk")
             .WithOpenApi();
@@ -143,40 +152,24 @@ namespace Wibblr.Grufs.Server
             app.Run();
         }
 
-        private static async Task<bool> VerifyChunkAsync(string filename)
+        private static async Task<bool> VerifyChunkAsync(IChunkStorage storage, Address address, CancellationToken token)
         {
-            using var file = File.Open(filename, FileMode.Open, FileAccess.ReadWrite);  // not actually writing but need to block other writers
-            var length = file.Length;
-
-            var bytesToVerify = (int)(length - 32);
-
-            if (bytesToVerify < 0)
+            if (await storage.GetAsync(address, token) is not EncryptedChunk chunk)
             {
                 return false;
             }
 
-            var sha256 = SHA256.Create();
-            var bufSize = 32;
-            var buf = new byte[bufSize];
+            var length = chunk.Content.Length;
 
-            var lastBufSize = bytesToVerify % bufSize;
-            var numFullBufs = (bytesToVerify - lastBufSize) / bufSize;
-
-            for (int i = 0; i < numFullBufs; i++)
+            if (length < 32)
             {
-                await file.ReadExactlyAsync(buf);
-                sha256.TransformBlock(buf, 0, bufSize, null, 0);
+                return false;
             }
 
-            await file.ReadExactlyAsync(buf, 0, lastBufSize);
-            sha256.TransformFinalBlock(buf, 0, lastBufSize);
+            var computedHash = Convert.ToHexString(SHA256.HashData(chunk.Content.AsSpan(0, length - 32)));
+            var actualHash = Convert.ToHexString(chunk.Content.AsSpan(length - 32));
 
-            // Read checksum
-            await file.ReadExactlyAsync(buf, 0, 32);
-
-            var computedHash = sha256.Hash!;
-
-            if (!computedHash.SequenceEqual(buf.Take(32)))
+            if (computedHash != actualHash)
             {
                 return false;
             }

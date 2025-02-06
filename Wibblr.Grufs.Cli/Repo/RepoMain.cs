@@ -3,6 +3,7 @@
 using Wibblr.Grufs.Core;
 using Wibblr.Grufs.Logging;
 using Wibblr.Grufs.Storage;
+using Wibblr.Grufs.Storage.Server;
 using Wibblr.Grufs.Storage.Sftp;
 using Wibblr.Grufs.Storage.Sqlite;
 
@@ -111,7 +112,7 @@ namespace Wibblr.Grufs.Cli
             IChunkStorage storage = _repoArgs.Protocol switch
             {
                 "sqlite" => new SqliteStorage(
-                            Path.Join(_repoArgs.BaseDir, _repoArgs.RepoName + ".sqlite")),
+                    Path.Join(_repoArgs.BaseDir, _repoArgs.RepoName + ".sqlite")),
 
                 "sftp" => new SftpStorage(
                     new SftpCredentials {
@@ -123,10 +124,16 @@ namespace Wibblr.Grufs.Cli
                     },
                     _repoArgs.BaseDir),
 
-                "directory" => new LocalStorage(_repoArgs.BaseDir),
+                "directory" => new LocalStorage(
+                    _repoArgs.BaseDir),
+
+                "server" => new ServerStorage(
+                    _repoArgs.Host ?? throw new UsageException("Host not specified"), 
+                    _repoArgs.Port ?? 8080, 
+                    _repoArgs.BaseDir),
 
                 _ => throw new UsageException("Storage type must be 'sftp' or 'directory'")
-            };
+            }; ;
 
             return new Repository(_repoArgs.RepoName, storage, _repoArgs.EncryptionPassword);
         }
