@@ -36,7 +36,7 @@ namespace Wibblr.Grufs.Tests
                 var repoName = "TestRepo";
                 var encryptionPassword = "correct-horse-battery-staple";
 
-                await new Program().RunAsync(["repo", "init", "--config-dir", configDir, "--non-interactive", "--name", repoName, "--basedir", baseDir, "--encryption-password", encryptionPassword], token);
+                await new Program().RunAsync(["repo", "init", "--config-dir", configDir, "--non-interactive", "--name", repoName, "--encryption-password", encryptionPassword, baseDir,], token);
 
                 Directory.Exists(baseDir).ShouldBeTrue();
 
@@ -64,15 +64,15 @@ namespace Wibblr.Grufs.Tests
                 var repoName = "TestRepo";
                 var encryptionPassword = "correct-horse-battery-staple";
 
-                await new Cli.Program().RunAsync(new[] { "repo", "init", "--config-dir", configDir, "--name", repoName, "--basedir", baseDir, "--encryption-password", encryptionPassword }, token);
+                await new Cli.Program().RunAsync(["repo", "init", "--config-dir", configDir, "--name", repoName, "--encryption-password", encryptionPassword, baseDir], token);
 
                 Utils.CreateDirectoryTree(contentDir, "a.txt", "b/c.txt", "b/d.txt", "b/e/f.txt");
 
-                await new Cli.Program().RunAsync(new[] { "vfs", "sync", "-rc", configDir, "--repo-name", repoName, contentDir, "vfs://some/subdir" }, token);
+                await new Cli.Program().RunAsync(["vfs", "sync", "-c", configDir, "--repo-name", repoName, contentDir, "vfs://some/subdir" ], token);
 
                 Log.WriteLine(0, "Listing repo");
 
-                await new Cli.Program().RunAsync(new[] { "vfs", "ls", "-rc", configDir, "--repo-name", repoName, "vfs://" }, token);
+                await new Cli.Program().RunAsync([ "vfs", "ls", "-c", configDir, "--repo-name", repoName, "vfs://" ], token);
 
                 var downloadDir = Path.Join(autoDeleteDirectory.Path, "download");
 

@@ -16,7 +16,7 @@ namespace Wibblr.Grufs.Tests
             var bytes = Encoding.ASCII.GetBytes(sb.ToString());
             var stream = new MemoryStream(bytes);
             var byteSource = new StreamByteSource(stream);
-            var chunkSource = new ContentDefinedChunkSourceFactory().Create(byteSource);
+            var chunkSource = new ContentDefinedChunkSourceFactory(13).Create(byteSource);
 
             var chunkSizes = new List<int>();
 

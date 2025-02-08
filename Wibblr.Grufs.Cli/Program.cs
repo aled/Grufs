@@ -22,9 +22,9 @@ namespace Wibblr.Grufs.Cli
     ///  - repo subcommands:
     ///      init, register, unregister, list, scrub
     ///
-    ///      - grufs.exe repo init --name myrepo --protocol sftp --host hostname --port port --user user --storage-password password --identity mykey.rsa --basedir ~/grufs-storage/repo1 --encryption-password password
-    ///      - grufs.exe repo init --name myrepo --protocol sqlite --basedir ~/grufs-storage --encryption-password password
-    ///      - grufs.exe repo init --name myrepo --basedir ~/grufs-storage/repo1   # The '~' character is expanded to the user's home directory, including on Windows.
+    ///      - grufs.exe repo init --name myrepo [--username user] [--password password] [--identity mykey.rsa] [--encryption-password password] sftp://myhost.com/grufs-storage/repo1
+    ///      - grufs.exe repo init --name myrepo --encryption-password password sqlite://c:\temp\myrepo.sqlite
+    ///      - grufs.exe repo init --name myrepo ~/grufs-storage/repo1   # The '~' character is expanded to the user's home directory, including on Windows.
     ///   
     ///      This will:
     ///        - create the directory on the (possibly remote) server
@@ -64,9 +64,14 @@ namespace Wibblr.Grufs.Cli
                 Log.StdOutIsConsole = true;
                 Environment.Exit(await new Program().RunAsync(args, CancellationToken.None));
             }
+            catch (RepositoryException re)
+            {
+                Log.WriteLine(0, re.Message);
+                Environment.Exit(-2);
+            }
             catch (UsageException ue)
             {
-                Log.WriteLine(0, ue.Message);
+                Console.WriteLine("Usage: grufs command subcommand options");
                 Environment.Exit(-1);
             }
         }
