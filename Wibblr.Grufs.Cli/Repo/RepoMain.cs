@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Diagnostics.CodeAnalysis;
+using System.Text.RegularExpressions;
 
 using Wibblr.Grufs.Core;
 using Wibblr.Grufs.Logging;
@@ -22,33 +24,30 @@ namespace Wibblr.Grufs.Cli
         {
             var argDefinitions = new ArgDefinition[]
             {
-                new PositionalStringArgDefinition(0, x => {
-                    _repoArgs.Operation = x switch
-                    {
-                        "init" => RepoArgs.OperationEnum.Init,
-                        "register" => RepoArgs.OperationEnum.Register,
-                        "unregister" => RepoArgs.OperationEnum.Unregister,
-                        "list" => RepoArgs.OperationEnum.List,
-                        "scrub" => RepoArgs.OperationEnum.Scrub,
-                        _ => throw new UsageException()
-                    };
-                }),
-                new NamedStringArgDefinition('c', "config-dir", x => _repoArgs.ConfigDir = x),
-                new NamedStringArgDefinition('n', "name",  x => _repoArgs.RepoName = x),
-                new NamedFlagArgDefinition('o', "non-interactive", x => _repoArgs.NonInteractive = x),
-                new NamedStringArgDefinition('p', "protocol", x => _repoArgs.Protocol = x),
-                new NamedStringArgDefinition('h', "host", x => _repoArgs.Host = x),
-                new NamedStringArgDefinition('t', "port", x => _repoArgs.Port = int.Parse(x)),
-                new NamedStringArgDefinition('U', "username", x => _repoArgs.Username = x),
-                new NamedStringArgDefinition('P', "password", x => _repoArgs.Password = x),
-                new NamedStringArgDefinition('e', "encryption-password", x => _repoArgs.EncryptionPassword = x),
-                new NamedStringArgDefinition('b', "basedir", x => _repoArgs.BaseDir = x),
+            new PositionalStringArgDefinition(0, x => {
+                _repoArgs.Operation = x switch
+                {
+                    "init" => RepoArgs.OperationEnum.Init,
+                    "register" => RepoArgs.OperationEnum.Register,
+                    "unregister" => RepoArgs.OperationEnum.Unregister,
+                    "list" => RepoArgs.OperationEnum.List,
+                    "scrub" => RepoArgs.OperationEnum.Scrub,
+                    _ => throw new UsageException()
+                };
+            }),
+            new NamedStringArgDefinition('c', "config-dir", x => _repoArgs.ConfigDir = x),
+            new NamedStringArgDefinition('n', "name",  x => _repoArgs.RepoName = x),
+            new NamedFlagArgDefinition('o', "non-interactive", x => _repoArgs.NonInteractive = x),
+            new NamedStringArgDefinition('U', "username", x => _repoArgs.Username = x),
+            new NamedStringArgDefinition('P', "password", x => _repoArgs.Password = x),
+            new NamedStringArgDefinition('e', "encryption-password", x => _repoArgs.EncryptionPassword = x),
+            new PositionalStringArgDefinition(-1, x => _repoArgs.Location = x),
             };
 
             new ArgParser(argDefinitions).Parse(args);
 
             _repoArgs.ConfigDir ??= Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".grufs");
-            Log.WriteLine(0, $"Using config directory: '{_repoArgs.ConfigDir}'");
+            //Log.WriteLine(0, $"Using config directory: '{_repoArgs.ConfigDir}'");
 
             var repoRegistrationDirectory = Path.Join(_repoArgs.ConfigDir, "repos");
             if (!Directory.Exists(repoRegistrationDirectory))
@@ -60,6 +59,13 @@ namespace Wibblr.Grufs.Cli
             if (_repoArgs.Operation == RepoArgs.OperationEnum.None)
             {
                 throw new UsageException("Operation not specified (examples: init register unregister list scrub");
+            }
+
+
+            if (_repoArgs.RepoName == null)
+            {
+                Console.WriteLine("Repository name not specified, using default");
+                _repoArgs.RepoName = "default";
             }
 
             string repoRegistrationPath = Path.Join(repoRegistrationDirectory, _repoArgs.RepoName);
@@ -81,59 +87,93 @@ namespace Wibblr.Grufs.Cli
         {
             if (File.Exists(repoRegistrationPath))
             {
-                Log.WriteLine(0, $"Repository '{_repoArgs.RepoName}' already registered");
-                throw new Exception();
+                throw new RepositoryException($"Repository '{_repoArgs.RepoName}' already registered");
             }
 
-            if (_repoArgs.Protocol == null)
+            if (_repoArgs.Location == null)
             {
-                _repoArgs.Protocol = "directory";
-                Log.WriteLine(0, $"Using protocol: '{_repoArgs.Protocol}'");
-            }
-
-            if (_repoArgs.BaseDir == null)
-            {
-                throw new UsageException("Basedir not specified (example: -b c:\\temp\\grufs\\myrepo");
+                throw new UsageException("Location not specified (example: c:\\temp\\grufs\\myrepo)");
             }
 
             if (_repoArgs.EncryptionPassword == null)
             {
-                throw new UsageException("Encryption password not specified (example: -e correct-horse-battery-staple");
+                if (_repoArgs.NonInteractive)
+                {
+                    throw new UsageException("Encryption password not specified (example: -e correct-horse-battery-staple)");
+                }
 
-                // TODO: Prompt for password, unless non-interactive is set
+                // Prompt for password
+                Console.WriteLine("Enter encryption password, or <Enter> to automatically generate");
+                Console.WriteLine($"This password will be stored in plaintext in the config directory '{_repoArgs.ConfigDir}'");
+                _repoArgs.EncryptionPassword = Console.ReadLine() ?? "";
+
+                if (!string.IsNullOrEmpty(_repoArgs.EncryptionPassword))
+                {
+                    Console.WriteLine("Re-enter encryption password");
+                    var input2 = Console.ReadLine();
+
+                    if (input2 != _repoArgs.EncryptionPassword)
+                    {
+                        Console.WriteLine("Passwords do not match");
+                        throw new Exception();
+                    }
+                }
+                else
+                {
+                    var temp = new byte[32];
+                    Random.Shared.NextBytes(temp);
+                    _repoArgs.EncryptionPassword = Convert.ToHexString(temp);
+                }
+            }
+            //Log.WriteLine(0, $"Using repository name: '{_repoArgs.RepoName}'");
+
+            // The location implicitly specifies the protocol:
+            //  sftp: sftp://host[:port]/basedir
+            //  server: http[s]://host[:port]/basedir
+            //  sqlite: sqlite://c:\temp\mydb.sqlite
+            //  directory: /tmp/mystorage
+
+            IChunkStorage Create(RepoArgs repoArgs)
+            {
+
+                // sftp
+                var match = Regex.Match(repoArgs.Location, "sftp:\\/\\/(?<host>([^\\/:])+)(:(?<port>([0-9])+))?\\/(?<basedir>.*)");
+                if (match.Success)
+                {
+                    return new SftpStorage(
+                        new SftpCredentials
+                        {
+                            Host = match.Groups["host"].Value,
+                            Port = Convert.ToInt32(match.Groups["port"].Value ?? "22"),
+                            Password = repoArgs.Password ?? throw new UsageException("Password not specified"),
+                            Username = repoArgs.Username ?? throw new UsageException("Username not specified"),
+                            PrivateKey = ""
+                        },
+                        match.Groups["basedir"].Value);
+                }
+
+                // http
+                match = Regex.Match(repoArgs.Location, "http([s]?):\\/\\/(?<host>([^\\/:])+)(:(?<port>([0-9])+))?\\/(?<basedir>.*)");
+                if (match.Success)
+                {
+                    return new HttpStorage(
+                        match.Groups["host"].Value,
+                        Convert.ToInt32(match.Groups["port"].Value ?? "22"),
+                        match.Groups["basedir"].Value);
+                }
+
+                // sqlite
+                match = Regex.Match(repoArgs.Location, "sqlite:\\/\\/(?<location>.*)");
+                if (match.Success)
+                {
+                    return new SqliteStorage(match.Groups["location"].Value);
+                }
+
+                // local directory
+                return new LocalStorage(repoArgs.Location);
             }
 
-            if (_repoArgs.RepoName == null)
-            {
-                throw new UsageException("Repository name not specified (example: -n myrepo)");
-            }
-            Log.WriteLine(0, $"Using repository name: '{_repoArgs.RepoName}'");
-
-            IChunkStorage storage = _repoArgs.Protocol switch
-            {
-                "sqlite" => new SqliteStorage(
-                    Path.Join(_repoArgs.BaseDir, _repoArgs.RepoName + ".sqlite")),
-
-                "sftp" => new SftpStorage(
-                    new SftpCredentials {
-                        Host = _repoArgs.Host ?? throw new UsageException("Host not specified"),
-                        Port = _repoArgs.Port ?? 22,
-                        Password = _repoArgs.Password ?? throw new UsageException("Password not specified"),
-                        Username = _repoArgs.Username ?? throw new UsageException("Username not specified"),
-                        PrivateKey = ""
-                    },
-                    _repoArgs.BaseDir),
-
-                "directory" => new LocalStorage(
-                    _repoArgs.BaseDir),
-
-                "server" => new ServerStorage(
-                    _repoArgs.Host ?? throw new UsageException("Host not specified"), 
-                    _repoArgs.Port ?? 8080, 
-                    _repoArgs.BaseDir),
-
-                _ => throw new UsageException("Storage type must be 'sftp' or 'directory'")
-            }; ;
+            IChunkStorage storage = Create(_repoArgs);
 
             return new Repository(_repoArgs.RepoName, storage, _repoArgs.EncryptionPassword);
         }
@@ -148,11 +188,16 @@ namespace Wibblr.Grufs.Cli
                 case InitRepositoryStatus.Success:
                     var serialized = new RepositorySerializer().Serialize(repo);
                     File.WriteAllText(repoRegistrationPath, serialized);
+                    Console.WriteLine($"Successfully initialized repository '{repo.Name}'");
                     return 0;
 
                 case InitRepositoryStatus.AlreadyExists:
                     Log.WriteLine(0, message);
                     return 0;
+
+                case InitRepositoryStatus.Error:
+                    Log.WriteLine(0, message);
+                    return -1;
 
                 default:
                     throw new Exception();

@@ -35,7 +35,7 @@ namespace Wibblr.Grufs.Cli
                 new NamedStringArgDefinition('c', "config-dir", x => _args.ConfigDir = x),
                 new NamedStringArgDefinition('n', "repo-name",  x => _args.RepoName = x),
                 new NamedFlagArgDefinition('d', "delete", x => _args.Delete = x),
-                new NamedFlagArgDefinition('r', "recursive", x => _args.Recursive = x),
+                new NamedFlagArgDefinition('s', "non-recursive", x => _args.Recursive = !x),
                 new NamedFlagArgDefinition('p', "progress", x => _args.Progress = x),
                 new NamedFlagArgDefinition('v', "verbose", x => _args.Verbose += x ? 1 : -1),
                 new NamedFlagArgDefinition('h', "human", x => _args.Human = x),
@@ -52,7 +52,8 @@ namespace Wibblr.Grufs.Cli
             // Open repository
             if (_args.RepoName == null)
             {
-                throw new UsageException("Repository name not specified (example: -n myrepo)");
+                Console.WriteLine("Repository name not specified, using default");
+                _args.RepoName = "default";
             }
             Log.WriteLine(1, $"Repository name: '{_args.RepoName}'");
 

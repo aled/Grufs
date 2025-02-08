@@ -19,6 +19,7 @@ namespace Wibblr.Grufs.Cli
         public static readonly string Password = "password";
         public static readonly string PrivateKeyFile = "";
         public static readonly string BaseDir = "baseDir";
+        public static readonly string Location = "location";
 
         public string Serialize(Repository repo)
         {
@@ -35,7 +36,7 @@ namespace Wibblr.Grufs.Cli
             if (repo.ChunkStorage is SqliteStorage sqliteStorage)
             {
                 Add(Protocol, "sqlite");
-                Add(BaseDir, sqliteStorage.BaseDir);
+                Add(Location, sqliteStorage.BaseDir);
             }
             else if (repo.ChunkStorage is SftpStorage sftpStorage)
             {
@@ -52,12 +53,12 @@ namespace Wibblr.Grufs.Cli
                 Add(Protocol, "directory");
                 Add(BaseDir, directoryStorage.BaseDir);
             }
-            else if (repo.ChunkStorage is ServerStorage serverStorage)
+            else if (repo.ChunkStorage is HttpStorage httpStorage)
             {
-                Add(Protocol, "server"); 
-                Add(Host, serverStorage.Host);
-                Add(Port, serverStorage.Port);
-                Add(BaseDir, serverStorage.BaseDir);
+                Add(Protocol, "http"); 
+                Add(Host, httpStorage.Host);
+                Add(Port, httpStorage.Port);
+                Add(BaseDir, httpStorage.BaseDir);
             }
             else
             {
@@ -71,15 +72,15 @@ namespace Wibblr.Grufs.Cli
         {
             var items = new SkvSerializer().Deserialize(skv);
 
-            string GetString(string key) => items.Single(x => x.Key == key).Value as string ?? throw new Exception($"Unable to find string {key}");
-            int GetInt(string key) => items.Single(x => x.Key == key).Value as int? ?? throw new Exception();
+            string GetString(string key) => items.SingleOrDefault(x => x.Key == key).Value as string ?? throw new Exception($"Missing key 'key'");
+            int GetInt(string key) => items.SingleOrDefault(x => x.Key == key).Value as int? ?? throw new Exception($"Missing key 'key'");
 
             Console.WriteLine($"Name={GetString(RepoName)}");
             Console.WriteLine($"Protocol={GetString(Protocol)}");
 
             IChunkStorage storage = GetString(Protocol) switch
             {
-                "sqlite" => new SqliteStorage(Path.Join(GetString(BaseDir), GetString(RepoName) + ".sqlite")),
+                "sqlite" => new SqliteStorage(GetString(Location)),
 
                 "sftp" => new SftpStorage(new SftpCredentials
                     {
@@ -89,13 +90,13 @@ namespace Wibblr.Grufs.Cli
                         Password = GetString(Password),
                         PrivateKey = ""
                     },
-                    GetString(BaseDir)),
+                    GetString(BaseDir) ?? ""),
 
                 "directory" => new LocalStorage(GetString(BaseDir)),
 
-                "server" => new ServerStorage(GetString(Host), GetInt(Port), GetString(BaseDir)),
+                "http" or "server" => new HttpStorage(GetString(Host), GetInt(Port), GetString(BaseDir)),
 
-                _ => throw new Exception()
+                _ => throw new Exception($"Invalid protocol '{GetString(Protocol)}'")
             };
 
             return new Repository(GetString(RepoName), storage, GetString(EncryptionPassword));
