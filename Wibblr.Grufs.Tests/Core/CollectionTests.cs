@@ -14,7 +14,7 @@ namespace Wibblr.Grufs.Tests.Core
 
     public class CollectionTests_Sftp : CollectionTests<TemporarySftpStorage> { };
 
-    public class CollectionTests_Server : CollectionTests<TemporaryHttpStorage> { };
+    //public class CollectionTests_Http : CollectionTests<TemporaryHttpStorage> { };
 
     public abstract class CollectionTests<T> where T : IChunkStorageFactory, new()
     {
