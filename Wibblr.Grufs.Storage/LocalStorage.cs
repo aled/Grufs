@@ -59,16 +59,23 @@ namespace Wibblr.Grufs.Storage
             }
         }
 
-        private async Task CreateParentsAndWriteAllBytesAsync(string path, byte[] content, CancellationToken token)
+
+        private async Task WriteAllBytesAsync(string path, byte[] content, bool allowOverwrite, CancellationToken token)
+        {
+            var partPath = path + ".part";
+
+            await File.WriteAllBytesAsync(partPath, content, token);
+
+            File.Move(partPath, path, allowOverwrite);
+        }
+
+        private async Task CreateParentsAndWriteAllBytesAsync(string path, byte[] content, bool allowOverwrite, CancellationToken token)
         {
             ArgumentException.ThrowIfNullOrEmpty(path);
 
             try
             {
-                var partFileName = path + ".part";
-                using var partFile = File.OpenWrite(partFileName);
-
-                await File.WriteAllBytesAsync(path, content);
+                await WriteAllBytesAsync(path, content, allowOverwrite, token);
             }
             catch (DirectoryNotFoundException)
             {
@@ -76,7 +83,7 @@ namespace Wibblr.Grufs.Storage
                 if (parent != null)
                 {
                     Directory.CreateDirectory(parent);
-                    await File.WriteAllBytesAsync(path, content);
+                    await WriteAllBytesAsync(path, content, allowOverwrite, token);
                 }
             }
         }
@@ -88,7 +95,7 @@ namespace Wibblr.Grufs.Storage
             switch (overwriteStrategy)
             {
                 case OverwriteStrategy.Allow:
-                    await CreateParentsAndWriteAllBytesAsync(path, chunk.Content, token);
+                    await CreateParentsAndWriteAllBytesAsync(path, chunk.Content, true, token);
                     return PutStatus.Success;
 
                 case OverwriteStrategy.Deny:
@@ -97,7 +104,7 @@ namespace Wibblr.Grufs.Storage
                         return PutStatus.OverwriteDenied;
                     }
 
-                    await CreateParentsAndWriteAllBytesAsync(path, chunk.Content, token);
+                    await CreateParentsAndWriteAllBytesAsync(path, chunk.Content, false, token);
                     return PutStatus.Success;
 
                 default:
