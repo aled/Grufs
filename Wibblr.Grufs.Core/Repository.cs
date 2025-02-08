@@ -156,7 +156,7 @@ namespace Wibblr.Grufs.Core
             var putResult = await new UnversionedDictionary(ChunkStorage, metadataChunkEncryptor).PutValueAsync(_metadataLookupKey, repositoryMetadata.Serialize(), OverwriteStrategy.Deny, token);
             if (putResult == PutStatus.OverwriteDenied)
             {
-                return new InitRepositoryResult(InitRepositoryStatus.AlreadyExists, "Repository already exists");
+                return new InitRepositoryResult(InitRepositoryStatus.AlreadyExists, $"Repository '{Name}' already exists");
             }
             if (putResult == PutStatus.Error)
             {
@@ -170,7 +170,7 @@ namespace Wibblr.Grufs.Core
 
             // metadata itself is always stored uncompressed
             var chunkEncryptor = new ChunkEncryptor(MasterKey, MasterContentAddressKey, new Compressor(CompressionAlgorithm.None));
-            var chunkSourceFactory = new ContentDefinedChunkSourceFactory(13);
+            var chunkSourceFactory = new ContentDefinedChunkSourceFactory();
 
             _streamStorage = new StreamStorage(ChunkStorage, chunkSourceFactory, chunkEncryptor);
 
@@ -228,7 +228,7 @@ namespace Wibblr.Grufs.Core
                 UnversionedDictionaryAddressKey = masterKeys.ReadHmacKey();
 
                 var chunkEncryptor = new ChunkEncryptor(MasterKey, MasterContentAddressKey, Compressor);
-                var chunkSourceFactory = new ContentDefinedChunkSourceFactory(13);
+                var chunkSourceFactory = new ContentDefinedChunkSourceFactory();
 
                 _streamStorage = new StreamStorage(ChunkStorage, chunkSourceFactory, chunkEncryptor);
             }

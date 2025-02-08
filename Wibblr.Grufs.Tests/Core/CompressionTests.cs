@@ -36,7 +36,7 @@ namespace Wibblr.Grufs.Tests
                     var hmacKey = new HmacKey("0000000000000000000000000000000000000000000000000000000000000000".ToBytes());
                     var compressor = new Compressor(compressionAlgorithm);
                     var chunkEncryptor = new ChunkEncryptor(keyEncryptionKey, hmacKey, compressor);
-                    var chunkSourceFactory = new ContentDefinedChunkSourceFactory(13);
+                    var chunkSourceFactory = new ContentDefinedChunkSourceFactory();
                     var streamStorage = new StreamStorage(storage, chunkSourceFactory, chunkEncryptor);
 
                     var plaintext = "";

@@ -5,7 +5,7 @@ namespace Wibblr.Grufs.Core
     {
         private int _splitOnTrailingZeroCount;
 
-        public ContentDefinedChunkSourceFactory(int splitOnTrailingZeroCount)
+        public ContentDefinedChunkSourceFactory(int splitOnTrailingZeroCount = 18)
         {
             if (splitOnTrailingZeroCount < 2)
             {

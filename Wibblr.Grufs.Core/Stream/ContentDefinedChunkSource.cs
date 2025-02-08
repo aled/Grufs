@@ -10,7 +10,7 @@ namespace Wibblr.Grufs.Core
     public class ContentDefinedChunkSource : IChunkSource
     {
         private static readonly int minChunkSize = 512; // must be >= rolling window size
-        private static readonly int maxChunkSize = 128 * 1024;
+        private static readonly int maxChunkSize = 4 * 1024 * 1024;
 
         private IByteSource _byteSource;
         private int _splitOnTrailingZeroCount;
