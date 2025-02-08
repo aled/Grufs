@@ -145,92 +145,88 @@ namespace Wibblr.Grufs.Core
             }
             else if (leadingZeroCount >= 50)
             {
-                builder.AppendBytes(
+                builder.AppendKnownLengthSpan([
                     (byte)(0b10000000 | Value >> 8),
                     (byte)Value
-                );
+                ]);
             }
             else if (leadingZeroCount >= 43)
             {
-                builder.AppendBytes(
+                builder.AppendKnownLengthSpan([
                     (byte)(0b11000000 | Value >> 16),
                     (byte)(Value >> 8),
                     (byte)Value
-                );
+                ]);
             }
             else if (leadingZeroCount >= 36)
             {
-                builder.AppendBytes(
+                builder.AppendKnownLengthSpan([
                     (byte)(0b11100000 | Value >> 24),
                     (byte)(Value >> 16),
                     (byte)(Value >> 8),
                     (byte)Value
-                );
+                ]);
             }
             else if (leadingZeroCount >= 29)
             {
-                builder.AppendBytes(
+                builder.AppendKnownLengthSpan([
                     (byte)(0b11110000 | Value >> 32),
                     (byte)(Value >> 24),
                     (byte)(Value >> 16),
                     (byte)(Value >> 8),
                     (byte)Value
-                );
+                ]);
             }
             else if (leadingZeroCount >= 22)
             {
-                builder.AppendByte(
-                    (byte)(0b11111000 | Value >> 40));
-                builder.AppendBytes(
+                builder.AppendKnownLengthSpan([
+                    (byte)(0b11111000 | Value >> 40),
                     (byte)(Value >> 32),
                     (byte)(Value >> 24),
                     (byte)(Value >> 16),
                     (byte)(Value >> 8),
                     (byte)Value
-                );
+                ]);
             }
             else if (leadingZeroCount >= 15)
             {
-                builder.AppendBytes(
+                builder.AppendKnownLengthSpan([
                     (byte)(0b11111100 | Value >> 48),
-                    (byte)(Value >> 40));
-                builder.AppendBytes(
+                    (byte)(Value >> 40),
                     (byte)(Value >> 32),
                     (byte)(Value >> 24),
                     (byte)(Value >> 16),
                     (byte)(Value >> 8),
                     (byte)Value
-                );
+                ]);
             }
             else if (leadingZeroCount >= 8)
             {
-                builder.AppendBytes(
+                builder.AppendKnownLengthSpan([
                     (byte)(0b11111110 | Value >> 56),
                     (byte)(Value >> 48),
-                    (byte)(Value >> 40));
-                builder.AppendBytes(
+                    (byte)(Value >> 40),
                     (byte)(Value >> 32),
                     (byte)(Value >> 24),
                     (byte)(Value >> 16),
                     (byte)(Value >> 8),
                     (byte)Value
-                );
+                ]);
             }
             else
             {
                 // Use the >>> operator to prevent sign extension for negative values.
-                builder.AppendBytes(
+                builder.AppendKnownLengthSpan([
                     0b11111111,
                     (byte)(Value >>> 56),
                     (byte)(Value >>> 48),
                     (byte)(Value >>> 40),
-                    (byte)(Value >>> 32));
-                builder.AppendBytes(
+                    (byte)(Value >>> 32),
                     (byte)(Value >>> 24),
                     (byte)(Value >>> 16),
                     (byte)(Value >>> 8),
                     (byte)Value
-                );
+                ]);
             }
         }
     }

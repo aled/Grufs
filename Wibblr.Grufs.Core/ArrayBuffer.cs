@@ -26,7 +26,7 @@ namespace Wibblr.Grufs.Core
             Length = buf.Length;
         }
 
-        public static ArrayBuffer Empty = new ArrayBuffer(new byte[0], 0);
+        public static ArrayBuffer Empty = new ArrayBuffer(new byte[0]);
 
         public ReadOnlySpan<byte> AsSpan() => Bytes.AsSpan(0, Length);
 

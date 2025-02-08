@@ -102,7 +102,7 @@ namespace Wibblr.Grufs.Core
 
         public ArrayBuffer DecryptBytes(byte[] chunkContent)
         {
-            var encryptedBuffer = new ArrayBuffer(chunkContent, chunkContent.Length);
+            var encryptedBuffer = new ArrayBuffer(chunkContent);
             var reader = new BufferReader(encryptedBuffer);
 
             var iv = reader.ReadInitializationVector();
@@ -129,7 +129,7 @@ namespace Wibblr.Grufs.Core
 
                 default:
                     var decompressed = new Compressor(compressionAlgorithm).Decompress(buf, length);
-                    return new ArrayBuffer(decompressed, decompressed.Length);
+                    return new ArrayBuffer(decompressed);
             };
         }
     }

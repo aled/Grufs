@@ -90,38 +90,38 @@ namespace Wibblr.Grufs.Core
             }
             else if (leadingZeroCount >= 18)
             {
-                builder.AppendBytes(
+                builder.AppendKnownLengthSpan([
                     (byte)(0b10000000 | Value >> 8),
                     (byte)Value
-                );
+                ]);
             }
             else if (leadingZeroCount >= 11)
             {
-                builder.AppendBytes(
+                builder.AppendKnownLengthSpan([
                     (byte)(0b11000000 | Value >> 16),
                     (byte)(Value >> 8),
                     (byte)Value
-                );
+                ]);
             }
             else if (leadingZeroCount >= 4)
             {
-                builder.AppendBytes(
+                builder.AppendKnownLengthSpan([
                     (byte)(0b11100000 | Value >> 24),
                     (byte)(Value >> 16),
                     (byte)(Value >> 8),
                     (byte)Value
-                );
+                ]);
             }
             else
             {
                 // Use the >>> operator to prevent sign extension for negative values.
-                builder.AppendBytes(
+                builder.AppendKnownLengthSpan([
                     0b11110000,
                     (byte)(Value >>> 24),
                     (byte)(Value >>> 16),
                     (byte)(Value >>> 8),
                     (byte)Value
-                );
+                ]);
             }
         }
     }

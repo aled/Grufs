@@ -44,44 +44,6 @@ namespace Wibblr.Grufs.Core
             return this;
         }
 
-        public BufferBuilder AppendBytes(byte b0, byte b1)
-        {
-            Debug.Assert(CheckBounds(2));
-            _buf[_offset++] = b0; 
-            _buf[_offset++] = b1;
-            return this;
-        }
-
-        public BufferBuilder AppendBytes(byte b0, byte b1, byte b2)
-        {
-            Debug.Assert(CheckBounds(3));
-            _buf[_offset++] = b0;
-            _buf[_offset++] = b1;
-            _buf[_offset++] = b2;
-            return this;
-        }
-
-        public BufferBuilder AppendBytes(byte b0, byte b1, byte b2, byte b3)
-        {
-            Debug.Assert(CheckBounds(4));
-            _buf[_offset++] = b0;
-            _buf[_offset++] = b1;
-            _buf[_offset++] = b2;
-            _buf[_offset++] = b3;
-            return this;
-        }
-
-        public BufferBuilder AppendBytes(byte b0, byte b1, byte b2, byte b3, byte b4)
-        {
-            Debug.Assert(CheckBounds(5));
-            _buf[_offset++] = b0;
-            _buf[_offset++] = b1;
-            _buf[_offset++] = b2;
-            _buf[_offset++] = b3;
-            _buf[_offset++] = b4;
-            return this;
-        }
-
         public BufferBuilder AppendByte(byte b)
         {
             _buf[_offset++] = b;
@@ -152,6 +114,7 @@ namespace Wibblr.Grufs.Core
             AppendKnownLengthSpan(address.ToSpan());
             return this;
         }
+
         public BufferBuilder AppendSalt(Salt salt)
         {
             AppendKnownLengthSpan(salt.ToSpan());

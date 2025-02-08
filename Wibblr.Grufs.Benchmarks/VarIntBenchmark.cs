@@ -40,10 +40,10 @@ namespace Wibblr.Grufs.Benchmarks
             }
             else if (leadingZeroCount >= 18)
             {
-                builder.AppendBytes(
+                builder.AppendKnownLengthSpan([
                     (byte)(0b10000000 | Value >> 8),
                     (byte)Value
-                );
+                ]);
             }
         }
 
