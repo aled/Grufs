@@ -15,7 +15,7 @@ namespace Wibblr.Grufs.Cli
         public string? RepoName;
         public OperationEnum Operation;
         public bool Delete;
-        public bool Recursive;
+        public bool Recursive = true;
         public bool Progress;
         public int Verbose;
         public bool Human;

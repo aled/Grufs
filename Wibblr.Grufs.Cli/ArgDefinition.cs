@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-
-namespace Wibblr.Grufs.Cli
+﻿namespace Wibblr.Grufs.Cli
 {
     public record NamedFlagArgDefinition(char? ShortName, string LongName, Action<bool> SetBool)
         : NamedArgDefinition(ShortName, LongName, x => SetBool(bool.Parse(x)))

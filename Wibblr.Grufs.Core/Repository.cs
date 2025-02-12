@@ -192,7 +192,7 @@ namespace Wibblr.Grufs.Core
             var unversionedDictionary = new UnversionedDictionary(ChunkStorage, metadataChunkEncryptor);
 
             var serialized = await unversionedDictionary.GetValueAsync(_metadataLookupKey, token);
-            if (serialized == null)
+            if (serialized == ArrayBuffer.Empty)
             {
                 return new OpenRepositoryResult(OpenRepositoryStatus.MissingMetadata, $"Unable to find metadata '{_defaultMetadataPassword}' in storage");
             }

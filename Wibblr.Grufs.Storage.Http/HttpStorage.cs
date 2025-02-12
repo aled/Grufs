@@ -8,13 +8,13 @@ namespace Wibblr.Grufs.Storage.Server
         
         public string Host { get; init; }
         public int Port { get; init; }
-        public string BaseDir { get; init; }
+        public string RepoName { get; init; }
 
-        public HttpStorage(string host, int port, string baseDir)
+        public HttpStorage(string host, int port, string repoName)
         {
             Host = host;
             Port = port;
-            BaseDir = baseDir;
+            RepoName = repoName;
         }
 
         public Task InitAsync(CancellationToken token)
@@ -38,7 +38,7 @@ namespace Wibblr.Grufs.Storage.Server
             // Call GET /chunk/{address}
             try
             {
-                var responseMessage = await _httpClient.GetAsync($"http://{Host}:{Port}/{BaseDir}/chunk/{address}", token);
+                var responseMessage = await _httpClient.GetAsync($"http://{Host}:{Port}/repos/{RepoName}/chunk/{address}", token);
 
                 if (responseMessage.StatusCode == HttpStatusCode.OK)
                 {
@@ -64,7 +64,7 @@ namespace Wibblr.Grufs.Storage.Server
             // Call PUT /chunk/{address}
             try
             {
-                var httpResponse = await _httpClient.PutAsync($"http://{Host}:{Port}/{BaseDir}/chunk/{chunk.Address}", new ByteArrayContent(chunk.Content), token);
+                var httpResponse = await _httpClient.PutAsync($"http://{Host}:{Port}/repos/{RepoName}/chunk/{chunk.Address}", new ByteArrayContent(chunk.Content), token);
 
                 if (httpResponse.StatusCode == HttpStatusCode.OK)
                 {

@@ -15,29 +15,13 @@ namespace Wibblr.Grufs.Server
 
         public static void Main(string[] args)
         {
-            var builder = WebApplication.CreateBuilder(args);
-
-            // Add services to the container.
-            builder.Services.AddAuthorization();
-
-            // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-            builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen();
+            var builder = WebApplication.CreateSlimBuilder(args);
 
             var app = builder.Build();
 
-            // Configure the HTTP request pipeline.
-            if (app.Environment.IsDevelopment())
+            app.MapGet("repos/{repoName}/chunk/{address}", async Task<Results<FileContentHttpResult, NotFound>> (HttpContext context, CancellationToken token, string repoName, string address) =>
             {
-                app.UseSwagger();
-                app.UseSwaggerUI();
-            }
-
-            app.UseAuthorization();
-
-            app.MapGet("{basedir}/chunk/{address}", async Task<Results<FileContentHttpResult, NotFound>> (HttpContext context, CancellationToken token, string baseDir, string address) =>
-            {
-                var chunkStorage = new LocalStorage(Path.Join("grufs-repo", baseDir));
+                var chunkStorage = new LocalStorage(Path.Join("repos", repoName));
                 await chunkStorage.InitAsync(token);
 
                 var chunk = await chunkStorage.GetAsync(new Address(Convert.FromHexString(address)), token);
@@ -49,11 +33,10 @@ namespace Wibblr.Grufs.Server
 
                 return TypedResults.NotFound();
             })
-            .WithName("GetChunk")
-            .WithOpenApi();
+            .WithName("GetChunk");
 
             // Takes an array of 48-bit address prefixes and returns a list of all existing addresses that match
-            app.MapPost("/chunk/list-by-prefix", async Task<Results<Ok<byte[]>, BadRequest>> (HttpContext context, CancellationToken token) =>
+            app.MapPost("repos/{repo}/chunk/list-by-prefix", async Task<Results<Ok<byte[]>, BadRequest>> (HttpContext context, CancellationToken token, string repo) =>
             {
                 using var stream = context.Request.Body;
 
@@ -88,10 +71,9 @@ namespace Wibblr.Grufs.Server
 
                 return TypedResults.BadRequest();
             })
-            .WithName("ListChunksByPrefix")
-            .WithOpenApi();
+            .WithName("ListChunksByPrefix");
 
-            app.MapPut("{basedir}/chunk/{address}", async Task<Results<Ok, Conflict, BadRequest>> (HttpContext context, CancellationToken token, string baseDir, string address, [FromQuery] bool verifyChecksum = true) =>
+            app.MapPut("repos/{repoName}/chunk/{address}", async Task<Results<Ok, Conflict, BadRequest>> (HttpContext context, CancellationToken token, string repoName, string address, [FromQuery] bool verifyChecksum = true) =>
             {
                 if (address.Length != 64)
                 {
@@ -107,17 +89,16 @@ namespace Wibblr.Grufs.Server
 
                 var contentLength = context.Request.GetTypedHeaders().ContentLength switch
                 {
-                    long l when l <= 100 * 1024 * 1024 => (int) l,
+                    long l when l <= 100 * 1024 * 1024 => (int)l,
                     _ => 0,
-                };;
+                }; ;
 
                 if (contentLength == 0)
                 {
                     return TypedResults.BadRequest();
                 }
-             
 
-                var chunkStorage = new LocalStorage(Path.Join("grufs-repo", baseDir));
+                var chunkStorage = new LocalStorage(Path.Join("repos", repoName));
                 await chunkStorage.InitAsync(token);
 
                 var content = new byte[contentLength];
@@ -146,8 +127,7 @@ namespace Wibblr.Grufs.Server
 
                 throw new Exception("Error");
             })
-            .WithName("PutChunk")
-            .WithOpenApi();
+            .WithName("PutChunk");
 
             app.Run();
         }

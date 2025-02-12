@@ -58,7 +58,7 @@ namespace Wibblr.Grufs.Cli
                 Add(Protocol, "http"); 
                 Add(Host, httpStorage.Host);
                 Add(Port, httpStorage.Port);
-                Add(BaseDir, httpStorage.BaseDir);
+                Add(BaseDir, httpStorage.RepoName);
             }
             else
             {
@@ -94,7 +94,7 @@ namespace Wibblr.Grufs.Cli
 
                 "directory" => new LocalStorage(GetString(BaseDir)),
 
-                "http" or "server" => new HttpStorage(GetString(Host), GetInt(Port), GetString(BaseDir)),
+                "http" or "server" => new HttpStorage(GetString(Host), GetInt(Port), GetString(RepoName)),
 
                 _ => throw new Exception($"Invalid protocol '{GetString(Protocol)}'")
             };

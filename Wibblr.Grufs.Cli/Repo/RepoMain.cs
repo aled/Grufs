@@ -153,13 +153,18 @@ namespace Wibblr.Grufs.Cli
                 }
 
                 // http
-                match = Regex.Match(repoArgs.Location, "http([s]?):\\/\\/(?<host>([^\\/:])+)(:(?<port>([0-9])+))?\\/(?<basedir>.*)");
+                match = Regex.Match(repoArgs.Location, "http([s]?):\\/\\/(?<host>([^\\/:])+)(:(?<port>([0-9])+))?\\/repos\\/(?<repoName>.*)");
                 if (match.Success)
                 {
+                    if (!int.TryParse(match.Groups["port"].ValueSpan, out int port))
+                    {
+                        port = 5000;
+                    }
+
                     return new HttpStorage(
                         match.Groups["host"].Value,
-                        Convert.ToInt32(match.Groups["port"].Value ?? "22"),
-                        match.Groups["basedir"].Value);
+                        port,
+                        match.Groups["repoName"].Value);
                 }
 
                 // sqlite
